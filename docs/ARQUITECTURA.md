@@ -2,7 +2,7 @@
 
 ## Estado de este documento
 
-Propuesta de arquitectura, con tres decisiones ya confirmadas por Alejo en Slack el día 2026-08-19 y una cuarta impuesta por el calendario de la materia:
+Propuesta de arquitectura, con tres decisiones ya confirmadas por el tutor en Slack el día 2026-08-19 y una cuarta impuesta por el calendario de la materia:
 
 1. **Un repositorio por servicio.** Cada repo lleva sus tests y coverage, su pipeline de CI, sus scripts, su Docker y compose de desarrollo, y sus manifiestos de Kubernetes.
 2. **Kubernetes** como plataforma de despliegue.
@@ -10,6 +10,11 @@ Propuesta de arquitectura, con tres decisiones ya confirmadas por Alejo en Slack
 4. **AWS con EKS** como proveedor de nube. El cronograma dedica la clase del 21 de septiembre a deployar en EKS y la entrega intermedia del 28 de septiembre exige el sistema "desplegado en AWS". No es una elección abiert a.
 
 El resto sigue sujeto a validación en S1. Cada decisión relevante debe quedar como ADR en el repositorio de plataforma.
+
+**Revisión del equipo del 2026-08-20.** Se acordaron dos cambios de fondo sobre la propuesta original, que están incorporados a todo el documento:
+
+1. **El reparto de lenguajes se invierte.** `users-api` y `posts-api` pasan a Python con FastAPI, y `notifications-api` queda en TypeScript con NestJS. El requisito de la consigna es que el backend no esté en una única tecnología; no dice cuál lleva más peso. Con la propuesta anterior el servicio más grande del sistema quedaba en el stack menos frecuentado por el equipo.
+2. **`media-api` deja de ser un servicio.** La subida de archivos se resuelve dentro de `users-api` y `posts-api`, con el módulo de streaming escrito una vez y copiado. Se pasa de siete repositorios a seis.
 
 **Revisión de frontera del 2026-08-20.** Cada pieza del stack se contrastó contra fuentes primarias en esa fecha. El detalle, con tradeoffs y alternativas descartadas, está en `REVISION-FRONTERA.md`. Los cambios ya están incorporados a este documento; el más importante es que **el NGINX Ingress Controller está archivado desde marzo de 2026** y se reemplaza por Gateway API.
 
@@ -21,15 +26,15 @@ El criterio que gobierna el documento: **elegir lo más simple que cumpla el req
 | ------------------------------------------- | ------------------------------------------------------------------------- |
 | App principal exclusivamente mobile         | React Native con Expo                                                     |
 | Backoffice como aplicación web              | React + Vite, SPA                                                         |
-| Arquitectura de microservicios              | 4 servicios backend, un repositorio cada uno, despliegue independiente    |
+| Arquitectura de microservicios              | 3 servicios backend, un repositorio cada uno, despliegue independiente    |
 | Al menos dos tipos de base de datos         | PostgreSQL (relacional), MongoDB (documental), Valkey (clave-valor)      |
-| Backend en más de una tecnología            | TypeScript con NestJS y Python con FastAPI                                |
+| Backend en más de una tecnología            | Python con FastAPI en `users` y `posts`, TypeScript con NestJS en `notifications` |
 | Desplegada en entorno productivo en la nube | Kubernetes gestionado                                                     |
 | Cada microservicio contenedorizado          | Dockerfile en cada repo, imágenes versionadas en el registry              |
 | Buenas prácticas de seguridad, OWASP Top 10 | Sección "Seguridad"                                                       |
 | Enfoque iterativo e incremental             | 15 sprints semanales alineados a las clases, ver `PLANIFICACION.md`       |
 | Testing unitario, integración y estrés      | Sección "Estrategia de pruebas"                                           |
-| Cobertura mínima del 85% ejecutada en CI    | Gate en el workflow de cada repo, activo desde S3, el 7 de septiembre     |
+| Cobertura mínima del 85% ejecutada en CI    | Gate en el workflow de cada repo. Backend desde S3, clientes desde S5     |
 | Pipeline de CD con GitHub Actions           | Build, push al registry y `kubectl apply` por servicio                    |
 | Observabilidad con métricas, logs y trazas  | OpenTelemetry hacia Grafana Cloud                                         |
 | Rate limiting en al menos un microservicio  | Gateway por IP, `users-api` y `posts-api` por usuario                     |
@@ -38,24 +43,32 @@ El criterio que gobierna el documento: **elegir lo más simple que cumpla el req
 
 ## Mapa de repositorios
 
-Siete repositorios en `tds-g3-2s2026`. Cuatro ya existen y se conservan.
+Seis repositorios en `tds-g3-2s2026`. Cuatro ya existen y se conservan.
 
 | Repositorio                 | Estado    | Contenido                                          | Stack                      |
 | --------------------------- | --------- | -------------------------------------------------- | -------------------------- |
 | `udesa-x-mobile`            | existe    | App mobile                                         | React Native + Expo        |
 | `udesa-x-backoffice`        | existe    | Backoffice web                                     | React + Vite               |
-| `udesa-x-users-api`         | existe    | Identidad, perfiles, administradores               | NestJS + TypeScript        |
-| `udesa-x-posts-api`         | existe    | Contenido, grafo social, feed, búsqueda            | FastAPI + Python           |
-| `udesa-x-notifications-api` | **crear** | Push, centro in-app, emails                        | NestJS + TypeScript        |
-| `udesa-x-media-api`         | **crear** | Subida y servido de archivos                       | NestJS + TypeScript        |
+| `udesa-x-users-api`         | existe    | Identidad, perfiles, administradores, avatares     | FastAPI + Python           |
+| `udesa-x-posts-api`         | existe    | Contenido, grafo social, feed, búsqueda, imágenes  | FastAPI + Python           |
+| `udesa-x-notifications-api` | **crear** | Push, centro in-app, emails, triage de IA          | NestJS + TypeScript        |
 | `udesa-x-platform`          | **crear** | Gestión, documentación, infraestructura compartida | Kustomize, Terraform, docs |
+
+**Por qué dos servicios en Python y uno en TypeScript.** La consigna exige que el backend no esté en una única tecnología y no dice más que eso. Dado el margen, conviene que el peso caiga donde el equipo es más rápido: `posts-api` concentra casi la mitad de los puntos del sistema y ponerlo en el stack menos conocido era pagar ese costo en la parte más grande. `notifications-api` es el candidato natural para el segundo lenguaje porque es el más acotado: consume la cola, habla con FCM y con el proveedor de email, y no tiene lógica de dominio propia. Además Node tiene el mejor soporte de clientes de FCM. Y como mobile y backoffice son React, el equipo toca TypeScript igual todos los días.
+
+**Por qué desapareció `media-api`.** Era el servicio más flojo del mapa: sin base de datos propia, era glue de I/O hacia S3, y arrastraba un repositorio entero con su CI, su gate de cobertura del 85%, sus manifiestos y su Dockerfile. Llegar al 85% en un servicio de streaming obliga a mockear S3 pesadamente, que es trabajo real a cambio de una separación que el proyecto no necesita.
+
+La subida ahora vive donde vive el dueño del dato: `users-api` maneja avatares y portadas, `posts-api` maneja imágenes de post, los dos contra el mismo bucket con prefijos distintos. El módulo de subida por streams con validación por magic numbers se escribe una vez en `users-api` y se copia a `posts-api`, que es el mismo criterio que el tutor dio para los contratos de eventos y ahora es literal porque los dos servicios están en Python. Desaparece además la llamada cruzada entre servicios para subir un archivo, y el evento `media.orphaned`: cada servicio limpia su propio storage en la misma operación que borra el registro.
 
 ### Qué contiene cada repositorio de servicio
 
-Estructura idéntica en los cuatro, para que moverse entre repos sea trivial:
+Estructura idéntica en los tres, para que moverse entre repos sea trivial. La plantilla vive en `udesa-x-platform/templates/repo-servicio/`:
 
 ```text
 udesa-x-<servicio>/
+├── AGENTS.md               # mapa, reglas y checks; bloque común sincronizado
+├── .editorconfig           # sincronizado desde platform
+├── .agents/skills/         # sincronizado desde platform
 ├── src/
 ├── tests/
 │   ├── unit/
@@ -74,11 +87,11 @@ udesa-x-<servicio>/
 │   ├── test.sh
 │   ├── lint.sh
 │   └── migrate.sh
-├── .github/workflows/
-│   ├── ci.yml
-│   └── cd.yml
-├── README.md
-└── CONTRIBUTING.md
+├── .github/
+│   ├── workflows/                 # ci.yml y cd.yml, tres líneas cada uno
+│   ├── copilot-instructions.md    # sincronizado desde platform
+│   └── PULL_REQUEST_TEMPLATE.md   # sincronizado desde platform
+└── README.md
 ```
 
 ### Qué contiene `udesa-x-platform`
@@ -87,10 +100,14 @@ Es el repositorio central del proyecto, no un servicio. Concentra lo que no pert
 
 ```text
 udesa-x-platform/
+├── AGENTS.md                # fuente del bloque común de todos los repos
+├── .editorconfig            # fuente
+├── .agents/skills/          # fuente: explicar-implementacion, revisar-pr
 ├── docs/
 │   ├── CONSIGNA.md
 │   ├── PLANIFICACION.md
 │   ├── ARQUITECTURA.md
+│   ├── CONVENCIONES.md      # reglas del equipo y guidelines del tutor
 │   ├── adr/                 # registro de decisiones de arquitectura
 │   ├── eventos/             # esquemas fuente de los contratos
 │   ├── actas/               # reuniones con el tutor
@@ -103,25 +120,32 @@ udesa-x-platform/
 ├── terraform/               # cluster, bases gestionadas, registry, DNS
 ├── compose/
 │   └── docker-compose.full.yml    # sistema completo con imágenes publicadas
+├── templates/
+│   └── repo-servicio/       # plantilla de repositorio, incluye AGENTS.md
 ├── scripts/
-│   └── sync-contracts.sh    # copia los esquemas a los repos de servicio
-└── .github/workflows/
+│   ├── sync-contracts.sh    # copia los esquemas a los repos de servicio
+│   └── sync-comunes.sh      # copia editorconfig, skills, plantillas y bloque común
+└── .github/
+    ├── workflows/           # reusable workflows de CI y CD
+    ├── copilot-instructions.md
+    └── PULL_REQUEST_TEMPLATE.md
 ```
 
-Acá viven también **las 146 issues, los 15 milestones y el Project**. Los repos de servicio no llevan issues propias: los PRs referencian la issue central con `tds-g3-2s2026/udesa-x-platform#42`, que GitHub enlaza entre repositorios sin problema. Sin esto habría que replicar los quince milestones en siete repos.
+Acá viven las issues **transversales**: infraestructura, documentación y decisiones. Las issues de historias de usuario viven en el repositorio donde vive su código, no acá. El tutor lo pidió explícitamente: toda rama lleva su issue asociada, y el milestone semanal se cierra con el tag del repo que efectivamente se tocó. El Project de la organización toma issues de los seis repos, así que el tablero funciona igual.
 
-### Cómo se relacionan los siete repositorios
+Los milestones se crean solo en los repos que tienen trabajo esa semana. Quince milestones por seis repos serían noventa y no aportarían nada; el campo Iteration del Project ya da la vista de los quince sprints.
+
+### Cómo se relacionan los seis repositorios
 
 ```mermaid
 flowchart LR
-    PLAT["<b>udesa-x-platform</b><br/>146 issues · Project · milestones<br/>ADR y documentación<br/>esquemas de eventos<br/>plantillas de workflow<br/>compose integrado · Terraform"]
+    PLAT["<b>udesa-x-platform</b><br/>issues transversales · Project<br/>ADR y documentación<br/>esquemas de eventos<br/>skills y archivos comunes<br/>compose integrado · Terraform"]
 
     subgraph svcs["Repos de servicio"]
         direction TB
-        R1["udesa-x-users-api"]
-        R2["udesa-x-posts-api"]
-        R3["udesa-x-notifications-api"]
-        R4["udesa-x-media-api"]
+        R1["udesa-x-users-api<br/>Python"]
+        R2["udesa-x-posts-api<br/>Python"]
+        R3["udesa-x-notifications-api<br/>TypeScript"]
     end
 
     subgraph cli["Repos de cliente"]
@@ -131,18 +155,18 @@ flowchart LR
     end
 
     PLAT ==>|"sync-contracts.sh<br/>copia los esquemas"| svcs
-    PLAT -->|"plantillas de CI y CD"| svcs
-    PLAT -->|"plantillas de CI"| cli
-    svcs -.->|"cada PR referencia<br/>la issue central"| PLAT
-    cli -.->|"cada PR referencia<br/>la issue central"| PLAT
+    PLAT ==>|"sync-comunes.sh<br/>editorconfig · skills<br/>AGENTS.md · plantilla de PR"| svcs
+    PLAT ==>|"sync-comunes.sh"| cli
+    PLAT -->|"reusable workflows de CI y CD"| svcs
+    PLAT -->|"reusable workflows de CI"| cli
 
     classDef hub fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#0f172a
     classDef repo fill:#dcfce7,stroke:#16a34a,stroke-width:1.5px,color:#0f172a
     class PLAT hub
-    class R1,R2,R3,R4,R5,R6 repo
+    class R1,R2,R3,R5,R6 repo
 ```
 
-Las issues viven solo en `udesa-x-platform`. Sin eso habría que replicar los quince milestones en siete repos y el board dejaría de servir.
+Cada repo lleva sus propias issues y sus propios milestones semanales. `udesa-x-platform` solo concentra lo transversal y lo que se sincroniza hacia los demás.
 
 ## Vista general
 
@@ -156,10 +180,9 @@ flowchart TB
     subgraph aws["AWS"]
         subgraph eks["Amazon EKS"]
             ING["Gateway API · NGINX Gateway Fabric<br/>TLS · routing · rate limit por IP"]
-            USR["users-api<br/>NestJS"]
+            USR["users-api<br/>FastAPI"]
             PST["posts-api<br/>FastAPI"]
             NTF["notifications-api<br/>NestJS"]
-            MED["media-api<br/>NestJS"]
             MQ{{"RabbitMQ · exchange topic"}}
         end
         subgraph datos["Datos gestionados, fuera del cluster"]
@@ -176,18 +199,17 @@ flowchart TB
     ING --> USR
     ING --> PST
     ING --> NTF
-    ING --> MED
     PST -.->|"REST<br/>hidrata autor"| USR
     USR --> MQ
     PST --> MQ
     MQ --> NTF
-    MQ --> MED
     USR --> PGU
     USR --> RED
+    USR --> OBJ
     PST --> PGP
     PST --> RED
+    PST --> OBJ
     NTF --> MDB
-    MED --> OBJ
     classDef cliente fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#0f172a
     classDef borde fill:#fef3c7,stroke:#d97706,stroke-width:1.5px,color:#0f172a
     classDef svc fill:#dcfce7,stroke:#16a34a,stroke-width:1.5px,color:#0f172a
@@ -195,12 +217,12 @@ flowchart TB
     classDef store fill:#e2e8f0,stroke:#475569,stroke-width:1.5px,color:#0f172a
     class MOB,BO cliente
     class ING borde
-    class USR,PST,NTF,MED svc
+    class USR,PST,NTF svc
     class MQ bus
     class PGU,PGP,RED,MDB,OBJ store
 ```
 
-Lo que el diagrama deja explícito y conviene no perder de vista: **las bases están fuera del cluster**, la única llamada sincrónica entre servicios es `posts-api` hidratando datos de autor contra `users-api`, y todo lo demás cruza por la cola.
+Lo que el diagrama deja explícito y conviene no perder de vista: **las bases están fuera del cluster**, la única llamada sincrónica entre servicios es `posts-api` hidratando datos de autor contra `users-api`, todo lo demás cruza por la cola, y **los dos servicios de Python escriben al mismo bucket de S3 con prefijos distintos** (`avatars/` y `posts/`), cada uno dueño de lo suyo.
 
 Lo que deliberadamente **no** dibuja, para que se entienda: los eventos concretos que viajan por la cola están en el diagrama de "Comunicación entre servicios", la telemetría en el de "Observabilidad", y los proveedores externos que consume `notifications-api` son FCM para push, el proveedor de email y la Claude API para el triage de denuncias.
 
@@ -225,14 +247,15 @@ Versiones fijadas en la revisión del 2026-08-20. Se fijan una vez y no se persi
 
 | Stack | Elección | Nota |
 | ----- | -------- | ---- |
-| TypeScript | Node 24 LTS, NestJS 11 con adaptador Fastify, Prisma 7, Vitest | Node 24 tiene soporte hasta abril de 2028. Prisma 7 eliminó el motor de Rust: el cliente pasó de 14 MB a 1.6 MB y desaparecen los problemas de binario nativo en imágenes slim |
-| Python | Python 3.13, FastAPI, SQLAlchemy 2 async con asyncpg, Alembic, uv y Ruff | **No** usar 3.14 con free-threading: el ecosistema todavía no tiene wheels estables y un servicio web es I/O-bound, así que no hay nada que ganar |
+| Python, dos servicios | Python 3.13, FastAPI, SQLAlchemy 2 async con asyncpg, Alembic, uv, Ruff y pytest | Es el stack principal del backend: `users-api` y `posts-api`. **No** usar 3.14 con free-threading: el ecosistema todavía no tiene wheels estables y un servicio web es I/O-bound, así que no hay nada que ganar |
+| TypeScript, un servicio | Node 24 LTS, NestJS 11 con adaptador Fastify, Vitest | Solo `notifications-api`. Node 24 tiene soporte hasta abril de 2028 y el cliente de FCM es el más maduro del ecosistema. Sin ORM: MongoDB con el driver oficial, que alcanza para documentos de forma variable |
 | Servidor ASGI | Uvicorn con **un worker por pod** | La escala la da el HPA, no `--workers`. Con varios workers adentro del pod, uno colgado no lo detecta ningún probe |
-| Imágenes | `node:24-slim` y `python:3.13-slim`, multi-stage, arm64 | Distroless recién en S13, cuando el pipeline esté aburrido: sin shell, depurar un pod cuesta el doble |
+| Imágenes | `python:3.13-slim` y `node:24-slim`, multi-stage, arm64 | Distroless recién en S13, cuando el pipeline esté aburrido: sin shell, depurar un pod cuesta el doble |
+| Subida de archivos | `python-multipart` con streaming a S3 vía `aioboto3`, validación por magic numbers, miniaturas con Pillow | Escrito una vez en `users-api`, copiado a `posts-api`. Reemplaza al `media-api` que se descartó |
 
 ### `users-api`
 
-**NestJS sobre TypeScript. PostgreSQL más Valkey.**
+**FastAPI sobre Python. PostgreSQL, Valkey y S3.**
 
 Es el primer servicio en arrancar y el que desbloquea a todos los demás. Concentra todo lo que gira alrededor de la identidad.
 
@@ -245,14 +268,15 @@ Es el primer servicio en arrancar y el que desbloquea a todos los demás. Concen
 - Preferencias: visibilidad, idioma, presencia, tema.
 - Administradores, roles y contraseñas temporales.
 - Última conexión.
+- Subida de avatar y portada a S3, con streaming, validación por magic numbers y miniaturas.
 
-Cubre E1-H1 a H14 salvo el almacenamiento de archivos, más E5-H1, E5-H2 y E5-H9.
+Cubre E1-H1 a H14, más E5-H1, E5-H2 y E5-H9.
 
 **Por qué identidad y perfil juntos:** el handle, el display name y el avatar aparecen en cada post, cada notificación y cada listado. Separarlos genera una llamada cruzada en casi toda lectura del sistema.
 
 ### `posts-api`
 
-**FastAPI sobre Python. PostgreSQL más Valkey.**
+**FastAPI sobre Python. PostgreSQL, Valkey y S3.**
 
 Concentra contenido, grafo social, feed y búsqueda. Es el servicio más grande del sistema.
 
@@ -265,6 +289,7 @@ Concentra contenido, grafo social, feed y búsqueda. Es el servicio más grande 
 - Búsqueda de posts y usuarios.
 - Trending topics sobre ventana de 24 horas.
 - Denuncias e invitaciones.
+- Subida de imágenes de post a S3, con el mismo módulo copiado desde `users-api`.
 
 Cubre E2-H1 a H14 y E3-H1 a H10 salvo mensajes directos.
 
@@ -278,7 +303,7 @@ Cubre E2-H1 a H14 y E3-H1 a H10 salvo mensajes directos.
 
 ### `notifications-api`
 
-**NestJS sobre TypeScript. MongoDB.**
+**NestJS sobre TypeScript. MongoDB.** Es el único servicio en TypeScript y es deliberado: acotado, sin lógica de dominio propia, y con el cliente de FCM más maduro del ecosistema.
 
 Es el consumidor principal de la cola y el que justifica la segunda base de datos.
 
@@ -292,19 +317,43 @@ Cubre E4-H1 a H5, más el envío de emails de E1-H1, H5, H11, H13 y E5-H11.
 
 MongoDB encaja porque las notificaciones tienen forma variable según el tipo, se escriben mucho, se leen paginadas por usuario y se archivan.
 
-### `media-api`
+### Subida de archivos: módulo copiado, no servicio
 
-**NestJS sobre TypeScript. Amazon S3.**
+La propuesta original tenía un `media-api` aparte. Se descartó: sin base de datos propia era
+glue de I/O, y arrastraba un repositorio entero con CI, gate de cobertura, manifiestos y
+Dockerfile. El costo de llegar al 85% en un servicio de streaming, mockeando S3, no lo
+justificaba.
 
-- Recibe subidas por stream, sin cargar el archivo en memoria, como exige E1-H8 CA.7.
+La subida vive ahora en el servicio dueño del dato:
+
+| Qué | Dónde | Prefijo en S3 |
+| --- | --- | --- |
+| Avatar y portada | `users-api` | `avatars/`, `covers/` |
+| Imágenes de post | `posts-api` | `posts/` |
+
+El módulo se escribe una vez en `users-api` y se copia a `posts-api`. Es el mismo criterio
+que el tutor dio para los contratos de eventos, y acá es literal porque los dos servicios
+están en Python.
+
+Qué hace el módulo, que es lo que exigen los criterios de aceptación:
+
+- Recibe por stream, sin cargar el archivo en memoria: E1-H8 CA.7.
 - Valida el tipo real por magic numbers, no por extensión: E1-H8 CA.3 y E2-H7 CA.3.
 - Valida tamaño según destino: 5 MB avatar, 10 MB portada, 1 MB por imagen de post.
-- Genera miniaturas.
-- Elimina el archivo anterior al reemplazar, como exige E1-H8 CA.4.
+- Genera miniaturas en AVIF con Pillow.
+- Elimina el archivo anterior al reemplazar, en la misma operación que actualiza el
+  registro: E1-H8 CA.4.
 
-Node maneja streams bien, que es exactamente lo que pide el criterio de aceptación: la implementación hace pipe del request al storage mientras inspecciona los primeros bytes.
+Ese último punto es la ganancia concreta de haber sacado el servicio. Antes hacía falta un
+evento `media.orphaned` y un consumidor que limpiara asincrónicamente, con la ventana de
+inconsistencia que eso implica. Ahora borrar el archivo viejo y actualizar la fila del perfil
+ocurren en el mismo caso de uso.
 
-**Decisión pendiente, con fecha en S6.** La práctica recomendada hoy es una URL prefirmada de S3 para que el cliente suba directo, sin que el servicio proxee los bytes. Es más barato y más robusto, pero entonces el servidor nunca ve el archivo y ni E1-H8 CA.7 ni CA.3 se cumplen como están redactados. La alternativa es prefirmar y validar después, con el objeto en cuarentena hasta que un evento de S3 dispare la validación de magic numbers y la generación de miniaturas. Se arranca con el diseño de arriba, que cumple la consigna al pie de la letra, y se evalúa el cambio en S13 si sobra tiempo. Miniaturas en AVIF con `sharp`: comprime entre 20% y 30% mejor que WebP y ya tiene 94% de soporte en navegadores.
+**Decisión pendiente, con fecha en S6.** La práctica recomendada hoy es una URL prefirmada de
+S3 para que el cliente suba directo, sin que el servicio proxee los bytes. Es más barato y
+más robusto, pero entonces el servidor nunca ve el archivo y ni E1-H8 CA.7 ni CA.3 se cumplen
+como están redactados. Se arranca con el diseño de arriba, que cumple la consigna al pie de
+la letra, y se evalúa el cambio en S13 si sobra tiempo.
 
 ## Comunicación entre servicios
 
@@ -314,7 +363,7 @@ REST sobre HTTP con JSON, solo cuando la respuesta se necesita dentro del reques
 
 - El Gateway a cualquier servicio.
 - `posts-api` a `users-api` para hidratar datos de autor.
-- `backoffice` a los healthchecks de los cuatro servicios, para E5-H11.
+- `backoffice` a los healthchecks de los tres servicios, para E5-H11.
 
 Toda llamada sincrónica lleva timeout, reintento con backoff y comportamiento definido ante fallo del destino. En Kubernetes esto se apoya en los probes: un servicio sin `readinessProbe` en verde no recibe tráfico.
 
@@ -338,7 +387,6 @@ RabbitMQ 4.x desplegado en el cluster, con exchange de tipo topic. Elegido sobre
 | `follow.created`           | posts        | notifications                         |
 | `interaction.created`      | posts        | notifications                         |
 | `report.created`           | posts        | notifications, triage de IA           |
-| `media.orphaned`           | posts, users | media (limpieza)                      |
 
 ```mermaid
 flowchart LR
@@ -352,7 +400,6 @@ flowchart LR
         direction TB
         N["notifications-api"]
         T["Consumidor de triage<br/>dentro de notifications-api"]
-        M["media-api"]
         P2["posts-api<br/>como consumidor"]
     end
 
@@ -360,13 +407,12 @@ flowchart LR
     P -->|"post.created · follow.created<br/>interaction.created · report.created"| EX
     EX -->|"casi todos"| N
     EX -->|"report.created"| T
-    EX -->|"media.orphaned"| M
     EX -->|"user.deleted<br/>user.profile_updated"| P2
 
     classDef svc fill:#dcfce7,stroke:#16a34a,stroke-width:1.5px,color:#0f172a
     classDef bus fill:#f5d0fe,stroke:#a21caf,stroke-width:1.5px,color:#0f172a
     classDef ai fill:#ffe4e6,stroke:#e11d48,stroke-width:1.5px,color:#0f172a
-    class U,P,N,M,P2 svc
+    class U,P,N,P2 svc
     class EX bus
     class T ai
 ```
@@ -416,7 +462,7 @@ Tres detalles de implementación que no son opcionales:
 
 Por indicación del tutor, los esquemas se copian en lugar de publicarse como librería. El esquema fuente vive en `udesa-x-platform/docs/eventos/`, y `scripts/sync-contracts.sh` lo copia a `contracts/events/` de cada repo de servicio.
 
-El riesgo real de copiar no es duplicar, es **divergir en silencio**. Se mitiga sin empaquetar nada: cada servicio tiene un test de contrato que valida su copia local contra el esquema, y el CI de `udesa-x-platform` verifica que las copias en los cuatro repos coincidan con la fuente. Si alguien edita su copia sin propagar, el pipeline lo detecta. Es la mitad del beneficio de una librería compartida sin nada del costo de publicación.
+El riesgo real de copiar no es duplicar, es **divergir en silencio**. Se mitiga sin empaquetar nada: cada servicio tiene un test de contrato que valida su copia local contra el esquema, y el CI de `udesa-x-platform` verifica que las copias en los tres repos de servicio coincidan con la fuente. Si alguien edita su copia sin propagar, el pipeline lo detecta. Es la mitad del beneficio de una librería compartida sin nada del costo de publicación.
 
 ## Bases de datos
 
@@ -434,7 +480,7 @@ Cada servicio es dueño exclusivo de su esquema y **ningún servicio consulta la
 
 Las bases corren **fuera del cluster**, como servicios gestionados. Operar PostgreSQL con estado dentro de Kubernetes agrega volúmenes persistentes, backups y failover, que es una materia entera y no aporta nada a la nota. La correspondencia concreta con los servicios de AWS está en la tabla de la sección "Vista general".
 
-Migraciones versionadas y ejecutadas como Job de Kubernetes antes del rollout: Prisma en los servicios TypeScript, Alembic en el de Python. Se mantienen las dos herramientas nativas en vez de unificar en Flyway o Atlas, porque unificar obligaría a escribir todas las migraciones en SQL plano y perder la autogeneración desde el esquema.
+Migraciones versionadas y ejecutadas como Job de Kubernetes antes del rollout: **Alembic en los dos servicios de Python**. `notifications-api` usa MongoDB y no lleva migraciones de esquema. Una sola herramienta de migraciones en todo el proyecto es una consecuencia directa de haber concentrado el backend relacional en Python, y ahorra mantener dos flujos distintos.
 
 El Job toma un `pg_advisory_lock` durante toda la migración, para que dos rollouts en carrera no migren a la vez. Los cambios van en expand y contract, en deploys separados: primero lo aditivo, el `DROP` o el `NOT NULL` en un deploy posterior. El rollback es forward-only: las down-migrations casi nunca se prueban y fallan justo cuando se las necesita.
 
@@ -476,7 +522,7 @@ Expo resuelve tres cosas que el proyecto necesita y que en React Native puro cue
 
 Mantine sobre shadcn porque trae formularios y gráficos en el mismo monorepo con versionado en lockstep, y con quince semanas el pegamento entre librerías es justamente lo que consume sprints. El React Compiler es estable desde octubre de 2025 y elimina una clase entera de bug para quien está aprendiendo React: `useMemo` y `useCallback` mal puestos.
 
-**Los clientes REST se generan, no se escriben a mano.** Los cuatro servicios ya exponen OpenAPI, y con Orval cada repo cliente genera tipos, cliente y hooks de TanStack Query contra ese esquema, y commitea lo generado. Un cambio de contrato aparece como diff en el PR. Es el mismo criterio que la decisión A3 del tutor para los eventos: nada que publicar, la divergencia se ve en la revisión.
+**Los clientes REST se generan, no se escriben a mano.** Los tres servicios ya exponen OpenAPI, y con Orval cada repo cliente genera tipos, cliente y hooks de TanStack Query contra ese esquema, y commitea lo generado. Un cambio de contrato aparece como diff en el PR. Es el mismo criterio que la decisión A3 del tutor para los eventos: nada que publicar, la divergencia se ve en la revisión.
 
 ## Infraestructura y despliegue
 
@@ -536,11 +582,11 @@ Palancas, por impacto:
 | Staging                   | Automático al mergear a `main` de cualquier repo de servicio                 | Aceptación de historias, pruebas de carga     |
 | Producción                | Manual con aprobación                                                        | Entrega final y defensa                       |
 
-El compose completo usa **imágenes publicadas en el registry**, no builds locales. Así levantar el sistema entero no requiere clonar los siete repos: se clona `udesa-x-platform` y listo. Es la respuesta al problema que introduce el polirepo.
+El compose completo usa **imágenes publicadas en el registry**, no builds locales. Así levantar el sistema entero no requiere clonar los seis repos: se clona `udesa-x-platform` y listo. Es la respuesta al problema que introduce el polirepo.
 
 ### Pipeline por repositorio de servicio
 
-Los siete repos usan el mismo par de workflows, que viven **una sola vez** en `udesa-x-platform/.github/workflows/` como reusable workflows. Cada repo de servicio queda con tres líneas:
+Los seis repos usan el mismo par de workflows, que viven **una sola vez** en `udesa-x-platform/.github/workflows/` como reusable workflows. Cada repo de servicio queda con tres líneas:
 
 ```yaml
 jobs:
@@ -549,13 +595,13 @@ jobs:
     secrets: inherit
 ```
 
-No se copian, a diferencia de los contratos de eventos: copiar los contratos fue una indicación explícita del tutor, y para los workflows GitHub ya resuelve el problema de fábrica, en el plan gratuito. Elimina la clase de bug "el CI de un repo quedó atrás y nadie se dio cuenta", que con siete repos y quince semanas es cuestión de tiempo. Los *required workflows* a nivel organización sí exigen Enterprise, pero no hacen falta: alcanza con branch protection por repo.
+No se copian, a diferencia de los contratos de eventos: copiar los contratos fue una indicación explícita del tutor, y para los workflows GitHub ya resuelve el problema de fábrica, en el plan gratuito. Elimina la clase de bug "el CI de un repo quedó atrás y nadie se dio cuenta", que con seis repos y quince semanas es cuestión de tiempo. Los *required workflows* a nivel organización sí exigen Enterprise, pero no hacen falta: alcanza con branch protection por repo.
 
 **CI**, en cada Pull Request:
 
 1. Lint y chequeo de tipos.
 2. Tests unitarios con reporte de cobertura.
-3. **Gate: falla si la cobertura baja del 85%.**
+3. **Gate: falla si la cobertura baja del 85%.** Activo desde S3 en backend y desde S5 en los clientes; antes de esa fecha el paso reporta pero no bloquea.
 4. Tests de integración contra dependencias en contenedores.
 5. Test de contrato: la copia local de los esquemas coincide con la fuente.
 6. Build de la imagen Docker.
@@ -575,7 +621,7 @@ flowchart TD
     PR(["Pull Request"]) --> L["Lint y chequeo de tipos"]
     L --> UT["Tests unitarios<br/>con reporte de cobertura"]
     UT --> GATE{"cobertura ≥ 85%"}
-    GATE -->|no| FAIL(["PR bloqueado"])
+    GATE -->|no| FAIL(["PR bloqueado<br/>backend desde S3<br/>clientes desde S5"])
     GATE -->|sí| IT["Tests de integración<br/>dependencias en contenedores"]
     IT --> CT["Test de contrato<br/>copia local vs esquema fuente"]
     CT --> IMG["Build de la imagen Docker"]
@@ -602,7 +648,7 @@ flowchart TD
     class FAIL,RB,ALERT bad
 ```
 
-El único camino a producción pasa por el gate de cobertura. Está activo desde S3, el 7 de septiembre, que es la fecha a partir de la cual la cátedra exige que todo el código que se sube esté testeado.
+El único camino a producción pasa por el gate de cobertura. Se activa en S3 para los tres servicios backend y en S5 para mobile y backoffice.
 
 **Todas las actions se fijan por SHA de commit, nunca por tag.** No es paranoia: la action `aquasecurity/trivy-action` fue comprometida en un ataque de cadena de suministro el 19 de marzo de 2026. Es A03 del OWASP Top 10:2025 aplicado al propio pipeline, y cuesta una línea por action.
 
@@ -610,7 +656,7 @@ Cada servicio se despliega solo, sin tocar a los demás. Ese es el desacoplamien
 
 ## Observabilidad
 
-**OpenTelemetry** en los cuatro servicios, exportando a **Grafana Cloud**.
+**OpenTelemetry** en los tres servicios, exportando a **Grafana Cloud**.
 
 | Señal    | Herramienta | Qué se recolecta                                                |
 | -------- | ----------- | --------------------------------------------------------------- |
@@ -637,7 +683,6 @@ flowchart LR
     S1["users-api"]
     S2["posts-api"]
     S3["notifications-api"]
-    S4["media-api"]
     COL["OpenTelemetry<br/>Collector"]
     LOKI[("Loki<br/>logs")]
     PROM[("Prometheus<br/>métricas")]
@@ -646,13 +691,11 @@ flowchart LR
 
     ING --> S1
     ING --> S2
+    ING --> S3
     S2 --> S1
-    S2 --> S3
-    ING --> S4
     S1 --> COL
     S2 --> COL
     S3 --> COL
-    S4 --> COL
     COL --> LOKI
     COL --> PROM
     COL --> TEMPO
@@ -669,7 +712,7 @@ flowchart LR
     classDef borde fill:#fef3c7,stroke:#d97706,stroke-width:1.5px,color:#0f172a
     classDef store fill:#e2e8f0,stroke:#475569,stroke-width:1.5px,color:#0f172a
     classDef externo fill:#ffe4e6,stroke:#e11d48,stroke-width:1.5px,color:#0f172a
-    class S1,S2,S3,S4 svc
+    class S1,S2,S3 svc
     class ING,COL borde
     class LOKI,PROM,TEMPO store
     class GRAF,D1,D2,D3,D4,TUT externo
@@ -687,7 +730,7 @@ Se mapea contra la edición **2025**, vigente desde enero de 2026. Cambió basta
 | --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | A01 Control de acceso roto                    | Autorización en cada servicio, no solo en el Gateway. Verificación de propiedad en E2-H3 CA.1. 404 en lugar de 403 ante bloqueo, como exige E3-H4 CA.4. Tests específicos de autorización. Ninguna URL provista por el usuario se consume desde el servidor, que es el SSRF ahora absorbido acá. |
 | A02 Configuración incorrecta                  | CORS restringido. Cabeceras de seguridad en el Gateway. NetworkPolicies entre pods. Pod Security Admission `restricted`. Imágenes base mínimas, contenedores sin root.                                                             |
-| A03 Fallas de la cadena de suministro         | Dependabot en los siete repos. Escaneo de imágenes con Trivy. **Actions fijadas por SHA**. SBOM con syft y attestations de build en el pipeline.                                                                                   |
+| A03 Fallas de la cadena de suministro         | Dependabot en los seis repos. Escaneo de imágenes con Trivy. **Actions fijadas por SHA**. SBOM con syft y attestations de build en el pipeline.                                                                                   |
 | A04 Fallas criptográficas                     | Argon2id con `m=19456, t=2, p=1`. TLS en todo tránsito. SOPS con age, nunca secretos en claro en el repo.                                                                                                                          |
 | A05 Inyección                                 | ORM con consultas parametrizadas. Sanitización de HTML en E1-H6 CA.4 y E2-H1 CA.3. Validación de esquema en cada endpoint.                                                                                                        |
 | A06 Diseño inseguro                           | Threat model en S7. Rate limiting. Tokens de un solo uso con expiración. Mensajes genéricos en E1-H2 CA.3 y E1-H5 CA.4 para evitar enumeración.                                                                                    |
@@ -720,7 +763,7 @@ El nivel L1 de OWASP ASVS 5.0 se usa como checklist manual antes de cada entrega
 | Feedback                   | users-api     | 2 por hora por usuario (E1-H11 CA.4)       |
 | Invitaciones               | posts-api     | 10 links por día por usuario (E3-H9 CA.3)  |
 
-El middleware se implementa una vez por stack, con contadores en Valkey, y se configura por endpoint: `rate-limiter-flexible` en Node y `limits` en Python, en vez de escribir scripts Lua a mano.
+El middleware se implementa una vez en Python con contadores en Valkey, y se copia entre `users-api` y `posts-api` como el módulo de subida: `limits` sobre FastAPI, en vez de escribir scripts Lua a mano. `notifications-api` no expone endpoints públicos, así que no lo necesita.
 
 Un matiz que conviene documentar y que suma en la defensa: el rate limit del Gateway es local a cada pod de NGINX, así que con tres réplicas el límite efectivo se triplica. Se corre una sola réplica para la demo y se explica por qué. La alternativa realmente distribuida exige Redis más el servicio de rate limit de Envoy, que son más piezas de las que este proyecto necesita.
 
@@ -728,8 +771,8 @@ Un matiz que conviene documentar y que suma en la defensa: el rate limit del Gat
 
 | Nivel       | Alcance                                             | Herramientas                      | Dónde corre                  |
 | ----------- | --------------------------------------------------- | --------------------------------- | ---------------------------- |
-| Unitarias   | Lógica de dominio, validaciones, hooks, componentes | Vitest, pytest, RNTL 14           | CI de cada repo              |
-| Integración | Endpoints contra base y cola reales en contenedores | Supertest, pytest, Testcontainers | CI de cada repo              |
+| Unitarias   | Lógica de dominio, validaciones, hooks, componentes | pytest, Vitest, RNTL 14           | CI de cada repo              |
+| Integración | Endpoints contra base y cola reales en contenedores | pytest, Testcontainers, Supertest | CI de cada repo              |
 | Contrato    | La copia local de esquemas coincide con la fuente   | Validación de JSON Schema         | CI de cada repo              |
 | E2E         | Flujos críticos de punta a punta                    | Maestro, Playwright               | `udesa-x-platform`, nocturno |
 | Carga       | Los seis flujos con SLO definido                    | k6                                | `udesa-x-platform`, S6 y S12 |
@@ -738,11 +781,19 @@ Los E2E y las pruebas de carga viven en `udesa-x-platform` porque cruzan servici
 
 ### Cobertura del 85%
 
-El umbral aplica por repositorio y se verifica en su propio CI. Dos consecuencias que hay que aceptar desde el primer día:
+El umbral es 85% en todos los repos y se verifica en el CI de cada uno. Lo que cambia es **cuándo se enciende el gate**:
 
-1. **El gate se activa en S3**, el 7 de septiembre, que es la fecha a partir de la cual la cátedra exige que todo el código que se sube esté testeado. No cuando la cobertura ya cayó. Subir de 40% a 85% al final es una tarea que nadie termina.
-2. **En mobile se prioriza la lógica**: hooks, servicios de API, reducers, validaciones y transformaciones. Los componentes visuales se cubren con tests de render e interacción.
-3. **El porcentaje no mide si el test verifica algo**: se llega a 85% con tests sin un solo assert. La contramedida barata es correr mutation testing (Stryker en TypeScript, mutmut en Python) sobre los módulos críticos (autenticación, autorización, contadores) una vez por sprint, nunca como gate de PR porque es lento.
+| Repos | Gate activo desde | Por qué |
+| --- | --- | --- |
+| `users-api`, `posts-api`, `notifications-api` | **S3**, 7 de septiembre | Es la fecha a partir de la cual la cátedra exige que todo el código que se sube esté testeado, y en S3 los servicios ya tienen forma. |
+| `mobile`, `backoffice` | **S5**, 21 de septiembre | En S3 la app mobile tiene navegación y sesión y poco más, y el equipo vio React recién el 24 de agosto. Un gate que bloquea PRs al 85% sobre React Native en la semana 3 se termina desactivando, y un gate desactivado no vuelve. |
+
+Cuatro consecuencias que hay que aceptar desde el primer día:
+
+1. **El gate se enciende antes de que la cobertura caiga**, no después. Subir de 40% a 85% al final es una tarea que nadie termina.
+2. **Entre S3 y S5 los repos de cliente reportan cobertura sin bloquear.** El número se mira en la review del lunes: si en S4 no subió, el problema se trata ahí y no el 21 de septiembre.
+3. **En mobile se prioriza la lógica**: hooks, servicios de API, reducers, validaciones y transformaciones. Los componentes visuales se cubren con tests de render e interacción.
+4. **El porcentaje no mide si el test verifica algo**: se llega a 85% con tests sin un solo assert. La contramedida barata es correr mutation testing (mutmut en Python, Stryker en TypeScript) sobre los módulos críticos (autenticación, autorización, contadores) una vez por sprint, nunca como gate de PR porque es lento. La skill `revisar-pr` chequea explícitamente que los tests tengan asserts.
 
 ### Flujos críticos de E2E
 
@@ -755,7 +806,7 @@ El umbral aplica por repositorio y se verifica en su propio CI. Dos consecuencia
 
 ## Integración de Inteligencia Artificial
 
-El triage de denuncias vive como un consumidor de la cola dentro de `notifications-api`, que ya es el servicio consumidor por diseño. Crear un repositorio nuevo para una única llamada a una API externa sería complejidad sin beneficio, y con polirepo ese costo es aún mayor.
+El triage de denuncias vive como un consumidor de la cola dentro de `notifications-api`, que ya es el servicio consumidor por diseño. Crear un repositorio nuevo para una única llamada a una API externa sería complejidad sin beneficio, y con polirepo ese costo es aún mayor. Es el mismo criterio que llevó a descartar `media-api`.
 
 ```mermaid
 sequenceDiagram
@@ -818,8 +869,8 @@ Pendientes de definir en S1:
 
 | #   | Decisión                         | Propuesta                                                                              |
 | --- | -------------------------------- | -------------------------------------------------------------------------------------- |
-| A4b | Cantidad de servicios backend    | 4: users, posts, notifications, media. El identificador arrastra un choque con A4, que quedó cerrada por el tutor |
-| A5  | Lenguajes backend                | Exactamente dos: TypeScript y Python                                                   |
+| A4b | Cantidad de servicios backend    | **3: users, posts, notifications.** `media` se descartó y su función vive como módulo copiado en los dos servicios de Python |
+| A5  | Lenguajes backend                | Exactamente dos. **Python con FastAPI en `users` y `posts`, TypeScript con NestJS en `notifications`** |
 | A6  | Framework mobile                 | React Native con Expo                                                                  |
 | A7  | Feed dentro de posts-api         | Sí, para evitar mantener una proyección del grafo sincronizada por eventos             |
 | A8  | Motor de búsqueda                | PostgreSQL con `pg_trgm`, sin Elasticsearch                                            |
@@ -842,5 +893,16 @@ Pendientes de definir en S1:
 | A20 | Motor clave-valor           | **Valkey** en vez de Redis: mismo protocolo, licencia BSD, más barato en ElastiCache                                       |
 | A21 | Plantillas de CI            | **Reusable workflows**, no copiadas. Los contratos de eventos se siguen copiando, porque eso lo pidió el tutor            |
 | A22 | Manejo de tokens            | **Abierta, decide el equipo antes de S3**: JWT con lista de revocación, o token opaco con sesión en Valkey                |
-| A23 | Subida de media             | **Abierta, se decide en S6**: stream por el servicio, que cumple los criterios literales, o URL prefirmada con validación posterior |
+| A23 | Subida de media             | **Abierta, se decide en S6**: stream por el servicio, que cumple los criterios literales, o URL prefirmada con validación posterior. Ya no involucra un servicio aparte |
 | A24 | Acceso del tutor a Grafana  | **Abierta, se decide antes de S6**: el free tier son 3 asientos y el equipo más el tutor son 5                            |
+
+### Nuevas, de la revisión del equipo del 2026-08-20
+
+| #   | Decisión                    | Estado                                                                                                                    |
+| --- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| A25 | Reparto de lenguajes        | **Cerrada: Python es el stack principal del backend.** `users-api` y `posts-api` en FastAPI, `notifications-api` en NestJS. La consigna solo exige más de una tecnología, no fija el peso de cada una |
+| A26 | `media-api` como servicio   | **Cerrada: se descarta.** La subida vive en el servicio dueño del dato, con el módulo copiado entre `users-api` y `posts-api`. Seis repositorios en vez de siete |
+| A27 | Ubicación de las issues     | **Cerrada por el tutor: una issue por repo, junto a su código.** `udesa-x-platform` solo lleva las transversales. Ver `CONVENCIONES.md` |
+| A28 | Activación del gate de cobertura | **Cerrada: escalonado.** 85% desde S3 en los tres servicios backend, desde S5 en mobile y backoffice |
+| A29 | AGENTS.md y skills          | **Cerrada: obligatorios desde S1.** Bloque común sincronizado desde platform, skills versionadas en el repo. Ver `CONVENCIONES.md` |
+| A30 | Sincronización de comunes   | **Cerrada:** `repo-file-sync-action` para archivos comunes, según recomendó el tutor, y reusable workflows para el CI. Plantear la diferencia en la reunión |

@@ -2,6 +2,15 @@
 
 Contraste de cada pieza de `ARQUITECTURA.md` contra el estado real del ecosistema al 2026-08-19. Todo lo que sigue está verificado contra fuentes primarias en esa fecha, no contra memoria.
 
+> **Estado: auditoría cerrada el 2026-08-19.** Es un documento fechado y no se actualiza; sus conclusiones ya están incorporadas a `ARQUITECTURA.md`, que es la fuente vigente.
+>
+> El 2026-08-20, después de esta auditoría, el equipo tomó dos decisiones que la dejan parcialmente vieja y que están justificadas en `ARQUITECTURA.md`:
+>
+> - **A25.** El reparto de lenguajes se invirtió: `users-api` y `posts-api` en Python con FastAPI, `notifications-api` en TypeScript con NestJS. Todo lo que esta revisión dice sobre `users-api` en Node no aplica, y **la sección de Prisma queda sin objeto**: no queda ningún servicio relacional en TypeScript, así que Alembic es la única herramienta de migraciones del proyecto.
+> - **A26.** `media-api` se descartó como servicio. Lo que esta revisión dice sobre él vale igual, pero aplicado al módulo de subida que viven `users-api` y `posts-api`. En particular, las miniaturas se generan con **Pillow**, no con `sharp`, porque el módulo es Python.
+>
+> Donde el texto de abajo diga "siete repos" o "cuatro servicios", hoy son **seis** y **tres**.
+
 El criterio de la revisión no es "usar lo más nuevo". Es: dónde el documento apuesta a algo que hoy está muerto, deprecado o mal calibrado, y dónde hay una mejora que se paga sola porque no suma piezas para operar. Cada punto trae el costo de adoptarlo, porque el presupuesto real del proyecto son cuatro personas y quince semanas.
 
 Cada ítem lleva una etiqueta:
