@@ -6,24 +6,22 @@ plantillas de CI y las skills del equipo. Acá no vive código de servicio.
 ## Mapa del repo
 
 ```
-docs/           CONSIGNA, ARQUITECTURA, PLANIFICACION, CONVENCIONES, adr/, eventos/, actas/, retros/
+docs/           CONSIGNA, ARQUITECTURA, PLANIFICACION, CONVENCIONES, CATALOGO-ISSUES, adr/, actas/, retros/
 .agents/skills/ skills del equipo, versionadas
 .github/        reusable workflows, copilot-instructions, plantilla de PR
 templates/      repo-servicio/, esqueleto listo para copiar a un repo nuevo, con los comunes ya puestos
 scripts/        sync-comunes.sh
-k8s/            gateway, rabbitmq, observabilidad, namespaces
-terraform/      cluster, bases gestionadas, registry, DNS
 compose/        docker-compose.full.yml, sistema completo con imágenes publicadas
 ```
 
-`k8s/`, `terraform/` y `compose/` están creados pero todavía vacíos: se llenan entre S1 y S6
-según la tabla de issues técnicos de `docs/PLANIFICACION.md`. Lo mismo con
-`scripts/sync-contracts.sh`, que llega con `T-16` en S4, y con los reusable workflows de
-`.github/workflows/`, que llegan con `T-13` en S1. No los des por existentes: si una tarea
-los necesita y no están, ese es el trabajo.
+Una carpeta existe cuando existe su primer archivo. `k8s/`, `terraform/` y `docs/eventos/`
+todavía no están: se crean con el trabajo que las llena, entre S4 y S6. Lo mismo con
+`scripts/sync-contracts.sh` (`T-16`, S4) y los reusable workflows de `.github/workflows/`
+(`T-13`, S1). Si una tarea los necesita y no están, ese es el trabajo.
 
 Antes de tocar arquitectura, leé `docs/ARQUITECTURA.md`. Antes de tocar alcance o sprints,
-`docs/PLANIFICACION.md`. Las reglas completas del equipo están en `docs/CONVENCIONES.md`.
+`docs/PLANIFICACION.md`. Las reglas completas del equipo están en `docs/CONVENCIONES.md`, y
+las decisiones ya tomadas en `docs/adr/`.
 
 ## Checks
 
@@ -34,9 +32,8 @@ sincronización de comunes:
 ./scripts/sync-comunes.sh ../udesa-x-*   sincroniza y deja el diff a la vista en cada repo
 ```
 
-Los checks automatizados (`markdownlint` sobre `docs/`, `kubeconform` sobre `k8s/`,
-`terraform validate`, y la verificación de que las copias de esquemas coincidan con
-`docs/eventos/`) se agregan al CI de este repo con `T-13` y `T-16`. Cuando existan, van acá.
+Los checks automatizados se agregan al CI de este repo con `T-13` y `T-16`, a medida que
+exista qué chequear. Cuando existan, van acá.
 
 <!-- INICIO BLOQUE COMUN — sincronizado desde udesa-x-platform, no editar la copia local -->
 
@@ -63,6 +60,9 @@ un ADR que lo respalde.
 
 - Código, identificadores y nombres de base de datos en inglés. Comentarios en español.
   No mezclar los dos idiomas dentro de un identificador.
+- Comentarios cortos y sobre el porqué, no sobre el qué. Nada de bloques de varios renglones
+  explicando lo que el código ya dice. Si hace falta un párrafo para entender una función,
+  el problema es la función.
 - Commits en formato Conventional Commits.
 - No introducir dependencias, patrones ni abstracciones que no estén ya en el repositorio.
   Si hace falta, se abre un ADR en `udesa-x-platform/docs/adr/` y lo decide una persona,
@@ -97,6 +97,13 @@ PR. La escribe el agente, la revisa y la firma la persona.
 cierra issues o milestones. Sí puede leer el estado del repo (`git status`, `git diff`,
 `git log`), que es lo que las skills necesitan para trabajar, y sí puede **redactar** el
 mensaje de commit y el cuerpo del PR para que la persona los revise y los use.
+
+**Nada de lo que se versiona lleva rastros del agente.** Sin `Co-Authored-By`, sin firmas ni
+marcas de herramienta en commits, PRs, documentación o código.
+
+**La documentación no promete de más.** Un entregable escrito por comodidad, que el equipo no
+va a cumplir, es deuda que se paga en la review delante del tutor. Si un documento compromete
+algo irreal, se corrige el documento.
 
 Si terminaste un cambio, dejá el working tree listo y decí qué falta hacer. No lo subas: la
 consigna evalúa que cada integrante pueda defender lo que entregó, y el commit es el momento

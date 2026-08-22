@@ -26,6 +26,10 @@ scripts, su Docker y compose de desarrollo, y sus manifiestos de Kubernetes.
 **(tutor)** Todos los repositorios tienen `README.md`, `.editorconfig`, linters y
 formatters.
 
+Los seis son **públicos** desde el 2026-08-21. En el plan gratuito GitHub habilita ramas
+protegidas, secrets de organización y minutos de Actions ilimitados solo en repos públicos:
+con repos privados, la regla de `main` protegida que sigue no se puede aplicar.
+
 ## Ramas
 
 **(tutor)** Rama base `main`. Funcionalidad: `feature-<nombre>`. Fix sin funcionalidad:
@@ -37,8 +41,9 @@ feature-feed-cronologico
 fix-contador-retweets
 ```
 
-`main` está protegida: sin push directo, CI en verde y al menos una aprobación de otra
-persona.
+`main` está protegida en los seis repos desde el 2026-08-21: sin push directo, sin force
+push, sin borrado, y con una aprobación de otra persona. Alcanza también a los admins. El
+gate de CI en verde se suma con `T-13`, cuando exista el pipeline.
 
 Nota: el tutor escribió la convención como `/feature-[nombre]`. Git no admite nombres de rama
 que empiecen con barra, así que se usa `feature-<nombre>`. Confirmarlo en la primera
@@ -52,6 +57,14 @@ semana coincidan con lo que efectivamente se tocó.
 
 Los issues transversales que no pertenecen a ningún servicio (infraestructura, documentación,
 decisiones) van en `udesa-x-platform`.
+
+El inventario del semestre, con los identificadores `T-XX`, `AI-XX` y `DXX`, está en
+[`CATALOGO-ISSUES.md`](./CATALOGO-ISSUES.md). Las issues se crean en el planning de su
+sprint, no todas por adelantado: una issue escrita tres meses antes de ejecutarse se
+reescribe igual, y un tablero lleno de tarjetas que nadie tocó esconde el trabajo en curso.
+
+Toda issue nueva entra sola al Project: cada repo tiene `.github/workflows/add-to-project.yml`
+con `actions/add-to-project` y el secret de organización `ADD_TO_PROJECT_PAT`.
 
 **(tutor)** Cada issue lleva la información necesaria para implementar la tarea y su
 etiqueta correspondiente.

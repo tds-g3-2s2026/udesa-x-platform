@@ -79,6 +79,9 @@ un ADR que lo respalde.
 
 - Código, identificadores y nombres de base de datos en inglés. Comentarios en español.
   No mezclar los dos idiomas dentro de un identificador.
+- Comentarios cortos y sobre el porqué, no sobre el qué. Nada de bloques de varios renglones
+  explicando lo que el código ya dice. Si hace falta un párrafo para entender una función,
+  el problema es la función.
 - Commits en formato Conventional Commits.
 - No introducir dependencias, patrones ni abstracciones que no estén ya en el repositorio.
   Si hace falta, se abre un ADR en `udesa-x-platform/docs/adr/` y lo decide una persona,
@@ -113,6 +116,14 @@ PR. La escribe el agente, la revisa y la firma la persona.
 cierra issues o milestones. Sí puede leer el estado del repo (`git status`, `git diff`,
 `git log`), que es lo que las skills necesitan para trabajar, y sí puede **redactar** el
 mensaje de commit y el cuerpo del PR para que la persona los revise y los use.
+
+**Nada de lo que se versiona lleva rastros del agente.** Sin `Co-Authored-By`, sin firmas ni
+marcas de herramienta en commits, PRs, documentación o código. Lo que se sube va a nombre de
+quien lo entrega, porque es quien lo va a tener que defender.
+
+**La documentación no promete de más.** Un entregable escrito por comodidad, que el equipo no
+va a cumplir, es deuda que se paga en la review delante del tutor. Si un documento compromete
+algo irreal, se corrige el documento.
 
 Si terminaste un cambio, dejá el working tree listo y decí qué falta hacer. No lo subas: la
 consigna evalúa que cada integrante pueda defender lo que entregó, y el commit es el momento
