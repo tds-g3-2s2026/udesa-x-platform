@@ -110,9 +110,31 @@ abierto de un lunes al siguiente.
 
 ## Código
 
-**(tutor)** Código en inglés o en español, pero no espanglish. El equipo eligió: código,
-identificadores y nombres de base de datos en inglés; comentarios y documentación en
-español.
+**(tutor)** Código en inglés o en español, pero no espanglish. El equipo eligió que la
+frontera sea el archivo de código: **todo lo que vive dentro de un archivo de código va en
+inglés, y todo lo que se escribe para el equipo o el tutor va en español.**
+
+| En inglés | En español |
+|---|---|
+| Identificadores: variables, funciones, clases | Documentación: `docs/`, `README.md` |
+| Nombres de tablas y columnas | Mensajes de commit |
+| Comentarios dentro del código | Descripciones de Pull Request |
+| Docstrings | Comentarios de revisión en los PR |
+| Nombres de archivos y carpetas de código | |
+
+No mezclar los dos idiomas dentro de un identificador: `getUserById` está bien,
+`obtenerUserById` no.
+
+**Alcance de los nombres de archivo.** La regla aplica a los archivos y carpetas de código:
+`user_service.py`, `likes.py`, `src/`, `tests/unit/`. Los documentos conservan su nombre en
+español, que es coherente con que su contenido también lo esté: `CONVENCIONES.md`,
+`PLANIFICACION.md`, `docs/actas/`, `scripts/sync-comunes.sh` y las skills
+`explicar-implementacion` y `revisar-pr` se quedan como están.
+
+La regla es una sola y es fácil de recordar: **si lo lee un intérprete o un compilador, está
+en inglés; si lo lee una persona fuera del código, está en español.** Un archivo de código
+queda entonces íntegramente en un solo idioma, que es lo que el tutor pidió al prohibir el
+espanglish.
 
 **(tutor, opcional)** Commits en formato Conventional Commits. El equipo lo adopta:
 
