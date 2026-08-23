@@ -2,21 +2,21 @@
 
 ## Estado de este documento
 
-Propuesta de arquitectura, con tres decisiones ya confirmadas por el tutor en Slack el día 2026-08-19 y una cuarta impuesta por el calendario de la materia:
+Propuesta de arquitectura. Dos decisiones las respondió el tutor por Slack el 2026-08-19, una tercera se apoya en una mención suya al pasar y falta confirmarla, y la cuarta la impone el calendario de la materia:
 
 1. **Un repositorio por servicio.** Cada repo lleva sus tests y coverage, su pipeline de CI, sus scripts, su Docker y compose de desarrollo, y sus manifiestos de Kubernetes.
-2. **Kubernetes** como plataforma de despliegue.
+2. **Kubernetes** como plataforma de despliegue. Sin cerrar: el tutor lo nombró al listar qué lleva cada repo de servicio, no como respuesta a una pregunta sobre despliegue. Hay que confirmarlo antes de escribir el primer manifiesto, en S5.
 3. **Los contratos de eventos se copian** entre repos. Recomendación textual del tutor: copiar en lugar de armar librerías, para no pelear con empaquetado y publicación.
-4. **AWS con EKS** como proveedor de nube. El cronograma dedica la clase del 21 de septiembre a deployar en EKS y la entrega intermedia del 28 de septiembre exige el sistema "desplegado en AWS". No es una elección abiert a.
+4. **AWS con EKS** como proveedor de nube. El cronograma dedica la clase del 21 de septiembre a deployar en EKS y la entrega intermedia del 28 de septiembre exige el sistema "desplegado en AWS". Sigue abierta como `D21` hasta el 20 de septiembre: hasta no haber cursado esa clase el equipo no puede justificar la elección, y ECS con Fargate es el plan B.
 
 El resto sigue sujeto a validación en S1. Cada decisión relevante debe quedar como ADR en el repositorio de plataforma.
 
-**Revisión del equipo del 2026-08-20.** Se acordaron dos cambios de fondo sobre la propuesta original, que están incorporados a todo el documento:
+**Decisiones del equipo del 2026-08-20**, incorporadas a todo el documento:
 
-1. **El reparto de lenguajes se invierte.** `users-api` y `posts-api` pasan a Python con FastAPI, y `notifications-api` queda en TypeScript con NestJS. El requisito de la consigna es que el backend no esté en una única tecnología; no dice cuál lleva más peso. Con la propuesta anterior el servicio más grande del sistema quedaba en el stack menos frecuentado por el equipo.
-2. **`media-api` deja de ser un servicio.** La subida de archivos se resuelve dentro de `users-api` y `posts-api`, con el módulo de streaming escrito una vez y copiado. Se pasa de siete repositorios a seis.
+1. **Python es el stack principal del backend.** `users-api` y `posts-api` van en Python con FastAPI, y `notifications-api` en TypeScript con NestJS. La consigna pide que el backend no esté en una única tecnología y no dice cuál lleva más peso: conviene que el servicio más grande quede en el stack que el equipo maneja mejor.
+2. **No hay `media-api`.** La subida de archivos se resuelve dentro de `users-api` y `posts-api`, con el módulo de streaming escrito una vez y copiado. Son seis repositorios.
 
-**Revisión de frontera del 2026-08-20.** Cada pieza del stack se contrastó contra fuentes primarias en esa fecha. El detalle, con tradeoffs y alternativas descartadas, está en `REVISION-FRONTERA.md`. Los cambios ya están incorporados a este documento; el más importante es que **el NGINX Ingress Controller está archivado desde marzo de 2026** y se reemplaza por Gateway API.
+**Revisión del stack del 2026-08-20.** Cada pieza se contrastó contra fuentes primarias y las conclusiones están incorporadas a este documento. La más importante: **el NGINX Ingress Controller está archivado desde marzo de 2026**, así que la entrada del cluster va con Gateway API.
 
 El criterio que gobierna el documento: **elegir lo más simple que cumpla el requisito**. Cuatro personas en quince sprints semanales no pueden pagar el costo operativo de una arquitectura sofisticada, y con un repo por servicio ese costo se multiplica por servicio.
 
@@ -27,7 +27,7 @@ El criterio que gobierna el documento: **elegir lo más simple que cumpla el req
 | App principal exclusivamente mobile         | React Native con Expo                                                     |
 | Backoffice como aplicación web              | React + Vite, SPA                                                         |
 | Arquitectura de microservicios              | 3 servicios backend, un repositorio cada uno, despliegue independiente    |
-| Al menos dos tipos de base de datos         | PostgreSQL (relacional), MongoDB (documental), Valkey (clave-valor)      |
+| Al menos dos tipos de base de datos         | PostgreSQL (relacional), MongoDB (documental), Redis (clave-valor)      |
 | Backend en más de una tecnología            | Python con FastAPI en `users` y `posts`, TypeScript con NestJS en `notifications` |
 | Desplegada en entorno productivo en la nube | Kubernetes gestionado                                                     |
 | Cada microservicio contenedorizado          | Dockerfile en cada repo, imágenes versionadas en el registry              |
@@ -43,7 +43,7 @@ El criterio que gobierna el documento: **elegir lo más simple que cumpla el req
 
 ## Mapa de repositorios
 
-Seis repositorios en `tds-g3-2s2026`. Cuatro ya existen y se conservan.
+Seis repositorios en `tds-g3-2s2026`, todos creados y **públicos** desde el 2026-08-21. La visibilidad no es cosmética: en el plan gratuito, GitHub habilita ramas protegidas, reglas de repositorio, secrets de organización y minutos de Actions ilimitados solo en repos públicos.
 
 | Repositorio                 | Estado    | Contenido                                          | Stack                      |
 | --------------------------- | --------- | -------------------------------------------------- | -------------------------- |
@@ -51,8 +51,8 @@ Seis repositorios en `tds-g3-2s2026`. Cuatro ya existen y se conservan.
 | `udesa-x-backoffice`        | existe    | Backoffice web                                     | React + Vite               |
 | `udesa-x-users-api`         | existe    | Identidad, perfiles, administradores, avatares     | FastAPI + Python           |
 | `udesa-x-posts-api`         | existe    | Contenido, grafo social, feed, búsqueda, imágenes  | FastAPI + Python           |
-| `udesa-x-notifications-api` | **crear** | Push, centro in-app, emails, triage de IA          | NestJS + TypeScript        |
-| `udesa-x-platform`          | **crear** | Gestión, documentación, infraestructura compartida | Kustomize, Terraform, docs |
+| `udesa-x-notifications-api` | existe    | Push, centro in-app, emails, triage de IA          | NestJS + TypeScript        |
+| `udesa-x-platform`          | existe    | Gestión, documentación, infraestructura compartida | Kustomize, Terraform, docs |
 
 **Por qué dos servicios en Python y uno en TypeScript.** La consigna exige que el backend no esté en una única tecnología y no dice más que eso. Dado el margen, conviene que el peso caiga donde el equipo es más rápido: `posts-api` concentra casi la mitad de los puntos del sistema y ponerlo en el stack menos conocido era pagar ese costo en la parte más grande. `notifications-api` es el candidato natural para el segundo lenguaje porque es el más acotado: consume la cola, habla con FCM y con el proveedor de email, y no tiene lógica de dominio propia. Además Node tiene el mejor soporte de clientes de FCM. Y como mobile y backoffice son React, el equipo toca TypeScript igual todos los días.
 
@@ -184,12 +184,12 @@ flowchart TB
             PST["posts-api<br/>FastAPI"]
             NTF["notifications-api<br/>NestJS"]
             MQ{{"RabbitMQ · exchange topic"}}
+            RED[("Redis<br/>compartido")]
         end
-        subgraph datos["Datos gestionados, fuera del cluster"]
+        subgraph datos["Datos persistentes, fuera del cluster"]
             direction LR
             PGU[("PostgreSQL<br/>users")]
             PGP[("PostgreSQL<br/>posts")]
-            RED[("Valkey<br/>compartido")]
             MDB[("MongoDB<br/>notifications")]
             OBJ[("S3<br/>media")]
         end
@@ -222,7 +222,7 @@ flowchart TB
     class PGU,PGP,RED,MDB,OBJ store
 ```
 
-Lo que el diagrama deja explícito y conviene no perder de vista: **las bases están fuera del cluster**, la única llamada sincrónica entre servicios es `posts-api` hidratando datos de autor contra `users-api`, todo lo demás cruza por la cola, y **los dos servicios de Python escriben al mismo bucket de S3 con prefijos distintos** (`avatars/` y `posts/`), cada uno dueño de lo suyo.
+Lo que el diagrama deja explícito y conviene no perder de vista: **las bases persistentes están fuera del cluster**, mientras que Redis corre adentro porque sus datos son efímeros y perderlos no cuesta nada, la única llamada sincrónica entre servicios es `posts-api` hidratando datos de autor contra `users-api`, todo lo demás cruza por la cola, y **los dos servicios de Python escriben al mismo bucket de S3 con prefijos distintos** (`avatars/` y `posts/`), cada uno dueño de lo suyo.
 
 Lo que deliberadamente **no** dibuja, para que se entienda: los eventos concretos que viajan por la cola están en el diagrama de "Comunicación entre servicios", la telemetría en el de "Observabilidad", y los proveedores externos que consume `notifications-api` son FCM para push, el proveedor de email y la Claude API para el triage de denuncias.
 
@@ -230,10 +230,10 @@ Lo que deliberadamente **no** dibuja, para que se entienda: los eventos concreto
 
 | Componente                  | Servicio de AWS                                 | A confirmar                                                                                                              |
 | --------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| Cluster                     | Amazon EKS                                      | Cerrado, ADR-004                                                                                                         |
+| Cluster                     | Amazon EKS                                      | Abierto hasta el 20 de septiembre, `D21`                                                                                 |
 | PostgreSQL de users y posts | RDS for PostgreSQL, una instancia con dos bases | Tamaño de instancia según créditos, S2                                                                                   |
 | MongoDB                     | MongoDB Atlas en capa gratuita                  | DocumentDB solo si hay créditos: cuesta varias veces más                                                                 |
-| Valkey                      | Dentro del cluster, o ElastiCache               | Los datos son efímeros: revocación, rate limit y caché. Valkey en vez de Redis: mismo protocolo, licencia BSD sin discusión y 20% más barato en ElastiCache |
+| Redis                       | Dentro del cluster                              | Los datos son efímeros: revocación, rate limit y caché. Autohospedado, no ElastiCache: el volumen del proyecto no justifica el gestionado |
 | Almacenamiento de media     | S3 con bucket privado y URLs firmadas           | Cerrado                                                                                                                  |
 | Registry de imágenes        | GitHub Container Registry                       | Cerrado, no se usa ECR para no atar el CI a AWS                                                                          |
 | DNS y certificados          | cert-manager con Let's Encrypt sobre el Gateway | Cerrado, no se usa ACM                                                                                                   |
@@ -251,16 +251,16 @@ Versiones fijadas en la revisión del 2026-08-20. Se fijan una vez y no se persi
 | TypeScript, un servicio | Node 24 LTS, NestJS 11 con adaptador Fastify, Vitest | Solo `notifications-api`. Node 24 tiene soporte hasta abril de 2028 y el cliente de FCM es el más maduro del ecosistema. Sin ORM: MongoDB con el driver oficial, que alcanza para documentos de forma variable |
 | Servidor ASGI | Uvicorn con **un worker por pod** | La escala la da el HPA, no `--workers`. Con varios workers adentro del pod, uno colgado no lo detecta ningún probe |
 | Imágenes | `python:3.13-slim` y `node:24-slim`, multi-stage, arm64 | Distroless recién en S13, cuando el pipeline esté aburrido: sin shell, depurar un pod cuesta el doble |
-| Subida de archivos | `python-multipart` con streaming a S3 vía `aioboto3`, validación por magic numbers, miniaturas con Pillow | Escrito una vez en `users-api`, copiado a `posts-api`. Reemplaza al `media-api` que se descartó |
+| Subida de archivos | `python-multipart` con streaming a S3 vía `aioboto3`, validación por magic numbers, miniaturas con Pillow | Escrito una vez en `users-api`, copiado a `posts-api` |
 
 ### `users-api`
 
-**FastAPI sobre Python. PostgreSQL, Valkey y S3.**
+**FastAPI sobre Python. PostgreSQL, Redis y S3.**
 
 Es el primer servicio en arrancar y el que desbloquea a todos los demás. Concentra todo lo que gira alrededor de la identidad.
 
 - Registro, verificación de email, login, logout.
-- Emisión y revocación de JWT, con lista de revocación en Valkey y TTL igual a la expiración del token.
+- Emisión y revocación de JWT, con lista de revocación en Redis y TTL igual a la expiración del token.
 - Lockout por intentos fallidos.
 - Recuperación y cambio de contraseña.
 - Registro de aceptación de términos.
@@ -276,7 +276,7 @@ Cubre E1-H1 a H14, más E5-H1, E5-H2 y E5-H9.
 
 ### `posts-api`
 
-**FastAPI sobre Python. PostgreSQL, Valkey y S3.**
+**FastAPI sobre Python. PostgreSQL, Redis y S3.**
 
 Concentra contenido, grafo social, feed y búsqueda. Es el servicio más grande del sistema.
 
@@ -299,7 +299,7 @@ Cubre E2-H1 a H14 y E3-H1 a H10 salvo mensajes directos.
 
 **Búsqueda:** PostgreSQL con `pg_trgm` y `tsvector`. Cubre coincidencias parciales y case-insensitive, que es lo que pide E2-H10 CA.1, sin agregar Elasticsearch al cluster.
 
-**Trending:** consulta de agregación sobre hashtags de las últimas 24 horas, cacheada en Valkey con TTL de 15 minutos, que es exactamente lo que exige E2-H11 CA.3.
+**Trending:** consulta de agregación sobre hashtags de las últimas 24 horas, cacheada en Redis con TTL de 15 minutos, que es exactamente lo que exige E2-H11 CA.3.
 
 ### `notifications-api`
 
@@ -319,12 +319,7 @@ MongoDB encaja porque las notificaciones tienen forma variable según el tipo, s
 
 ### Subida de archivos: módulo copiado, no servicio
 
-La propuesta original tenía un `media-api` aparte. Se descartó: sin base de datos propia era
-glue de I/O, y arrastraba un repositorio entero con CI, gate de cobertura, manifiestos y
-Dockerfile. El costo de llegar al 85% en un servicio de streaming, mockeando S3, no lo
-justificaba.
-
-La subida vive ahora en el servicio dueño del dato:
+La subida vive en el servicio dueño del dato:
 
 | Qué | Dónde | Prefijo en S3 |
 | --- | --- | --- |
@@ -470,7 +465,7 @@ El riesgo real de copiar no es duplicar, es **divergir en silencio**. Se mitiga 
 | ---------- | ----------- | ------------- | ------------------------------------------------------------------------------------------- |
 | PostgreSQL | Relacional  | users, posts  | Integridad referencial, transacciones, contadores atómicos, búsqueda de texto con `pg_trgm` |
 | MongoDB    | Documental  | notifications | Documentos de forma variable por tipo, escritura intensiva, lectura paginada por usuario    |
-| Valkey     | Clave-valor | users, posts  | Revocación de JWT, contadores de rate limit, presencia con TTL, caché de trending           |
+| Redis      | Clave-valor | users, posts  | Revocación de JWT, contadores de rate limit, presencia con TTL, caché de trending           |
 
 **PostgreSQL 18**, que en RDS está disponible en la minor 18.4. Trae `uuidv7()` como función nativa, y esa es la clave primaria de `posts`: mantiene los inserts append-mostly en el índice, da cursor cronológico implícito y no expone IDs adivinables en un feed público, que es lo que pasaría con `bigserial`. Hay que fijarlo antes de la primera migración, después cuesta mucho más.
 
@@ -478,7 +473,7 @@ El riesgo real de copiar no es duplicar, es **divergir en silencio**. Se mitiga 
 
 Cada servicio es dueño exclusivo de su esquema y **ningún servicio consulta la base de otro**. Esto no es purismo: es lo que hace que el desacoplamiento sea real y no solo estructura de carpetas.
 
-Las bases corren **fuera del cluster**, como servicios gestionados. Operar PostgreSQL con estado dentro de Kubernetes agrega volúmenes persistentes, backups y failover, que es una materia entera y no aporta nada a la nota. La correspondencia concreta con los servicios de AWS está en la tabla de la sección "Vista general".
+Las bases persistentes corren **fuera del cluster**, como servicios gestionados. Operar PostgreSQL con estado dentro de Kubernetes agrega volúmenes persistentes, backups y failover, que es una materia entera y no aporta nada a la nota. **Redis es la excepción y corre adentro**: guarda revocación de JWT, contadores de rate limit y caché, todo efímero y con TTL, así que perderlo ante un reinicio no rompe nada y no justifica pagar un servicio gestionado. La correspondencia concreta con los servicios de AWS está en la tabla de la sección "Vista general".
 
 Migraciones versionadas y ejecutadas como Job de Kubernetes antes del rollout: **Alembic en los dos servicios de Python**. `notifications-api` usa MongoDB y no lleva migraciones de esquema. Una sola herramienta de migraciones en todo el proyecto es una consecuencia directa de haber concentrado el backend relacional en Python, y ahorra mantener dos flujos distintos.
 
@@ -745,10 +740,10 @@ El nivel L1 de OWASP ASVS 5.0 se usa como checklist manual antes de cada entrega
 
 - Access token JWT de 15 minutos, con `sub`, `role` y `jti`. Algoritmo asimétrico (EdDSA o ES256), nunca HS256 compartido ni `alg:none`.
 - Refresh token de 7 días, en `expo-secure-store` en mobile, **con rotación en cada uso y detección de reuso**: si aparece un refresh token ya usado, se asume comprometido y se revoca la familia entera de sesiones del usuario.
-- Revocación por `jti` en Valkey, guardando el hash SHA-256 del token y no el token crudo, con TTL igual a la vida restante.
+- Revocación por `jti` en Redis, guardando el hash SHA-256 del token y no el token crudo, con TTL igual a la vida restante.
 - Cambio de contraseña, bloqueo por admin y cuenta en revisión revocan todas las sesiones.
 
-**Decisión abierta.** El JWT se elige normalmente para evitar el round-trip al almacén de sesiones, y este diseño lo hace igual para consultar la lista de revocación. Sin ese beneficio, un token opaco con la sesión en Valkey es estrictamente más simple: revoca instantáneo, sin manejo de claves de firma ni superficie de ataque de parsers. Las dos son defendibles y decide el equipo antes de S3.
+**Decisión abierta.** El JWT se elige normalmente para evitar el round-trip al almacén de sesiones, y este diseño lo hace igual para consultar la lista de revocación. Sin ese beneficio, un token opaco con la sesión en Redis es estrictamente más simple: revoca instantáneo, sin manejo de claves de firma ni superficie de ataque de parsers. Las dos son defendibles y decide el equipo antes de S3.
 
 ### Rate limiting
 
@@ -763,7 +758,7 @@ El nivel L1 de OWASP ASVS 5.0 se usa como checklist manual antes de cada entrega
 | Feedback                   | users-api     | 2 por hora por usuario (E1-H11 CA.4)       |
 | Invitaciones               | posts-api     | 10 links por día por usuario (E3-H9 CA.3)  |
 
-El middleware se implementa una vez en Python con contadores en Valkey, y se copia entre `users-api` y `posts-api` como el módulo de subida: `limits` sobre FastAPI, en vez de escribir scripts Lua a mano. `notifications-api` no expone endpoints públicos, así que no lo necesita.
+El middleware se implementa una vez en Python con contadores en Redis, y se copia entre `users-api` y `posts-api` como el módulo de subida: `limits` sobre FastAPI, en vez de escribir scripts Lua a mano. `notifications-api` no expone endpoints públicos, así que no lo necesita.
 
 Un matiz que conviene documentar y que suma en la defensa: el rate limit del Gateway es local a cada pod de NGINX, así que con tres réplicas el límite efectivo se triplica. Se corre una sola réplica para la demo y se explica por qué. La alternativa realmente distribuida exige Redis más el servicio de rate limit de Envoy, que son más piezas de las que este proyecto necesita.
 
@@ -877,22 +872,22 @@ Pendientes de definir en S1:
 | A9  | Broker de mensajes               | RabbitMQ sobre Kafka, por simplicidad operativa                                        |
 | A10 | Plan B de despliegue             | ECS con Fargate si EKS no llega. Se decide el 20 de septiembre                         |
 | A11 | Herramienta de manifiestos       | Kustomize sobre Helm                                                                   |
-| A12 | Bases dentro o fuera del cluster | Fuera, como servicios gestionados                                                      |
+| A12 | Bases dentro o fuera del cluster | Las persistentes fuera, como servicios gestionados. Redis adentro: sus datos son efímeros |
 | A13 | Observabilidad                   | Grafana Cloud, por el requisito de acceso del tutor                                    |
 | A14 | Proveedor de email               | Resend o Brevo, con dominio verificado en S1, porque el registro de S2 depende de esto |
 | A15 | Push en iOS                      | Depende de la cuenta de Apple Developer                                                |
 | A16 | Presupuesto de AWS               | Quién paga y si hay créditos. Cuentas con plan pago, y decidir si el cluster se destruye entre sprints |
 
-### Nuevas, de la revisión de frontera del 2026-08-20
+### Nuevas, de la revisión del stack del 2026-08-20
 
 | #   | Decisión                    | Estado                                                                                                                    |
 | --- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | A17 | Controller de entrada       | **Cerrada por obsolescencia**: Gateway API con NGINX Gateway Fabric. ingress-nginx está archivado desde marzo de 2026     |
 | A18 | Gestión de secretos         | **SOPS con age** en vez de Sealed Secrets, cuya clave muere al recrear el cluster                                          |
 | A19 | Clave primaria de contenido | **UUIDv7 nativo de PostgreSQL 18.** Hay que fijarlo antes de la primera migración                                         |
-| A20 | Motor clave-valor           | **Valkey** en vez de Redis: mismo protocolo, licencia BSD, más barato en ElastiCache                                       |
+| A20 | Motor clave-valor           | **Redis.** Revertida el 2026-08-23 en la revisión del PR #6 de `users-api`. La versión anterior elegía Valkey por precio en ElastiCache, que no aplica porque se autohospeda, y por licencia, que perdió peso desde que Redis 8 ofrece AGPLv3. Queda que Redis es más estándar y el equipo lo conoce |
 | A21 | Plantillas de CI            | **Reusable workflows**, no copiadas. Los contratos de eventos se siguen copiando, porque eso lo pidió el tutor            |
-| A22 | Manejo de tokens            | **Abierta, decide el equipo antes de S3**: JWT con lista de revocación, o token opaco con sesión en Valkey                |
+| A22 | Manejo de tokens            | **Abierta, decide el equipo antes de S3**: JWT con lista de revocación, o token opaco con sesión en Redis                |
 | A23 | Subida de media             | **Abierta, se decide en S6**: stream por el servicio, que cumple los criterios literales, o URL prefirmada con validación posterior. Ya no involucra un servicio aparte |
 | A24 | Acceso del tutor a Grafana  | **Abierta, se decide antes de S6**: el free tier son 3 asientos y el equipo más el tutor son 5                            |
 
