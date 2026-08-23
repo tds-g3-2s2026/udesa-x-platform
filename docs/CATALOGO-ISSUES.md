@@ -179,7 +179,7 @@ no funcionales de la consigna.
 | `T-20` | Walking skeleton desplegado y accesible en el cluster | S6 |
 | `T-22` | Definir entornos: desarrollo, staging, producción | S2 |
 | `T-23` | Presupuesto del cluster y alertas de gasto | S1 |
-| `T-24` | Formato estandarizado de respuesta de error (RFC 7807) | S1 |
+| `T-24` | Formato estandarizado de respuesta de error con Problem Details | S1 |
 | `T-25` | Versionado de API y política de cambios | S1 |
 | `T-61` | Cuentas de AWS con plan pago, budget con alertas, y confirmar con el docente si AWS Academy Learner Lab sirve | S1 |
 | `T-63` | `AGENTS.md` base y por repositorio | S1 |

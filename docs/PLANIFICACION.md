@@ -348,8 +348,8 @@ Sprint de cinco días sin puntos de historia. Todo el esfuerzo va a destrabar a 
 | `T-13` CI mínimo vía reusable workflow: lint, build y test en cada PR | sin asignar |
 | `T-17` Ramas protegidas y convención de ramas `feature-`/`fix-` | Tomás |
 | `T-23` Presupuesto del cluster y alertas de gasto | sin asignar |
-| `T-24` Formato de error RFC 7807 | sin asignar |
-| `T-25` Versionado de API y política de cambios | sin asignar |
+| `T-24` Formato de error con Problem Details | Tomás |
+| `T-25` Versionado de API y política de cambios | Tomás |
 | `T-61` Cuentas de AWS con plan pago, budget con alertas | Los cuatro |
 
 **Consultas al tutor esta semana:** qué fecha de entrega intermedia y final le toca al grupo 3, si hay créditos de AWS disponibles o aplica AWS Academy Learner Lab, y validación de los ADR y del alcance comprometido.
