@@ -100,14 +100,23 @@ El proyecto se evalúa, entre otras cosas, por si cada integrante puede explicar
 lo que entregó. Un agente que programa más rápido de lo que el equipo entiende hace perder
 esa condición sin que se note hasta la defensa. De ahí estas reglas.
 
-**Tres pasos, siempre en este orden:**
+**Cuatro pasos, siempre en este orden:**
 
-1. **Planear.** Partir de la historia de usuario y su issue. El agente arma un plan; una
+1. **Situarse.** Antes de escribir nada, traer el estado remoto y mirar `main`, las ramas
+   abiertas y los Pull Requests abiertos. No solo los del repositorio propio: el trabajo
+   transversal aparece en `udesa-x-platform` y puede tocar los seis. Si ya hay una rama o un
+   PR sobre los mismos archivos, se habla con quien lo abrió antes de empezar. Repetir el
+   chequeo antes de commitear, porque el estado pudo cambiar mientras tanto.
+2. **Planear.** Partir de la historia de usuario y su issue. El agente arma un plan; una
    persona lo lee y lo corrige antes de que se escriba una línea de código.
-2. **Ejecutar y verificar.** Se ejecuta el plan y se corren los checks del repo. Si un check
+3. **Ejecutar y verificar.** Se ejecuta el plan y se corren los checks del repo. Si un check
    falla, se arregla antes de seguir.
-3. **Mergear.** Lo hace una persona: commit, PR con la explicación completa, revisión de
+4. **Mergear.** Lo hace una persona: commit, PR con la explicación completa, revisión de
    otro integrante, merge.
+
+Saltear el primer paso ya costó trabajo duplicado: dos personas editaron los mismos archivos
+porque había una rama pusheada que nadie miró. Con seis repositorios y cuatro personas, el
+estado del proyecto nunca es el que uno recuerda.
 
 **Antes de cada merge**, correr la skill `explicar-implementacion` y pegar su salida en el
 PR. La escribe el agente, la revisa y la firma la persona.

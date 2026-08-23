@@ -30,6 +30,20 @@ Los seis son **públicos** desde el 2026-08-21. En el plan gratuito GitHub habil
 protegidas, secrets de organización y minutos de Actions ilimitados solo en repos públicos:
 con repos privados, la regla de `main` protegida que sigue no se puede aplicar.
 
+## Antes de empezar
+
+Antes de crear una rama o escribir código, traer el estado remoto y revisar `main`, las ramas
+abiertas y los Pull Requests abiertos. **No solo los del repositorio propio**: lo transversal
+vive en `udesa-x-platform` y puede tocar los seis.
+
+Si ya hay una rama o un PR sobre los mismos archivos, se habla con quien lo abrió antes de
+empezar. El chequeo se repite antes de commitear, porque el estado pudo cambiar mientras
+tanto.
+
+Saltear esto ya costó trabajo duplicado: dos personas editaron los mismos archivos porque
+había una rama pusheada que nadie miró. Con seis repositorios y cuatro personas, el estado del
+proyecto nunca es el que uno recuerda.
+
 ## Ramas
 
 **(tutor)** Rama base `main`. Funcionalidad: `feature-<nombre>`. Fix sin funcionalidad:
