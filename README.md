@@ -10,7 +10,7 @@ Toda la documentación base del proyecto está centralizada en [`docs/`](./docs/
 - [`docs/ARQUITECTURA.md`](./docs/ARQUITECTURA.md): Arquitectura de referencia del sistema, mapa de servicios, stack tecnológico, comunicaciones, persistencia, observabilidad y seguridad (OWASP Top 10:2025).
 - [`docs/PLANIFICACION.md`](./docs/PLANIFICACION.md): Plan de trabajo del semestre dividido en 15 sprints semanales, reparto de historias por integrante, gestión en GitHub Projects y análisis de riesgos.
 - [`docs/CONVENCIONES.md`](./docs/CONVENCIONES.md): Reglas de trabajo del equipo y guidelines del tutor: repositorios, ramas, issues, labels, milestones, PRs y sincronización entre repos. Es la fuente del bloque común de los `AGENTS.md`.
-- [`docs/REVISION-FRONTERA.md`](./docs/REVISION-FRONTERA.md): Auditoría del stack tecnológico contra fuentes primarias (2026-08-19), costos de infraestructura y justificación de decisiones técnicas.
+- [`docs/CATALOGO-ISSUES.md`](./docs/CATALOGO-ISSUES.md): Inventario de las issues del semestre con sus identificadores `T-XX`, `AI-XX` y `DXX`, y estado del tablero. Es lo que da sentido a las referencias `T-XX` de la planificación.
 
 Además, [`AGENTS.md`](./AGENTS.md) es el punto de entrada para trabajar en este repo, con o sin agente: mapa, reglas del equipo y checks.
 
@@ -27,13 +27,10 @@ udesa-x-platform/
 │   ├── PLANIFICACION.md       # Sprints, roles, reparto y riesgos
 │   ├── ARQUITECTURA.md        # Diseño de referencia y mapa técnico
 │   ├── CONVENCIONES.md        # Reglas de trabajo del equipo
-│   ├── REVISION-FRONTERA.md   # Auditoría de versiones y decisiones
-│   ├── adr/                   # Architecture Decision Records
-│   ├── eventos/               # Esquemas JSON Schema fuente de eventos
+│   ├── CATALOGO-ISSUES.md     # Inventario de issues del semestre
+│   ├── adr/                   # Decisiones de arquitectura, una por archivo
 │   ├── actas/                 # Minutas de reuniones de seguimiento
 │   └── retros/                # Retrospectivas semanales
-├── k8s/                       # Manifiestos de Kubernetes compartidos y Gateway API
-├── terraform/                 # Definición de infraestructura como código (EKS, RDS, etc.)
 ├── compose/                   # Docker Compose integrado para ambiente local completo
 ├── templates/
 │   └── repo-servicio/         # Plantilla de repositorio de servicio
@@ -46,7 +43,7 @@ udesa-x-platform/
 
 ## Mapa de repositorios de la organización
 
-La solución se estructura en seis repositorios bajo la organización `tds-g3-2s2026`:
+La solución se estructura en seis repositorios bajo la organización `tds-g3-2s2026`, todos públicos (ver [ADR-003](./docs/adr/ADR-003-repositorios-publicos.md)):
 
 | Repositorio | Descripción | Stack principal |
 |---|---|---|

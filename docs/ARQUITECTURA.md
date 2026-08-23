@@ -2,21 +2,21 @@
 
 ## Estado de este documento
 
-Propuesta de arquitectura, con tres decisiones ya confirmadas por el tutor en Slack el día 2026-08-19 y una cuarta impuesta por el calendario de la materia:
+Propuesta de arquitectura. Dos decisiones las respondió el tutor por Slack el 2026-08-19, una tercera se apoya en una mención suya al pasar y falta confirmarla, y la cuarta la impone el calendario de la materia:
 
 1. **Un repositorio por servicio.** Cada repo lleva sus tests y coverage, su pipeline de CI, sus scripts, su Docker y compose de desarrollo, y sus manifiestos de Kubernetes.
-2. **Kubernetes** como plataforma de despliegue.
+2. **Kubernetes** como plataforma de despliegue. Sin cerrar: el tutor lo nombró al listar qué lleva cada repo de servicio, no como respuesta a una pregunta sobre despliegue. Hay que confirmarlo antes de escribir el primer manifiesto, en S5.
 3. **Los contratos de eventos se copian** entre repos. Recomendación textual del tutor: copiar en lugar de armar librerías, para no pelear con empaquetado y publicación.
-4. **AWS con EKS** como proveedor de nube. El cronograma dedica la clase del 21 de septiembre a deployar en EKS y la entrega intermedia del 28 de septiembre exige el sistema "desplegado en AWS". No es una elección abiert a.
+4. **AWS con EKS** como proveedor de nube. El cronograma dedica la clase del 21 de septiembre a deployar en EKS y la entrega intermedia del 28 de septiembre exige el sistema "desplegado en AWS". Sigue abierta como `D21` hasta el 20 de septiembre: hasta no haber cursado esa clase el equipo no puede justificar la elección, y ECS con Fargate es el plan B.
 
 El resto sigue sujeto a validación en S1. Cada decisión relevante debe quedar como ADR en el repositorio de plataforma.
 
-**Revisión del equipo del 2026-08-20.** Se acordaron dos cambios de fondo sobre la propuesta original, que están incorporados a todo el documento:
+**Decisiones del equipo del 2026-08-20**, incorporadas a todo el documento:
 
-1. **El reparto de lenguajes se invierte.** `users-api` y `posts-api` pasan a Python con FastAPI, y `notifications-api` queda en TypeScript con NestJS. El requisito de la consigna es que el backend no esté en una única tecnología; no dice cuál lleva más peso. Con la propuesta anterior el servicio más grande del sistema quedaba en el stack menos frecuentado por el equipo.
-2. **`media-api` deja de ser un servicio.** La subida de archivos se resuelve dentro de `users-api` y `posts-api`, con el módulo de streaming escrito una vez y copiado. Se pasa de siete repositorios a seis.
+1. **Python es el stack principal del backend.** `users-api` y `posts-api` van en Python con FastAPI, y `notifications-api` en TypeScript con NestJS. La consigna pide que el backend no esté en una única tecnología y no dice cuál lleva más peso: conviene que el servicio más grande quede en el stack que el equipo maneja mejor.
+2. **No hay `media-api`.** La subida de archivos se resuelve dentro de `users-api` y `posts-api`, con el módulo de streaming escrito una vez y copiado. Son seis repositorios.
 
-**Revisión de frontera del 2026-08-20.** Cada pieza del stack se contrastó contra fuentes primarias en esa fecha. El detalle, con tradeoffs y alternativas descartadas, está en `REVISION-FRONTERA.md`. Los cambios ya están incorporados a este documento; el más importante es que **el NGINX Ingress Controller está archivado desde marzo de 2026** y se reemplaza por Gateway API.
+**Revisión del stack del 2026-08-20.** Cada pieza se contrastó contra fuentes primarias y las conclusiones están incorporadas a este documento. La más importante: **el NGINX Ingress Controller está archivado desde marzo de 2026**, así que la entrada del cluster va con Gateway API.
 
 El criterio que gobierna el documento: **elegir lo más simple que cumpla el requisito**. Cuatro personas en quince sprints semanales no pueden pagar el costo operativo de una arquitectura sofisticada, y con un repo por servicio ese costo se multiplica por servicio.
 
@@ -43,7 +43,7 @@ El criterio que gobierna el documento: **elegir lo más simple que cumpla el req
 
 ## Mapa de repositorios
 
-Seis repositorios en `tds-g3-2s2026`. Cuatro ya existen y se conservan.
+Seis repositorios en `tds-g3-2s2026`, todos creados y **públicos** desde el 2026-08-21. La visibilidad no es cosmética: en el plan gratuito, GitHub habilita ramas protegidas, reglas de repositorio, secrets de organización y minutos de Actions ilimitados solo en repos públicos.
 
 | Repositorio                 | Estado    | Contenido                                          | Stack                      |
 | --------------------------- | --------- | -------------------------------------------------- | -------------------------- |
@@ -51,8 +51,8 @@ Seis repositorios en `tds-g3-2s2026`. Cuatro ya existen y se conservan.
 | `udesa-x-backoffice`        | existe    | Backoffice web                                     | React + Vite               |
 | `udesa-x-users-api`         | existe    | Identidad, perfiles, administradores, avatares     | FastAPI + Python           |
 | `udesa-x-posts-api`         | existe    | Contenido, grafo social, feed, búsqueda, imágenes  | FastAPI + Python           |
-| `udesa-x-notifications-api` | **crear** | Push, centro in-app, emails, triage de IA          | NestJS + TypeScript        |
-| `udesa-x-platform`          | **crear** | Gestión, documentación, infraestructura compartida | Kustomize, Terraform, docs |
+| `udesa-x-notifications-api` | existe    | Push, centro in-app, emails, triage de IA          | NestJS + TypeScript        |
+| `udesa-x-platform`          | existe    | Gestión, documentación, infraestructura compartida | Kustomize, Terraform, docs |
 
 **Por qué dos servicios en Python y uno en TypeScript.** La consigna exige que el backend no esté en una única tecnología y no dice más que eso. Dado el margen, conviene que el peso caiga donde el equipo es más rápido: `posts-api` concentra casi la mitad de los puntos del sistema y ponerlo en el stack menos conocido era pagar ese costo en la parte más grande. `notifications-api` es el candidato natural para el segundo lenguaje porque es el más acotado: consume la cola, habla con FCM y con el proveedor de email, y no tiene lógica de dominio propia. Además Node tiene el mejor soporte de clientes de FCM. Y como mobile y backoffice son React, el equipo toca TypeScript igual todos los días.
 
@@ -230,7 +230,7 @@ Lo que deliberadamente **no** dibuja, para que se entienda: los eventos concreto
 
 | Componente                  | Servicio de AWS                                 | A confirmar                                                                                                              |
 | --------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| Cluster                     | Amazon EKS                                      | Cerrado, ADR-004                                                                                                         |
+| Cluster                     | Amazon EKS                                      | Abierto hasta el 20 de septiembre, `D21`                                                                                 |
 | PostgreSQL de users y posts | RDS for PostgreSQL, una instancia con dos bases | Tamaño de instancia según créditos, S2                                                                                   |
 | MongoDB                     | MongoDB Atlas en capa gratuita                  | DocumentDB solo si hay créditos: cuesta varias veces más                                                                 |
 | Valkey                      | Dentro del cluster, o ElastiCache               | Los datos son efímeros: revocación, rate limit y caché. Valkey en vez de Redis: mismo protocolo, licencia BSD sin discusión y 20% más barato en ElastiCache |
@@ -251,7 +251,7 @@ Versiones fijadas en la revisión del 2026-08-20. Se fijan una vez y no se persi
 | TypeScript, un servicio | Node 24 LTS, NestJS 11 con adaptador Fastify, Vitest | Solo `notifications-api`. Node 24 tiene soporte hasta abril de 2028 y el cliente de FCM es el más maduro del ecosistema. Sin ORM: MongoDB con el driver oficial, que alcanza para documentos de forma variable |
 | Servidor ASGI | Uvicorn con **un worker por pod** | La escala la da el HPA, no `--workers`. Con varios workers adentro del pod, uno colgado no lo detecta ningún probe |
 | Imágenes | `python:3.13-slim` y `node:24-slim`, multi-stage, arm64 | Distroless recién en S13, cuando el pipeline esté aburrido: sin shell, depurar un pod cuesta el doble |
-| Subida de archivos | `python-multipart` con streaming a S3 vía `aioboto3`, validación por magic numbers, miniaturas con Pillow | Escrito una vez en `users-api`, copiado a `posts-api`. Reemplaza al `media-api` que se descartó |
+| Subida de archivos | `python-multipart` con streaming a S3 vía `aioboto3`, validación por magic numbers, miniaturas con Pillow | Escrito una vez en `users-api`, copiado a `posts-api` |
 
 ### `users-api`
 
@@ -319,12 +319,7 @@ MongoDB encaja porque las notificaciones tienen forma variable según el tipo, s
 
 ### Subida de archivos: módulo copiado, no servicio
 
-La propuesta original tenía un `media-api` aparte. Se descartó: sin base de datos propia era
-glue de I/O, y arrastraba un repositorio entero con CI, gate de cobertura, manifiestos y
-Dockerfile. El costo de llegar al 85% en un servicio de streaming, mockeando S3, no lo
-justificaba.
-
-La subida vive ahora en el servicio dueño del dato:
+La subida vive en el servicio dueño del dato:
 
 | Qué | Dónde | Prefijo en S3 |
 | --- | --- | --- |
@@ -883,7 +878,7 @@ Pendientes de definir en S1:
 | A15 | Push en iOS                      | Depende de la cuenta de Apple Developer                                                |
 | A16 | Presupuesto de AWS               | Quién paga y si hay créditos. Cuentas con plan pago, y decidir si el cluster se destruye entre sprints |
 
-### Nuevas, de la revisión de frontera del 2026-08-20
+### Nuevas, de la revisión del stack del 2026-08-20
 
 | #   | Decisión                    | Estado                                                                                                                    |
 | --- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
