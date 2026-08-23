@@ -50,8 +50,8 @@ La solución se estructura en seis repositorios bajo la organización `tds-g3-2s
 | `udesa-x-platform` | Gestión central, docs, infra compartida, CI/CD reusable | Kustomize, Terraform, GitHub Actions |
 | `udesa-x-mobile` | Aplicación mobile para usuarios finales | React Native + Expo, TanStack Query, Zustand |
 | `udesa-x-backoffice` | Panel web de administración y moderación | React 19 + Vite 8 + Mantine |
-| `udesa-x-users-api` | Identidad, autenticación, perfiles, administradores y avatares | FastAPI + Python 3.13, PostgreSQL 18, Valkey, S3 |
-| `udesa-x-posts-api` | Contenido, grafo social, feed cronológico, búsqueda e imágenes de post | FastAPI + Python 3.13, PostgreSQL 18, Valkey, S3 |
+| `udesa-x-users-api` | Identidad, autenticación, perfiles, administradores y avatares | FastAPI + Python 3.13, PostgreSQL 18, Redis, S3 |
+| `udesa-x-posts-api` | Contenido, grafo social, feed cronológico, búsqueda e imágenes de post | FastAPI + Python 3.13, PostgreSQL 18, Redis, S3 |
 | `udesa-x-notifications-api` | Notificaciones push (FCM), historial in-app, emails y triage IA | NestJS 11 + TypeScript, MongoDB Atlas |
 
 Dos decisiones del 2026-08-20 explican este mapa y están justificadas en [`ARQUITECTURA.md`](./docs/ARQUITECTURA.md):

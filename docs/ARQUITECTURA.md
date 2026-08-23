@@ -27,7 +27,7 @@ El criterio que gobierna el documento: **elegir lo más simple que cumpla el req
 | App principal exclusivamente mobile         | React Native con Expo                                                     |
 | Backoffice como aplicación web              | React + Vite, SPA                                                         |
 | Arquitectura de microservicios              | 3 servicios backend, un repositorio cada uno, despliegue independiente    |
-| Al menos dos tipos de base de datos         | PostgreSQL (relacional), MongoDB (documental), Valkey (clave-valor)      |
+| Al menos dos tipos de base de datos         | PostgreSQL (relacional), MongoDB (documental), Redis (clave-valor)      |
 | Backend en más de una tecnología            | Python con FastAPI en `users` y `posts`, TypeScript con NestJS en `notifications` |
 | Desplegada en entorno productivo en la nube | Kubernetes gestionado                                                     |
 | Cada microservicio contenedorizado          | Dockerfile en cada repo, imágenes versionadas en el registry              |
@@ -189,7 +189,7 @@ flowchart TB
             direction LR
             PGU[("PostgreSQL<br/>users")]
             PGP[("PostgreSQL<br/>posts")]
-            RED[("Valkey<br/>compartido")]
+            RED[("Redis<br/>compartido")]
             MDB[("MongoDB<br/>notifications")]
             OBJ[("S3<br/>media")]
         end
@@ -233,7 +233,7 @@ Lo que deliberadamente **no** dibuja, para que se entienda: los eventos concreto
 | Cluster                     | Amazon EKS                                      | Abierto hasta el 20 de septiembre, `D21`                                                                                 |
 | PostgreSQL de users y posts | RDS for PostgreSQL, una instancia con dos bases | Tamaño de instancia según créditos, S2                                                                                   |
 | MongoDB                     | MongoDB Atlas en capa gratuita                  | DocumentDB solo si hay créditos: cuesta varias veces más                                                                 |
-| Valkey                      | Dentro del cluster, o ElastiCache               | Los datos son efímeros: revocación, rate limit y caché. Valkey en vez de Redis: mismo protocolo, licencia BSD sin discusión y 20% más barato en ElastiCache |
+| Redis                       | Dentro del cluster                              | Los datos son efímeros: revocación, rate limit y caché. Autohospedado, no ElastiCache: el volumen del proyecto no justifica el gestionado |
 | Almacenamiento de media     | S3 con bucket privado y URLs firmadas           | Cerrado                                                                                                                  |
 | Registry de imágenes        | GitHub Container Registry                       | Cerrado, no se usa ECR para no atar el CI a AWS                                                                          |
 | DNS y certificados          | cert-manager con Let's Encrypt sobre el Gateway | Cerrado, no se usa ACM                                                                                                   |
@@ -255,12 +255,12 @@ Versiones fijadas en la revisión del 2026-08-20. Se fijan una vez y no se persi
 
 ### `users-api`
 
-**FastAPI sobre Python. PostgreSQL, Valkey y S3.**
+**FastAPI sobre Python. PostgreSQL, Redis y S3.**
 
 Es el primer servicio en arrancar y el que desbloquea a todos los demás. Concentra todo lo que gira alrededor de la identidad.
 
 - Registro, verificación de email, login, logout.
-- Emisión y revocación de JWT, con lista de revocación en Valkey y TTL igual a la expiración del token.
+- Emisión y revocación de JWT, con lista de revocación en Redis y TTL igual a la expiración del token.
 - Lockout por intentos fallidos.
 - Recuperación y cambio de contraseña.
 - Registro de aceptación de términos.
@@ -276,7 +276,7 @@ Cubre E1-H1 a H14, más E5-H1, E5-H2 y E5-H9.
 
 ### `posts-api`
 
-**FastAPI sobre Python. PostgreSQL, Valkey y S3.**
+**FastAPI sobre Python. PostgreSQL, Redis y S3.**
 
 Concentra contenido, grafo social, feed y búsqueda. Es el servicio más grande del sistema.
 
@@ -299,7 +299,7 @@ Cubre E2-H1 a H14 y E3-H1 a H10 salvo mensajes directos.
 
 **Búsqueda:** PostgreSQL con `pg_trgm` y `tsvector`. Cubre coincidencias parciales y case-insensitive, que es lo que pide E2-H10 CA.1, sin agregar Elasticsearch al cluster.
 
-**Trending:** consulta de agregación sobre hashtags de las últimas 24 horas, cacheada en Valkey con TTL de 15 minutos, que es exactamente lo que exige E2-H11 CA.3.
+**Trending:** consulta de agregación sobre hashtags de las últimas 24 horas, cacheada en Redis con TTL de 15 minutos, que es exactamente lo que exige E2-H11 CA.3.
 
 ### `notifications-api`
 
@@ -465,7 +465,7 @@ El riesgo real de copiar no es duplicar, es **divergir en silencio**. Se mitiga 
 | ---------- | ----------- | ------------- | ------------------------------------------------------------------------------------------- |
 | PostgreSQL | Relacional  | users, posts  | Integridad referencial, transacciones, contadores atómicos, búsqueda de texto con `pg_trgm` |
 | MongoDB    | Documental  | notifications | Documentos de forma variable por tipo, escritura intensiva, lectura paginada por usuario    |
-| Valkey     | Clave-valor | users, posts  | Revocación de JWT, contadores de rate limit, presencia con TTL, caché de trending           |
+| Redis      | Clave-valor | users, posts  | Revocación de JWT, contadores de rate limit, presencia con TTL, caché de trending           |
 
 **PostgreSQL 18**, que en RDS está disponible en la minor 18.4. Trae `uuidv7()` como función nativa, y esa es la clave primaria de `posts`: mantiene los inserts append-mostly en el índice, da cursor cronológico implícito y no expone IDs adivinables en un feed público, que es lo que pasaría con `bigserial`. Hay que fijarlo antes de la primera migración, después cuesta mucho más.
 
@@ -740,10 +740,10 @@ El nivel L1 de OWASP ASVS 5.0 se usa como checklist manual antes de cada entrega
 
 - Access token JWT de 15 minutos, con `sub`, `role` y `jti`. Algoritmo asimétrico (EdDSA o ES256), nunca HS256 compartido ni `alg:none`.
 - Refresh token de 7 días, en `expo-secure-store` en mobile, **con rotación en cada uso y detección de reuso**: si aparece un refresh token ya usado, se asume comprometido y se revoca la familia entera de sesiones del usuario.
-- Revocación por `jti` en Valkey, guardando el hash SHA-256 del token y no el token crudo, con TTL igual a la vida restante.
+- Revocación por `jti` en Redis, guardando el hash SHA-256 del token y no el token crudo, con TTL igual a la vida restante.
 - Cambio de contraseña, bloqueo por admin y cuenta en revisión revocan todas las sesiones.
 
-**Decisión abierta.** El JWT se elige normalmente para evitar el round-trip al almacén de sesiones, y este diseño lo hace igual para consultar la lista de revocación. Sin ese beneficio, un token opaco con la sesión en Valkey es estrictamente más simple: revoca instantáneo, sin manejo de claves de firma ni superficie de ataque de parsers. Las dos son defendibles y decide el equipo antes de S3.
+**Decisión abierta.** El JWT se elige normalmente para evitar el round-trip al almacén de sesiones, y este diseño lo hace igual para consultar la lista de revocación. Sin ese beneficio, un token opaco con la sesión en Redis es estrictamente más simple: revoca instantáneo, sin manejo de claves de firma ni superficie de ataque de parsers. Las dos son defendibles y decide el equipo antes de S3.
 
 ### Rate limiting
 
@@ -758,7 +758,7 @@ El nivel L1 de OWASP ASVS 5.0 se usa como checklist manual antes de cada entrega
 | Feedback                   | users-api     | 2 por hora por usuario (E1-H11 CA.4)       |
 | Invitaciones               | posts-api     | 10 links por día por usuario (E3-H9 CA.3)  |
 
-El middleware se implementa una vez en Python con contadores en Valkey, y se copia entre `users-api` y `posts-api` como el módulo de subida: `limits` sobre FastAPI, en vez de escribir scripts Lua a mano. `notifications-api` no expone endpoints públicos, así que no lo necesita.
+El middleware se implementa una vez en Python con contadores en Redis, y se copia entre `users-api` y `posts-api` como el módulo de subida: `limits` sobre FastAPI, en vez de escribir scripts Lua a mano. `notifications-api` no expone endpoints públicos, así que no lo necesita.
 
 Un matiz que conviene documentar y que suma en la defensa: el rate limit del Gateway es local a cada pod de NGINX, así que con tres réplicas el límite efectivo se triplica. Se corre una sola réplica para la demo y se explica por qué. La alternativa realmente distribuida exige Redis más el servicio de rate limit de Envoy, que son más piezas de las que este proyecto necesita.
 
@@ -885,9 +885,9 @@ Pendientes de definir en S1:
 | A17 | Controller de entrada       | **Cerrada por obsolescencia**: Gateway API con NGINX Gateway Fabric. ingress-nginx está archivado desde marzo de 2026     |
 | A18 | Gestión de secretos         | **SOPS con age** en vez de Sealed Secrets, cuya clave muere al recrear el cluster                                          |
 | A19 | Clave primaria de contenido | **UUIDv7 nativo de PostgreSQL 18.** Hay que fijarlo antes de la primera migración                                         |
-| A20 | Motor clave-valor           | **Valkey** en vez de Redis: mismo protocolo, licencia BSD, más barato en ElastiCache                                       |
+| A20 | Motor clave-valor           | **Redis.** Revertida el 2026-08-23 en la revisión del PR #6 de `users-api`. La versión anterior elegía Valkey por precio en ElastiCache, que no aplica porque se autohospeda, y por licencia, que perdió peso desde que Redis 8 ofrece AGPLv3. Queda que Redis es más estándar y el equipo lo conoce |
 | A21 | Plantillas de CI            | **Reusable workflows**, no copiadas. Los contratos de eventos se siguen copiando, porque eso lo pidió el tutor            |
-| A22 | Manejo de tokens            | **Abierta, decide el equipo antes de S3**: JWT con lista de revocación, o token opaco con sesión en Valkey                |
+| A22 | Manejo de tokens            | **Abierta, decide el equipo antes de S3**: JWT con lista de revocación, o token opaco con sesión en Redis                |
 | A23 | Subida de media             | **Abierta, se decide en S6**: stream por el servicio, que cumple los criterios literales, o URL prefirmada con validación posterior. Ya no involucra un servicio aparte |
 | A24 | Acceso del tutor a Grafana  | **Abierta, se decide antes de S6**: el free tier son 3 asientos y el equipo más el tutor son 5                            |
 

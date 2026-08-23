@@ -219,7 +219,7 @@ Los 17 requisitos de `CONSIGNA.md`, con el sprint donde quedan demostrables. Nin
 | App principal exclusivamente mobile | React Native con Expo | S2 esqueleto, S5 flujo completo |
 | Backoffice como aplicación web | React con Vite | S2 |
 | Arquitectura de microservicios | 3 servicios, un repositorio cada uno, despliegue independiente | S1 a S4 |
-| Al menos dos tipos de base de datos | PostgreSQL, MongoDB y Valkey | S2 |
+| Al menos dos tipos de base de datos | PostgreSQL, MongoDB y Redis | S2 |
 | Backend en más de una tecnología | FastAPI con Python en `users` y `posts`, NestJS con TypeScript en `notifications` | S1 y S4 |
 | Desplegada en entorno productivo en la nube | EKS en AWS | S5 cluster, S6 productivo |
 | Cada microservicio contenedorizado con Docker | Dockerfile por repo, imágenes versionadas por SHA | S1 a S4 |
@@ -343,7 +343,7 @@ Sprint de cinco días sin puntos de historia. Todo el esfuerzo va a destrabar a 
 | `T-67` Script de sincronización de comunes y convención de tags | Fede |
 | `T-02` Definir límites, responsables y contratos de cada servicio | Los cuatro, sesión conjunta |
 | `T-05` Plantilla de repositorio de servicio: estructura, Dockerfile, scripts, reusable workflows | Fede |
-| `T-06` `docker-compose.dev.yml` en `users-api` con PostgreSQL y Valkey | sin asignar |
+| `T-06` `docker-compose.dev.yml` en `users-api` con PostgreSQL y Redis | Tomás |
 | `T-08` `/healthcheck` estandarizado, con dependencias verificadas | sin asignar |
 | `T-13` CI mínimo vía reusable workflow: lint, build y test en cada PR | sin asignar |
 | `T-17` Ramas protegidas y convención de ramas `feature-`/`fix-` | Tomás |
@@ -753,7 +753,7 @@ Cada una necesita dueño y fecha de resolución. Se cargan como issues con la la
 | D20 | Presupuesto de AWS | Queda abierto quién paga: el control plane no escala a cero (73 USD/mes fijos), una config razonable ronda 166 USD/mes, y la palanca real es destruir y recrear el cluster entre sprints (~9 USD/mes apagado). Definir en S1: cuentas con plan pago, una por integrante, y confirmar con el docente si AWS Academy Learner Lab sirve. |
 | D21 | Plan B si EKS se complica | Definir el 20 de septiembre, no después: ECS con Fargate cumple el requisito de contenedores y despliegue productivo sin exigir Kubernetes, a costa de perder el alineamiento con las clases de Cloud Computing. Además es cuatro veces más barato: entre 34 y 44 USD/mes contra 147 de EKS. **App Runner ya no es opción**, está cerrado a clientes nuevos. |
 | D22 | Sincronización de contratos copiados | El tutor indicó copiar los esquemas en vez de empaquetarlos. Definir el script de sincronización y el test de contrato que detecta divergencia. |
-| D23 | Autenticación: JWT con denylist vs. token opaco | Ambas hacen round-trip a Valkey en cada request, así que el argumento clásico a favor de JWT se cae. Decide el equipo. |
+| D23 | Autenticación: JWT con denylist vs. token opaco | Ambas hacen round-trip a Redis en cada request, así que el argumento clásico a favor de JWT se cae. Decide el equipo. |
 | D24 | Subida de media: stream vs. presigned URL | Stream cumple E1-H8 CA.7 y CA.3 al pie de la letra; presigned URL con validación posterior es mejor práctica pero incumple esos criterios como están redactados. Ver `T-31`. |
 | D25 | Acceso del tutor a Grafana Cloud con 3 asientos | El free tier son 3 usuarios y el equipo más el tutor son 5. Opciones: dashboards públicos, asientos rotativos, o Honeycomb como complemento. |
 | D26 | UUIDv7 como PK de posts | PostgreSQL 18 lo trae nativo (`uuidv7()`). Decidir antes de la primera migración, después sale más caro. |
