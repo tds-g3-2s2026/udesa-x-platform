@@ -184,12 +184,12 @@ flowchart TB
             PST["posts-api<br/>FastAPI"]
             NTF["notifications-api<br/>NestJS"]
             MQ{{"RabbitMQ · exchange topic"}}
+            RED[("Redis<br/>compartido")]
         end
-        subgraph datos["Datos gestionados, fuera del cluster"]
+        subgraph datos["Datos persistentes, fuera del cluster"]
             direction LR
             PGU[("PostgreSQL<br/>users")]
             PGP[("PostgreSQL<br/>posts")]
-            RED[("Redis<br/>compartido")]
             MDB[("MongoDB<br/>notifications")]
             OBJ[("S3<br/>media")]
         end
@@ -222,7 +222,7 @@ flowchart TB
     class PGU,PGP,RED,MDB,OBJ store
 ```
 
-Lo que el diagrama deja explícito y conviene no perder de vista: **las bases están fuera del cluster**, la única llamada sincrónica entre servicios es `posts-api` hidratando datos de autor contra `users-api`, todo lo demás cruza por la cola, y **los dos servicios de Python escriben al mismo bucket de S3 con prefijos distintos** (`avatars/` y `posts/`), cada uno dueño de lo suyo.
+Lo que el diagrama deja explícito y conviene no perder de vista: **las bases persistentes están fuera del cluster**, mientras que Redis corre adentro porque sus datos son efímeros y perderlos no cuesta nada, la única llamada sincrónica entre servicios es `posts-api` hidratando datos de autor contra `users-api`, todo lo demás cruza por la cola, y **los dos servicios de Python escriben al mismo bucket de S3 con prefijos distintos** (`avatars/` y `posts/`), cada uno dueño de lo suyo.
 
 Lo que deliberadamente **no** dibuja, para que se entienda: los eventos concretos que viajan por la cola están en el diagrama de "Comunicación entre servicios", la telemetría en el de "Observabilidad", y los proveedores externos que consume `notifications-api` son FCM para push, el proveedor de email y la Claude API para el triage de denuncias.
 
@@ -473,7 +473,7 @@ El riesgo real de copiar no es duplicar, es **divergir en silencio**. Se mitiga 
 
 Cada servicio es dueño exclusivo de su esquema y **ningún servicio consulta la base de otro**. Esto no es purismo: es lo que hace que el desacoplamiento sea real y no solo estructura de carpetas.
 
-Las bases corren **fuera del cluster**, como servicios gestionados. Operar PostgreSQL con estado dentro de Kubernetes agrega volúmenes persistentes, backups y failover, que es una materia entera y no aporta nada a la nota. La correspondencia concreta con los servicios de AWS está en la tabla de la sección "Vista general".
+Las bases persistentes corren **fuera del cluster**, como servicios gestionados. Operar PostgreSQL con estado dentro de Kubernetes agrega volúmenes persistentes, backups y failover, que es una materia entera y no aporta nada a la nota. **Redis es la excepción y corre adentro**: guarda revocación de JWT, contadores de rate limit y caché, todo efímero y con TTL, así que perderlo ante un reinicio no rompe nada y no justifica pagar un servicio gestionado. La correspondencia concreta con los servicios de AWS está en la tabla de la sección "Vista general".
 
 Migraciones versionadas y ejecutadas como Job de Kubernetes antes del rollout: **Alembic en los dos servicios de Python**. `notifications-api` usa MongoDB y no lleva migraciones de esquema. Una sola herramienta de migraciones en todo el proyecto es una consecuencia directa de haber concentrado el backend relacional en Python, y ahorra mantener dos flujos distintos.
 
@@ -872,7 +872,7 @@ Pendientes de definir en S1:
 | A9  | Broker de mensajes               | RabbitMQ sobre Kafka, por simplicidad operativa                                        |
 | A10 | Plan B de despliegue             | ECS con Fargate si EKS no llega. Se decide el 20 de septiembre                         |
 | A11 | Herramienta de manifiestos       | Kustomize sobre Helm                                                                   |
-| A12 | Bases dentro o fuera del cluster | Fuera, como servicios gestionados                                                      |
+| A12 | Bases dentro o fuera del cluster | Las persistentes fuera, como servicios gestionados. Redis adentro: sus datos son efímeros |
 | A13 | Observabilidad                   | Grafana Cloud, por el requisito de acceso del tutor                                    |
 | A14 | Proveedor de email               | Resend o Brevo, con dominio verificado en S1, porque el registro de S2 depende de esto |
 | A15 | Push en iOS                      | Depende de la cuenta de Apple Developer                                                |
