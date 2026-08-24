@@ -362,6 +362,77 @@ REST sobre HTTP con JSON, solo cuando la respuesta se necesita dentro del reques
 
 Toda llamada sincrónica lleva timeout, reintento con backoff y comportamiento definido ante fallo del destino. En Kubernetes esto se apoya en los probes: un servicio sin `readinessProbe` en verde no recibe tráfico.
 
+### Formato de error
+
+Todas las respuestas de error de los tres servicios usan **Problem Details**, definido por la
+RFC 9457, que obsoleta a la RFC 7807 y conserva el mismo medio: `application/problem+json`.
+
+```json
+{
+  "type": "https://udesa-x.dev/errors/validation-failed",
+  "title": "La solicitud tiene campos inválidos",
+  "status": 422,
+  "detail": "El handle debe tener entre 4 y 15 caracteres",
+  "instance": "/v1/users",
+  "traceId": "0af7651916cd43dd8448eb211c80319c",
+  "errors": [{ "field": "handle", "message": "longitud fuera de rango" }]
+}
+```
+
+Los cinco primeros campos son los de la RFC. El equipo agrega dos:
+
+| Campo | Para qué |
+|---|---|
+| `traceId` | El `trace_id` de OpenTelemetry. Es lo que permite que alguien reporte un error y se llegue a la traza exacta sin buscar por timestamp |
+| `errors` | Solo en validación. Una entrada por campo, para que el cliente marque los inputs sin parsear prosa |
+
+**El `detail` no expone nada interno.** Ni stack traces, ni nombres de tabla, ni si un registro
+existe. Esto no es prolijidad: `E1-H2 CA.3` exige que ante credenciales incorrectas el mensaje
+sea genérico para evitar enumeración de usuarios, y es el criterio A10 del mapeo OWASP. El
+detalle real va al log con el mismo `traceId`.
+
+**Dos excepciones, y son a propósito:**
+
+- **`/healthcheck` no usa este formato.** Su `503` lo consume el `readinessProbe` de
+  Kubernetes y el backoffice para `E5-H11`, no un usuario. Devuelve el estado de cada
+  dependencia, que es lo que sirve para diagnosticar.
+- **Las respuestas exitosas tampoco.** Problem Details describe errores; un `200` devuelve el
+  recurso y nada más.
+
+Se implementa una vez como manejador de excepciones y se copia entre `users-api` y `posts-api`,
+igual que el módulo de subida. En `notifications-api` es un filtro de NestJS equivalente.
+
+### Versionado de la API
+
+La versión va **en el path**: `/v1/users`, `/v1/posts`. Se descartó el header `Accept` con
+versión: es más elegante pero invisible en un log, en un `curl` y en la barra del navegador, y
+con cuatro personas aprendiendo el costo de depurar pesa más que la elegancia.
+
+**Qué obliga a subir de versión:**
+
+| Rompe | No rompe |
+|---|---|
+| Quitar o renombrar un campo de la respuesta | Agregar un campo a la respuesta |
+| Volver obligatorio un campo que era opcional | Agregar un endpoint |
+| Cambiar el tipo o el significado de un campo | Agregar un parámetro de query opcional |
+| Quitar un endpoint o un valor de enum | Relajar una validación |
+| Agregar una validación que antes no existía | Agregar un valor de enum en un campo de entrada |
+
+La regla que hace segura la columna derecha: **los clientes ignoran los campos que no
+conocen.** Sin eso, agregar un campo rompe, y toda evolución pasa a necesitar versión nueva.
+
+**Durante el semestre se trabaja solo con `v1`.** Si aparece un cambio incompatible, se acuerda
+en el planning antes de escribirlo, porque la app mobile es el caso duro: una versión instalada
+sigue llamando al endpoint viejo y no se le puede forzar la actualización. La salida es
+convivir las dos versiones un tiempo, no cortar.
+
+**Los endpoints operativos quedan fuera del namespace versionado**: `/healthcheck` y las
+métricas no son contrato con el cliente y no versionan.
+
+**Los eventos de la cola versionan aparte**, con la versión adentro del propio evento y no en
+un path. Un evento incompatible es un evento nuevo, como está en
+[`docs/eventos/`](./eventos/README.md).
+
 ### Asincrónica
 
 RabbitMQ 4.x desplegado en el cluster, con exchange de tipo topic. Elegido sobre Kafka porque es mucho más simple de operar, tiene interfaz de administración que sirve para demostrar el requisito, y tiene clientes maduros en Node y en Python. NATS JetStream es operativamente más simple, pero su interfaz de administración no iguala al management plugin de RabbitMQ, y acá el requisito es demostrar la cola.
@@ -732,7 +803,7 @@ Se mapea contra la edición **2025**, vigente desde enero de 2026. Cambió basta
 | A07 Fallas de autenticación                   | Lockout tras intentos fallidos. Tokens de vida corta con refresh y rotación. Revocación en cambio de contraseña, exigida por E1-H5 CA.7 y E1-H13 CA.3.                                                                            |
 | A08 Integridad de software y datos            | Imágenes etiquetadas por SHA, nunca `latest`. Migraciones versionadas. Patrón outbox.                                                                                                                                             |
 | A09 Fallas de registro y alertas              | Logs estructurados, trazas, alertas. Auditoría de acciones administrativas en E5-H6.                                                                                                                                              |
-| A10 Manejo de condiciones excepcionales       | Categoría nueva. Timeout y comportamiento definido ante fallo de cada dependencia. Sin stack traces al cliente: errores en formato RFC 7807. El triage de IA degrada sin bloquear el backoffice.                                   |
+| A10 Manejo de condiciones excepcionales       | Categoría nueva. Timeout y comportamiento definido ante fallo de cada dependencia. Sin stack traces al cliente: errores en formato Problem Details, ver "Formato de error". El triage de IA degrada sin bloquear el backoffice.                                   |
 
 El nivel L1 de OWASP ASVS 5.0 se usa como checklist manual antes de cada entrega grande.
 
