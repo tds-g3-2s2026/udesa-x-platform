@@ -77,12 +77,18 @@ un ADR que lo respalde.
 
 **Código**
 
-- Código, identificadores y nombres de base de datos en inglés. Comentarios en español.
-  No mezclar los dos idiomas dentro de un identificador.
+- **En inglés todo lo que vive dentro de un archivo de código**: identificadores, nombres de
+  tablas y columnas, comentarios y docstrings. No mezclar los dos idiomas dentro de un
+  identificador: `getUserById` sí, `obtenerUserById` no.
+- **En inglés también los nombres de los archivos y carpetas de código**: `user_service.py`,
+  `src/`, `tests/unit/`. Los documentos conservan su nombre en español.
+- **En español todo lo que se escribe para el equipo o el tutor**: documentación, mensajes de
+  commit y descripciones de Pull Request.
 - Comentarios cortos y sobre el porqué, no sobre el qué. Nada de bloques de varios renglones
   explicando lo que el código ya dice. Si hace falta un párrafo para entender una función,
   el problema es la función.
-- Commits en formato Conventional Commits.
+- Commits en formato Conventional Commits, con tipo y scope en inglés y descripción en
+  español.
 - No introducir dependencias, patrones ni abstracciones que no estén ya en el repositorio.
   Si hace falta, se abre un ADR en `udesa-x-platform/docs/adr/` y lo decide una persona,
   no el agente.

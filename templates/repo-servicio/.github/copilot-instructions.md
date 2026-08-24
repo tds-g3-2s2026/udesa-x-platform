@@ -5,14 +5,18 @@ desde `udesa-x-platform` hacia todos los repos del proyecto.
 
 ## Idioma
 
-Escribí **siempre en español rioplatense** las descripciones de Pull Request, los resúmenes
-de cambios y los comentarios de revisión. Es un requisito del tutor.
+La frontera es el archivo de código: **si lo lee un intérprete o un compilador, va en inglés;
+si lo lee una persona fuera del código, va en español.**
 
-El código va en inglés: nombres de variables, funciones, clases, tablas y columnas. No
-mezclar los dos idiomas dentro de un identificador. `getUserById` está bien, `obtenerUserById`
+En **inglés**, todo lo que vive dentro de un archivo de código: nombres de variables,
+funciones, clases, tablas y columnas, más los comentarios y los docstrings. También los
+nombres de los archivos y carpetas de código: `user_service.py`, `src/`, `tests/unit/`. No
+mezclar los dos idiomas dentro de un identificador: `getUserById` está bien, `obtenerUserById`
 no.
 
-Los comentarios dentro del código van en español, porque explican el porqué y los lee el equipo.
+En **español rioplatense**, todo lo que se escribe para el equipo o el tutor: descripciones de
+Pull Request, mensajes de commit, resúmenes de cambios, comentarios de revisión y
+documentación. El español en los PR es un requisito del tutor.
 
 ## Descripción de Pull Request
 
