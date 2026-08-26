@@ -101,6 +101,10 @@ for destino in "$@"; do
 
   echo "  archivos comunes copiados"
   copiar_bloque_comun "$destino/AGENTS.md"
+  if [ -f "$destino/AGENTS.md" ]; then
+    (cd "$destino" && ln -sf AGENTS.md CLAUDE.md)
+    echo "  symlink CLAUDE.md -> AGENTS.md asegurado"
+  fi
 done
 
 echo
