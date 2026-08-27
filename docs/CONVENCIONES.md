@@ -212,10 +212,12 @@ Se sincronizan desde `udesa-x-platform`:
 | Archivo | Destino |
 |---|---|
 | `.editorconfig` | todos los repos |
+| `.gitattributes` | todos los repos |
 | `.github/copilot-instructions.md` | todos los repos |
 | `.github/PULL_REQUEST_TEMPLATE.md` | todos los repos |
 | `.agents/skills/` | todos los repos |
 | bloque común de `AGENTS.md` | todos los repos |
+| `CLAUDE.md` | todos los repos, solo si ya tienen `AGENTS.md` |
 | `docs/eventos/*.json` → `contracts/events/` | repos de servicio |
 
 El CI de `udesa-x-platform` verifica que las copias coincidan con la fuente. Si alguien edita
