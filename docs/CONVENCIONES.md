@@ -49,10 +49,14 @@ proyecto nunca es el que uno recuerda.
 **(tutor)** Rama base `main`. Funcionalidad: `feature-<nombre>`. Fix sin funcionalidad:
 `fix-<nombre>`.
 
+Complementario del equipo: mantenimiento y tooling que no es funcionalidad nueva ni corrige
+un defecto entregado —lo que se etiqueta `tech debt`— usa `chore-<nombre>`.
+
 ```
 feature-registro-usuarios
 feature-feed-cronologico
 fix-contador-retweets
+chore-sync-agents-md
 ```
 
 `main` está protegida en los seis repos desde el 2026-08-21: sin push directo, sin force

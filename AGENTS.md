@@ -21,7 +21,7 @@ Repositorio central de udesa-x: documentación, infraestructura compartida, cont
 
 ## Reglas del equipo
 
-- **Ramas e issues**: Rama base `main`. Ramas de trabajo `feature-<nombre>` o `fix-<nombre>`, siempre asociadas a un issue en el mismo repositorio.
+- **Ramas e issues**: Rama base `main`. Ramas de trabajo `feature-<nombre>` (funcionalidad), `fix-<nombre>` (defecto) o `chore-<nombre>` (mantenimiento y tooling, etiqueta `tech debt`), siempre asociadas a un issue en el mismo repositorio.
 - **Idiomas**:
   - Código (`src/`, `tests/`), nombres de archivos, identificadores y comentarios en código: **inglés**.
   - Documentación (`docs/`, `README.md`), mensajes de commit y Pull Requests: **español**.
