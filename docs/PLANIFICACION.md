@@ -841,6 +841,7 @@ Las reglas completas están en [`CONVENCIONES.md`](./CONVENCIONES.md). Lo esenci
 
 - Rama base `main`, protegida: sin push directo, CI verde obligatorio, al menos una aprobación.
 - Funcionalidad: `feature-<nombre>`. Fix sin funcionalidad: `fix-<nombre>`. Es la convención del tutor.
+- Mantenimiento y tooling (etiqueta `tech debt`): `chore-<nombre>`, agregado por el equipo.
 - Toda rama tiene su issue asociada, en el mismo repositorio.
 - Un PR por historia, o por criterio de aceptación si la historia es grande.
 - Descripción del PR en español, con la plantilla del repo. La sección "Explicación de la implementación" es obligatoria: **sin ella el PR no se revisa.**

@@ -12,6 +12,7 @@
 #
 # Lo que se copia tal cual:
 #   .editorconfig
+#   .gitattributes
 #   .github/copilot-instructions.md
 #   .github/PULL_REQUEST_TEMPLATE.md
 #   .agents/skills/
@@ -19,6 +20,10 @@
 # AGENTS.md es distinto: solo se reemplaza el bloque delimitado por
 #   <!-- INICIO BLOQUE COMUN --> y <!-- FIN BLOQUE COMUN -->
 # El resto del archivo, que es el mapa propio de cada repo, no se toca.
+#
+# CLAUDE.md se escribe solo si el destino ya tiene AGENTS.md: es un puntero de texto a
+# ese archivo, no un symlink. En Windows sin privilegios un symlink versionado se
+# materializa como una copia congelada; el puntero de texto no tiene ese problema.
 
 set -euo pipefail
 
@@ -93,6 +98,7 @@ for destino in "$@"; do
   mkdir -p "$destino/.github" "$destino/.agents"
 
   cp "$ORIGEN/.editorconfig" "$destino/.editorconfig"
+  cp "$ORIGEN/.gitattributes" "$destino/.gitattributes"
   cp "$ORIGEN/.github/copilot-instructions.md" "$destino/.github/copilot-instructions.md"
   cp "$ORIGEN/.github/PULL_REQUEST_TEMPLATE.md" "$destino/.github/PULL_REQUEST_TEMPLATE.md"
 
@@ -102,8 +108,8 @@ for destino in "$@"; do
   echo "  archivos comunes copiados"
   copiar_bloque_comun "$destino/AGENTS.md"
   if [ -f "$destino/AGENTS.md" ]; then
-    (cd "$destino" && ln -sf AGENTS.md CLAUDE.md)
-    echo "  symlink CLAUDE.md -> AGENTS.md asegurado"
+    cp "$ORIGEN/CLAUDE.md" "$destino/CLAUDE.md"
+    echo "  CLAUDE.md escrito"
   fi
 done
 
