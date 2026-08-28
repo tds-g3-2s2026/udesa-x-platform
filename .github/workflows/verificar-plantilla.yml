@@ -1,0 +1,83 @@
+# Verifica que templates/repo-servicio no se haya quedado atras de los archivos comunes
+# de la raiz. Es el bug mas probable de este repo: alguien edita la fuente y se olvida
+# de la copia que arranca cada servicio nuevo.
+
+name: Verificar plantilla
+
+on:
+  pull_request:
+    paths:
+      - ".editorconfig"
+      - ".gitattributes"
+      - "CLAUDE.md"
+      - "AGENTS.md"
+      - ".github/copilot-instructions.md"
+      - ".github/PULL_REQUEST_TEMPLATE.md"
+      - ".agents/skills/**"
+      - "templates/**"
+      - ".github/workflows/verificar-plantilla.yml"
+  push:
+    branches: [main]
+
+jobs:
+  comunes:
+    name: Archivos comunes al dia
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Comparar los archivos que se copian tal cual
+        run: |
+          PLANTILLA="templates/repo-servicio"
+          FALLO=0
+
+          for ARCHIVO in \
+            .editorconfig \
+            .gitattributes \
+            CLAUDE.md \
+            .github/copilot-instructions.md \
+            .github/PULL_REQUEST_TEMPLATE.md
+          do
+            if [ ! -f "$PLANTILLA/$ARCHIVO" ]; then
+              echo "::error file=$PLANTILLA/$ARCHIVO::Falta en la plantilla."
+              FALLO=1
+            elif ! diff -u "$ARCHIVO" "$PLANTILLA/$ARCHIVO"; then
+              echo "::error file=$PLANTILLA/$ARCHIVO::Quedo atras de $ARCHIVO."
+              FALLO=1
+            fi
+          done
+
+          if ! diff -ru .agents/skills "$PLANTILLA/.agents/skills"; then
+            echo "::error::Las skills de la plantilla quedaron atras de .agents/skills."
+            FALLO=1
+          fi
+
+          exit $FALLO
+
+      # AGENTS.md no se compara entero: cada repo tiene su propio mapa. Solo el bloque
+      # delimitado, que es lo que sincroniza scripts/sync-comunes.sh.
+      - name: Comparar el bloque comun de AGENTS.md
+        run: |
+          extraer() {
+            awk '
+              index($0, "<!-- INICIO BLOQUE COMUN") { dentro = 1 }
+              dentro { print }
+              index($0, "<!-- FIN BLOQUE COMUN -->") { dentro = 0; encontrado = 1 }
+              END { if (!encontrado) exit 1 }
+            ' "$1"
+          }
+
+          if ! extraer AGENTS.md > /tmp/bloque-raiz.md; then
+            echo "::error file=AGENTS.md::No se encontraron los delimitadores del bloque comun."
+            exit 1
+          fi
+          if ! extraer templates/repo-servicio/AGENTS.md > /tmp/bloque-plantilla.md; then
+            echo "::error file=templates/repo-servicio/AGENTS.md::No se encontraron los delimitadores del bloque comun."
+            exit 1
+          fi
+
+          if ! diff -u /tmp/bloque-raiz.md /tmp/bloque-plantilla.md; then
+            echo "::error::El bloque comun de la plantilla quedo atras del de AGENTS.md."
+            echo "Corre: ./scripts/sync-comunes.sh templates/repo-servicio"
+            exit 1
+          fi

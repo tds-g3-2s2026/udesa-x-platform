@@ -1,0 +1,146 @@
+# Workflow reusable de CI para los servicios en Python.
+#
+# Se consume desde el repo de cada servicio con tres lineas:
+#
+#   jobs:
+#     ci:
+#       uses: tds-g3-2s2026/udesa-x-platform/.github/workflows/ci-python.yml@main
+#       secrets: inherit
+#
+# Vive una sola vez aca para que ningun repo quede con el CI atrasado.
+
+name: CI Python
+
+on:
+  workflow_call:
+    inputs:
+      version-python:
+        description: "Version de Python. Fijada en ARQUITECTURA.md."
+        type: string
+        default: "3.13"
+      cobertura-minima:
+        description: "Porcentaje minimo de cobertura que exige la consigna."
+        type: number
+        default: 85
+      bloquear-por-cobertura:
+        description: >
+          Si es true, el PR se bloquea cuando la cobertura queda por debajo del minimo.
+          ARQUITECTURA.md activa el gate en S3 para backend y en S5 para los clientes;
+          hasta entonces el porcentaje se reporta sin frenar a nadie.
+        type: boolean
+        default: false
+      correr-integracion:
+        description: "Correr tests/integration contra PostgreSQL y Redis."
+        type: boolean
+        default: true
+
+jobs:
+  calidad:
+    name: Lint y formato
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Instalar uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: ${{ inputs.version-python }}
+          enable-cache: true
+
+      - name: Instalar dependencias
+        run: uv sync --locked
+
+      - name: Ruff, reglas de lint
+        run: uv run ruff check --output-format=github .
+
+      - name: Ruff, formato
+        run: uv run ruff format --check .
+
+  tests:
+    name: Tests y cobertura
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: users
+          POSTGRES_PASSWORD: users
+          POSTGRES_DB: users
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U users -d users"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+      redis:
+        image: redis:8-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql+asyncpg://users:users@localhost:5432/users
+      REDIS_URL: redis://localhost:6379/0
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Instalar uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: ${{ inputs.version-python }}
+          enable-cache: true
+
+      - name: Instalar dependencias
+        run: uv sync --locked
+
+      - name: Tests con cobertura
+        run: |
+          if [ "${{ inputs.correr-integracion }}" = "true" ]; then
+            uv run pytest --cov=src --cov-report=xml --cov-report=term
+          else
+            uv run pytest tests/unit --cov=src --cov-report=xml --cov-report=term
+          fi
+
+      # El porcentaje se publica siempre, aunque el gate todavia no bloquee: es lo que
+      # hace visible la tendencia antes de que el gate se active en S3.
+      - name: Publicar la cobertura en el resumen
+        if: always()
+        run: |
+          if [ ! -f coverage.xml ]; then
+            echo "No se genero coverage.xml, el paso de tests debe haber fallado antes." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          PORCENTAJE=$(uv run python -c "import xml.etree.ElementTree as ET; print(f\"{float(ET.parse('coverage.xml').getroot().get('line-rate')) * 100:.2f}\")")
+          echo "PORCENTAJE=$PORCENTAJE" >> "$GITHUB_ENV"
+          {
+            echo "## Cobertura"
+            echo ""
+            echo "| Medida | Valor |"
+            echo "|---|---:|"
+            echo "| Cobertura de lineas | ${PORCENTAJE}% |"
+            echo "| Minimo exigido | ${{ inputs.cobertura-minima }}% |"
+            echo "| Bloquea el PR | ${{ inputs.bloquear-por-cobertura }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Gate de cobertura
+        if: always()
+        continue-on-error: ${{ !inputs.bloquear-por-cobertura }}
+        run: |
+          if [ -z "${PORCENTAJE:-}" ]; then
+            echo "No hay medicion de cobertura."
+            exit 1
+          fi
+          MINIMO="${{ inputs.cobertura-minima }}"
+          if awk "BEGIN { exit !($PORCENTAJE < $MINIMO) }"; then
+            echo "::error::Cobertura ${PORCENTAJE}%, por debajo del minimo de ${MINIMO}%."
+            exit 1
+          fi
+          echo "Cobertura ${PORCENTAJE}%, por encima del minimo de ${MINIMO}%."

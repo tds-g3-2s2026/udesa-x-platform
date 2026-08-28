@@ -60,8 +60,15 @@ chore-sync-agents-md
 ```
 
 `main` está protegida en los seis repos desde el 2026-08-21: sin push directo, sin force
-push, sin borrado, y con una aprobación de otra persona. Alcanza también a los admins. El
-gate de CI en verde se suma con `T-13`, cuando exista el pipeline.
+push, sin borrado, y con una aprobación de otra persona. Alcanza también a los admins.
+
+El CI corre en cada Pull Request desde el workflow reusable
+[`ci-python.yml`](../.github/workflows/ci-python.yml), que cada repo consume con tres líneas.
+Verifica lint, formato y tests, y publica el porcentaje de cobertura en el resumen del run.
+
+El **gate del 85%** todavía no bloquea: `ARQUITECTURA.md` lo activa en S3 para los servicios
+backend y en S5 para los clientes. Hasta entonces el número se reporta. Activarlo es pasar
+`bloquear-por-cobertura: true` al workflow reusable desde el repo que corresponda.
 
 Nota: el tutor escribió la convención como `/feature-[nombre]`. Git no admite nombres de rama
 que empiecen con barra, así que se usa `feature-<nombre>`. Confirmarlo en la primera
