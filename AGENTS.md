@@ -6,7 +6,13 @@ Repositorio central de udesa-x: documentación, infraestructura compartida, cont
 
 ```bash
 ./scripts/sync-comunes.sh ../udesa-x-*   # Sincroniza archivos y bloque común a los demás repositorios
+./scripts/sync-comunes.sh templates/repo-servicio   # Deja la plantilla al día con los comunes
 ```
+
+El CI de este repo verifica que `templates/repo-servicio/` no quede atrás de los archivos
+comunes de la raíz. Si el check `Verificar plantilla` falla, correr el segundo comando.
+
+Los workflows reusables que consumen los repos de servicio viven en `.github/workflows/`.
 
 ## Documentación (Progressive Disclosure)
 
