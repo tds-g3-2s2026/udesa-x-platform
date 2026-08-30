@@ -814,7 +814,9 @@ El nivel L1 de OWASP ASVS 5.0 se usa como checklist manual antes de cada entrega
 - Revocación por `jti` en Redis, guardando el hash SHA-256 del token y no el token crudo, con TTL igual a la vida restante.
 - Cambio de contraseña, bloqueo por admin y cuenta en revisión revocan todas las sesiones.
 
-**Decisión abierta.** El JWT se elige normalmente para evitar el round-trip al almacén de sesiones, y este diseño lo hace igual para consultar la lista de revocación. Sin ese beneficio, un token opaco con la sesión en Redis es estrictamente más simple: revoca instantáneo, sin manejo de claves de firma ni superficie de ataque de parsers. Las dos son defendibles y decide el equipo antes de S3.
+**Cerrada el 2026-08-30 al implementar E1-H2.** La discusión era JWT con lista de revocación contra token opaco con la sesión en Redis: las dos hacen round-trip a Redis, así que el argumento clásico a favor del JWT se caía. La resuelve la consigna, no el equipo: `E1-H2 CA.1` exige literalmente *"un token JWT con un tiempo de expiración definido"*, y el token opaco reprobaría el criterio.
+
+El access token se firma con **EdDSA sobre Ed25519**. La clave privada llega por entorno; en desarrollo, si falta, el servicio genera un par efímero y lo avisa por log, de modo que no hay ninguna clave privada versionada.
 
 ### Rate limiting
 
@@ -958,7 +960,7 @@ Pendientes de definir en S1:
 | A19 | Clave primaria de contenido | **UUIDv7 nativo de PostgreSQL 18.** Hay que fijarlo antes de la primera migración                                         |
 | A20 | Motor clave-valor           | **Redis.** Revertida el 2026-08-23 en la revisión del PR #6 de `users-api`. La versión anterior elegía Valkey por precio en ElastiCache, que no aplica porque se autohospeda, y por licencia, que perdió peso desde que Redis 8 ofrece AGPLv3. Queda que Redis es más estándar y el equipo lo conoce |
 | A21 | Plantillas de CI            | **Reusable workflows**, no copiadas. Los contratos de eventos se siguen copiando, porque eso lo pidió el tutor            |
-| A22 | Manejo de tokens            | **Abierta, decide el equipo antes de S3**: JWT con lista de revocación, o token opaco con sesión en Redis                |
+| A22 | Manejo de tokens            | **Cerrada: JWT firmado con EdDSA.** La define `E1-H2 CA.1`, que exige un token JWT; el token opaco reprobaría el criterio |
 | A23 | Subida de media             | **Abierta, se decide en S6**: stream por el servicio, que cumple los criterios literales, o URL prefirmada con validación posterior. Ya no involucra un servicio aparte |
 | A24 | Acceso del tutor a Grafana  | **Abierta, se decide antes de S6**: el free tier son 3 asientos y el equipo más el tutor son 5                            |
 
