@@ -110,15 +110,17 @@ sea cual sea el servicio que tocan (`PLANIFICACION.md`, sección "Roles rotativo
 
 ## Fuera de alcance
 
-Dos decisiones abiertas tocan estos mismos servicios y **no se resuelven acá**:
+Una decisión abierta toca estos mismos servicios y **no se resuelve acá**:
 
-- **A22 — Manejo de tokens.** JWT con lista de revocación en Redis vs. token opaco con sesión en
-  Redis. Sigue abierta, el equipo la decide antes de S3.
 - **A23 — Subida de media.** Stream por el servicio vs. URL prefirmada de S3 con validación
   posterior. Sigue abierta, se decide en S6.
 
-Este ADR fija los límites entre servicios y sus contratos; no fija cómo cada servicio maneja
-sesiones ni cómo sube archivos. Cuando A22 y A23 se cierren, se registran como ADR propios.
+Este ADR fija los límites entre servicios y sus contratos; no fija cómo cada servicio sube
+archivos. Cuando A23 se cierre, se registra como ADR propio.
+
+**A22, manejo de tokens, sí quedó cerrada**, el mismo día que se mergeó este ADR: la resuelve la
+consigna y no el equipo, porque `E1-H2 CA.1` exige literalmente un token JWT y el token opaco
+reprobaría el criterio. Está implementada con EdDSA en `users-api`.
 
 ## Consecuencias
 
@@ -129,5 +131,5 @@ sesiones ni cómo sube archivos. Cuando A22 y A23 se cierren, se registran como 
 - La tabla de eventos y la de dependencias de infraestructura quedan en dos lugares
   (`ARQUITECTURA.md` para el detalle operativo, este ADR para la decisión de fondo). Si diverge
   una de la otra, es una señal de que alguna quedó desactualizada.
-- A22 y A23 quedan explícitamente pendientes: alguien que lea este ADR sabe que faltan sin tener
-  que cruzarlo contra `PLANIFICACION.md`.
+- A23 queda explícitamente pendiente: alguien que lea este ADR sabe que falta sin tener que
+  cruzarlo contra `PLANIFICACION.md`.
