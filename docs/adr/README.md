@@ -10,7 +10,8 @@ escribe una nueva que reemplaza a la anterior y se anota acá.
 | [ADR-003](./ADR-003-repositorios-publicos.md) | Repositorios públicos | 2026-08-21 | Aceptada |
 | [ADR-004](./ADR-004-alta-automatica-de-issues.md) | Alta automática de issues en el Project | 2026-08-21 | Aceptada |
 | [ADR-005](./ADR-005-limites-de-servicios.md) | Límites de servicios, contratos y dependencias de infraestructura | 2026-08-30 | Aceptada |
-| [ADR-006](./ADR-006-inversion-de-dependencias.md) | Inversión de dependencias en los servicios backend | 2026-09-03 | Aceptada |
+| [ADR-006](./ADR-006-inversion-de-dependencias.md) | Inversión de dependencias en los servicios backend | 2026-09-03 | Reemplazada por ADR-007 |
+| [ADR-007](./ADR-007-estructura-por-capas.md) | Estructura por capas en los servicios backend | 2026-09-04 | Aceptada |
 
 Solo se registran decisiones ya tomadas y que el equipo pueda justificar, numeradas en el
 orden en que se toman. Lo que todavía está por definirse vive como decisión abierta `Dxx` en
