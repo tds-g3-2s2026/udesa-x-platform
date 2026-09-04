@@ -1,6 +1,10 @@
 # ADR-006: Inversión de dependencias en los servicios backend
 
-**Fecha:** 2026-09-03 · **Estado:** aceptada · **Decide:** el equipo, a pedido del tutor
+**Fecha:** 2026-09-03 · **Estado:** reemplazada por el [ADR-007](./ADR-007-estructura-por-capas.md) · **Decide:** el equipo, a pedido del tutor
+
+> La inversión de dependencias que decide este documento sigue vigente. Lo que quedó sin
+> efecto es el agrupamiento por feature: el tutor lo objetó el 3 de septiembre y el ADR-007
+> lo reemplaza por una estructura en capas. El texto de abajo se conserva sin cambios.
 
 ## Contexto
 
