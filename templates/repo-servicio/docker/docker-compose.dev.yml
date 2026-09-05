@@ -16,6 +16,23 @@ services:
       redis:
         condition: service_healthy
 
+  # No source volume on purpose: mounting it would replace what the image
+  # carries and stop testing the real artifact.
+  tests:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: test
+    environment:
+      DATABASE_URL: postgresql+asyncpg://servicio:servicio@postgres:5432/servicio
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # Without this it would start on every `docker compose up`.
+    profiles: ["test"]
   postgres:
     image: postgres:18-alpine
     environment:
