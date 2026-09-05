@@ -62,25 +62,32 @@ chore-sync-agents-md
 `main` está protegida en los seis repos desde el 2026-08-21: sin push directo, sin force
 push, sin borrado, y con una aprobación de otra persona. Alcanza también a los admins.
 
-El CI corre en cada Pull Request desde el workflow reusable
-[`ci-python.yml`](../.github/workflows/ci-python.yml), que cada repo consume con tres líneas.
-Verifica lint, formato y tests, y publica el porcentaje de cobertura en el resumen del run.
+El CI corre en cada Pull Request desde dos workflows reusables que cada repo consume con tres
+líneas: [`ci-python.yml`](../.github/workflows/ci-python.yml) para los servicios backend y
+[`ci-node.yml`](../.github/workflows/ci-node.yml) para `mobile` y `backoffice`. Los dos
+verifican lint, formato y tests, y publican el porcentaje de cobertura en el resumen del run.
 
-**Los tests corren dentro de la imagen Docker del servicio, no sobre el runner.** El
-`Dockerfile` de cada repo backend tiene un stage `test` que suma las dependencias de
-desarrollo y la carpeta `tests/` sobre el mismo build que va a producción; el CI lo construye
-con `--target test` y ejecuta la suite ahí adentro. Después construye la imagen de producción
-y verifica que levante y responda `200` en `/healthcheck`.
+**Los tests corren dentro de la imagen Docker del repositorio, no sobre el runner.** El
+`Dockerfile` tiene un stage `test` que suma las dependencias de desarrollo y la carpeta de
+tests sobre el mismo build que va a producción; el CI lo construye con `--target test` y
+ejecuta la suite ahí adentro. Donde hay imagen de producción, después la construye y verifica
+que levante: `200` en `/healthcheck` para los servicios backend, `200` en `/` para el
+backoffice.
+
+`mobile` es la excepción parcial. Se distribuye por Expo y no despliega ningún contenedor, así
+que su `Dockerfile` existe **solo** para fijar el entorno de los tests y no tiene stage de
+producción. La regla que cumple es la misma —que el resultado no dependa de la máquina— y lo
+único que cambia es que después no hay imagen que verificar.
 
 Es lo que hace que el resultado no dependa de cómo esté armada la máquina que ejecuta. El
 lint sí corre sobre el runner: mira el código fuente y no el entorno de ejecución.
 
-Cada repo fija su versión de Python en un archivo `.python-version`. Sin él, `uv` toma la más
-nueva que encuentre en la máquina y se puede terminar probando en una versión distinta de la
-que corre en producción.
+Cada repo fija la versión de su runtime en un archivo, y sin eso la herramienta toma la más
+nueva que encuentre en la máquina: `.python-version` en los servicios backend, `.bun-version`
+en `mobile` y `backoffice`. Ya pasó una vez —`uv` tomaba Python 3.14 en desarrollo mientras la
+imagen corría 3.13— y ni el porcentaje de cobertura coincidía entre las dos.
 
-Para reproducir la corrida del CI en local, cada repo backend tiene un servicio `tests` en su
-compose:
+Para reproducir la corrida del CI en local, cada repo tiene un servicio `tests` en su compose:
 
 ```bash
 docker compose -f docker/docker-compose.dev.yml run --rm --build tests
@@ -112,8 +119,14 @@ Las imágenes base se fijan por etiqueta y no por digest. Un digest garantiza bu
 pero sin un mecanismo que lo actualice se queda viejo y acumula vulnerabilidades sin que nadie
 se entere, que es peor. Se revisa cuando entre el pipeline de CD, en S5.
 
-El **gate del 85%** todavía no bloquea: `ARQUITECTURA.md` lo activa en S3 para los servicios
-backend y en S5 para los clientes. Hasta entonces el número se reporta. Activarlo es pasar
+El reporte de cobertura se sube además a **Codecov**, que guarda la tendencia y comenta en
+cada PR qué archivos bajaron. No bloquea nada: el gate del workflow es el que corta. Para
+que funcione hay que habilitar el repositorio en codecov.io con la cuenta de GitHub y, si se
+quiere subida autenticada, cargar `CODECOV_TOKEN` como secret de organización. Sin eso el
+paso no falla, simplemente no sube nada.
+
+El **gate del 85%** ya bloquea en los servicios backend, como fija `ARQUITECTURA.md` para S3.
+En `mobile` y `backoffice` todavía reporta sin frenar: se activa en S5. Encenderlo es pasar
 `bloquear-por-cobertura: true` al workflow reusable desde el repo que corresponda.
 
 Nota: el tutor escribió la convención como `/feature-[nombre]`. Git no admite nombres de rama
