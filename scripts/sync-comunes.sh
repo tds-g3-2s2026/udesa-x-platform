@@ -1,114 +1,104 @@
 #!/usr/bin/env bash
 #
-# Sincroniza los archivos comunes desde udesa-x-platform hacia los demas repositorios.
+# Copies the shared files from udesa-x-platform to the other repos.
 #
-# Uso local:
 #   ./scripts/sync-comunes.sh ../udesa-x-users-api
-#   ./scripts/sync-comunes.sh ../udesa-x-*     # todos a la vez
+#   ./scripts/sync-comunes.sh ../udesa-x-*     # all of them at once
 #
-# En CI corre con repo-file-sync-action, configurado en .github/sync.yml.
-# Este script existe para poder probar la sincronizacion antes de automatizarla,
-# y para arreglar un repo suelto sin esperar al workflow.
+# In CI this runs as repo-file-sync-action, configured in .github/sync.yml. The
+# script exists to test a sync by hand and to fix one repo without the workflow.
 #
-# Lo que se copia tal cual:
-#   .editorconfig
-#   .gitattributes
-#   .github/copilot-instructions.md
-#   .github/PULL_REQUEST_TEMPLATE.md
-#   .agents/skills/
+# Copied verbatim: .editorconfig, .gitattributes, .github/copilot-instructions.md,
+# .github/PULL_REQUEST_TEMPLATE.md and .agents/skills/.
 #
-# AGENTS.md es distinto: solo se reemplaza el bloque delimitado por
-#   <!-- INICIO BLOQUE COMUN --> y <!-- FIN BLOQUE COMUN -->
-# El resto del archivo, que es el mapa propio de cada repo, no se toca.
+# AGENTS.md is the exception: only the delimited block is replaced, because the
+# rest of that file is each repo's own map.
 #
-# CLAUDE.md se escribe solo si el destino ya tiene AGENTS.md: es un puntero de texto a
-# ese archivo, no un symlink. En Windows sin privilegios un symlink versionado se
-# materializa como una copia congelada; el puntero de texto no tiene ese problema.
+# CLAUDE.md is written as a text pointer to AGENTS.md, not a symlink: on Windows
+# without privileges a versioned symlink materialises as a frozen copy.
 
 set -euo pipefail
 
-ORIGEN="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SOURCE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 if [ $# -eq 0 ]; then
   echo "Uso: $0 <ruta-al-repo> [<ruta-al-repo> ...]" >&2
   exit 1
 fi
 
-# Extrae el bloque comun de un AGENTS.md, delimitadores incluidos.
-extraer_bloque() {
+# Extracts the shared block from an AGENTS.md, delimiters included.
+extract_block() {
   awk '
-    index($0, "<!-- INICIO BLOQUE COMUN") { dentro = 1 }
-    dentro { print }
-    index($0, "<!-- FIN BLOQUE COMUN -->") { dentro = 0; encontrado = 1 }
-    END { if (!encontrado) exit 1 }
+    index($0, "<!-- INICIO BLOQUE COMUN") { inside = 1 }
+    inside { print }
+    index($0, "<!-- FIN BLOQUE COMUN -->") { inside = 0; found = 1 }
+    END { if (!found) exit 1 }
   ' "$1"
 }
 
-copiar_bloque_comun() {
-  local destino_agents="$1"
+copy_shared_block() {
+  local target_agents="$1"
 
-  if [ ! -f "$destino_agents" ]; then
+  if [ ! -f "$target_agents" ]; then
     echo "  AGENTS.md no existe, se omite. Crealo desde templates/repo-servicio/AGENTS.md"
     return
   fi
 
-  local bloque_nuevo bloque_viejo
-  if ! bloque_nuevo="$(extraer_bloque "$ORIGEN/AGENTS.md")"; then
-    echo "No se encontraron los delimitadores del bloque comun en $ORIGEN/AGENTS.md" >&2
+  local new_block old_block
+  if ! new_block="$(extract_block "$SOURCE/AGENTS.md")"; then
+    echo "No se encontraron los delimitadores del bloque comun en $SOURCE/AGENTS.md" >&2
     exit 1
   fi
-  if ! bloque_viejo="$(extraer_bloque "$destino_agents")"; then
-    echo "No se encontraron los delimitadores del bloque comun en $destino_agents" >&2
+  if ! old_block="$(extract_block "$target_agents")"; then
+    echo "No se encontraron los delimitadores del bloque comun en $target_agents" >&2
     exit 1
   fi
 
-  if [ "$bloque_nuevo" = "$bloque_viejo" ]; then
+  if [ "$new_block" = "$old_block" ]; then
     echo "  bloque comun de AGENTS.md ya estaba al dia"
     return
   fi
 
-  # Reescribe el archivo: todo lo anterior al delimitador, el bloque nuevo, y todo
-  # lo posterior al cierre. Se hace con un archivo temporal para no truncar el
-  # destino si algo falla a mitad de camino.
+  # Through a temp file so a failure halfway does not truncate the destination.
   local tmp
   tmp="$(mktemp)"
-  awk -v bloque="$bloque_nuevo" '
-    index($0, "<!-- INICIO BLOQUE COMUN") { print bloque; dentro = 1; next }
-    index($0, "<!-- FIN BLOQUE COMUN -->") { dentro = 0; next }
-    !dentro { print }
-  ' "$destino_agents" > "$tmp"
+  awk -v block="$new_block" '
+    index($0, "<!-- INICIO BLOQUE COMUN") { print block; inside = 1; next }
+    index($0, "<!-- FIN BLOQUE COMUN -->") { inside = 0; next }
+    !inside { print }
+  ' "$target_agents" > "$tmp"
 
-  mv "$tmp" "$destino_agents"
+  mv "$tmp" "$target_agents"
   echo "  bloque comun de AGENTS.md actualizado"
 }
 
-for destino in "$@"; do
-  if [ ! -d "$destino" ]; then
-    echo "No existe el directorio: $destino" >&2
+for target in "$@"; do
+  if [ ! -d "$target" ]; then
+    echo "No existe el directorio: $target" >&2
     exit 1
   fi
 
-  if [ "$(cd "$destino" && pwd)" = "$ORIGEN" ]; then
-    echo "==> $(basename "$destino") (origen, se omite)"
+  if [ "$(cd "$target" && pwd)" = "$SOURCE" ]; then
+    echo "==> $(basename "$target") (origen, se omite)"
     continue
   fi
 
-  echo "==> $(basename "$destino")"
+  echo "==> $(basename "$target")"
 
-  mkdir -p "$destino/.github" "$destino/.agents"
+  mkdir -p "$target/.github" "$target/.agents"
 
-  cp "$ORIGEN/.editorconfig" "$destino/.editorconfig"
-  cp "$ORIGEN/.gitattributes" "$destino/.gitattributes"
-  cp "$ORIGEN/.github/copilot-instructions.md" "$destino/.github/copilot-instructions.md"
-  cp "$ORIGEN/.github/PULL_REQUEST_TEMPLATE.md" "$destino/.github/PULL_REQUEST_TEMPLATE.md"
+  cp "$SOURCE/.editorconfig" "$target/.editorconfig"
+  cp "$SOURCE/.gitattributes" "$target/.gitattributes"
+  cp "$SOURCE/.github/copilot-instructions.md" "$target/.github/copilot-instructions.md"
+  cp "$SOURCE/.github/PULL_REQUEST_TEMPLATE.md" "$target/.github/PULL_REQUEST_TEMPLATE.md"
 
-  rm -rf "$destino/.agents/skills"
-  cp -r "$ORIGEN/.agents/skills" "$destino/.agents/skills"
+  rm -rf "$target/.agents/skills"
+  cp -r "$SOURCE/.agents/skills" "$target/.agents/skills"
 
   echo "  archivos comunes copiados"
-  copiar_bloque_comun "$destino/AGENTS.md"
-  if [ -f "$destino/AGENTS.md" ]; then
-    cp "$ORIGEN/CLAUDE.md" "$destino/CLAUDE.md"
+  copy_shared_block "$target/AGENTS.md"
+  if [ -f "$target/AGENTS.md" ]; then
+    cp "$SOURCE/CLAUDE.md" "$target/CLAUDE.md"
     echo "  CLAUDE.md escrito"
   fi
 done
