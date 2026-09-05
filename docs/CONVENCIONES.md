@@ -66,6 +66,52 @@ El CI corre en cada Pull Request desde el workflow reusable
 [`ci-python.yml`](../.github/workflows/ci-python.yml), que cada repo consume con tres líneas.
 Verifica lint, formato y tests, y publica el porcentaje de cobertura en el resumen del run.
 
+**Los tests corren dentro de la imagen Docker del servicio, no sobre el runner.** El
+`Dockerfile` de cada repo backend tiene un stage `test` que suma las dependencias de
+desarrollo y la carpeta `tests/` sobre el mismo build que va a producción; el CI lo construye
+con `--target test` y ejecuta la suite ahí adentro. Después construye la imagen de producción
+y verifica que levante y responda `200` en `/healthcheck`.
+
+Es lo que hace que el resultado no dependa de cómo esté armada la máquina que ejecuta. El
+lint sí corre sobre el runner: mira el código fuente y no el entorno de ejecución.
+
+Cada repo fija su versión de Python en un archivo `.python-version`. Sin él, `uv` toma la más
+nueva que encuentre en la máquina y se puede terminar probando en una versión distinta de la
+que corre en producción.
+
+Para reproducir la corrida del CI en local, cada repo backend tiene un servicio `tests` en su
+compose:
+
+```bash
+docker compose -f docker/docker-compose.dev.yml run --rm --build tests
+```
+
+Ese servicio no monta el código como volumen a propósito: montarlo reemplazaría lo que hay en
+la imagen por lo que hay en el disco y se dejaría de probar el artefacto real.
+
+En el CI se usa `--network host`, porque los contenedores de servicio se publican en el
+`localhost` del runner. En Docker Desktop sobre Windows o macOS eso no funciona igual, así que
+en local se usa la red del compose y los nombres de host `postgres` y `redis`.
+
+La suite corre con un usuario sin privilegios, el mismo que usa el servicio en producción.
+Correrla como `root` escondería cualquier problema de permisos hasta después del despliegue.
+
+**Sobre las vulnerabilidades de las imágenes base.** La imagen de producción arrastra unas
+cincuenta CVE de paquetes de Debian, ninguna con parche publicado: no son accionables desde
+acá. Lo que sí es nuestro es todo lo que agregamos encima, así que el `Dockerfile` desinstala
+`pip` de la imagen final —el servicio nunca lo usa, el entorno virtual se construye con `uv` en
+el stage de builder y se copia entero— y con eso las vulnerabilidades de paquetes Python bajan
+a cero. Se verifica con:
+
+```bash
+docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+  aquasec/trivy image --severity CRITICAL,HIGH <imagen>
+```
+
+Las imágenes base se fijan por etiqueta y no por digest. Un digest garantiza builds idénticos,
+pero sin un mecanismo que lo actualice se queda viejo y acumula vulnerabilidades sin que nadie
+se entere, que es peor. Se revisa cuando entre el pipeline de CD, en S5.
+
 El **gate del 85%** todavía no bloquea: `ARQUITECTURA.md` lo activa en S3 para los servicios
 backend y en S5 para los clientes. Hasta entonces el número se reporta. Activarlo es pasar
 `bloquear-por-cobertura: true` al workflow reusable desde el repo que corresponda.

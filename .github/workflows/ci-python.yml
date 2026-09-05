@@ -1,13 +1,11 @@
-# Workflow reusable de CI para los servicios en Python.
-#
-# Se consume desde el repo de cada servicio con tres lineas:
+# CI for the Python services. Lives here once and is consumed with:
 #
 #   jobs:
 #     ci:
 #       uses: tds-g3-2s2026/udesa-x-platform/.github/workflows/ci-python.yml@main
 #       secrets: inherit
 #
-# Vive una sola vez aca para que ningun repo quede con el CI atrasado.
+# Tests run inside the image: the consumer needs a `test` stage in its Dockerfile.
 
 name: CI Python
 
@@ -38,6 +36,8 @@ jobs:
   calidad:
     name: Lint y formato
     runs-on: ubuntu-latest
+
+    # On the runner: lint reads the source, not the runtime environment.
     steps:
       - uses: actions/checkout@v5
 
@@ -86,31 +86,58 @@ jobs:
           --health-retries 10
 
     env:
+      # They live on the runner's localhost, which is why the steps use --network host.
       DATABASE_URL: postgresql+asyncpg://users:users@localhost:5432/users
       REDIS_URL: redis://localhost:6379/0
 
     steps:
       - uses: actions/checkout@v5
 
-      - name: Instalar uv
-        uses: astral-sh/setup-uv@v7
+      - name: Preparar Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Construir la imagen de tests
+        uses: docker/build-push-action@v6
         with:
-          python-version: ${{ inputs.version-python }}
-          enable-cache: true
+          context: .
+          file: docker/Dockerfile
+          target: test
+          # Into the local daemon, not a registry.
+          load: true
+          tags: servicio:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
-      - name: Instalar dependencias
-        run: uv sync --locked
-
-      - name: Tests con cobertura
+      - name: Correr la suite dentro de la imagen
         run: |
           if [ "${{ inputs.correr-integracion }}" = "true" ]; then
-            uv run pytest --cov=src --cov-report=xml --cov-report=term
+            COMANDO=""
           else
-            uv run pytest tests/unit --cov=src --cov-report=xml --cov-report=term
+            COMANDO="uv run --no-sync pytest tests/unit --cov=src --cov-report=xml --cov-report=term"
           fi
+          docker run --name suite --network host \
+            -e DATABASE_URL -e REDIS_URL \
+            servicio:test $COMANDO
 
-      # El porcentaje se publica siempre, aunque el gate todavia no bloquee: es lo que
-      # hace visible la tendencia antes de que el gate se active en S3.
+      - name: Sacar los reportes del contenedor
+        if: always()
+        run: |
+          docker cp suite:/app/coverage.xml ./coverage.xml || true
+          docker cp suite:/app/report.xml ./report.xml || true
+
+      # Reachable without digging through the job log.
+      - name: Publicar los reportes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reportes-de-tests
+          path: |
+            coverage.xml
+            report.xml
+          if-no-files-found: warn
+          retention-days: 7
+
+      # Always published, even while the gate does not block.
       - name: Publicar la cobertura en el resumen
         if: always()
         run: |
@@ -118,7 +145,7 @@ jobs:
             echo "No se genero coverage.xml, el paso de tests debe haber fallado antes." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
-          PORCENTAJE=$(uv run python -c "import xml.etree.ElementTree as ET; print(f\"{float(ET.parse('coverage.xml').getroot().get('line-rate')) * 100:.2f}\")")
+          PORCENTAJE=$(python3 -c "import xml.etree.ElementTree as ET; print(f\"{float(ET.parse('coverage.xml').getroot().get('line-rate')) * 100:.2f}\")")
           echo "PORCENTAJE=$PORCENTAJE" >> "$GITHUB_ENV"
           {
             echo "## Cobertura"
@@ -128,6 +155,7 @@ jobs:
             echo "| Cobertura de lineas | ${PORCENTAJE}% |"
             echo "| Minimo exigido | ${{ inputs.cobertura-minima }}% |"
             echo "| Bloquea el PR | ${{ inputs.bloquear-por-cobertura }} |"
+            echo "| Medida dentro de | la imagen Docker del servicio |"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Gate de cobertura
@@ -144,3 +172,33 @@ jobs:
             exit 1
           fi
           echo "Cobertura ${PORCENTAJE}%, por encima del minimo de ${MINIMO}%."
+
+      # Building proves it compiles; starting it proves it works.
+      - name: Construir la imagen de produccion
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          load: true
+          tags: servicio:produccion
+          cache-from: type=gha
+
+      - name: Verificar que la imagen de produccion levanta
+        run: |
+          docker run -d --name servicio --network host \
+            -e DATABASE_URL -e REDIS_URL servicio:produccion
+          for _ in $(seq 1 30); do
+            if [ "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/healthcheck)" = "200" ]; then
+              echo "El healthcheck responde 200 desde la imagen construida."
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::La imagen no respondio 200 en /healthcheck."
+          docker logs servicio
+          exit 1
+
+      # The runner is discarded, but these steps get reproduced locally.
+      - name: Limpiar los contenedores
+        if: always()
+        run: docker rm -f suite servicio || true
