@@ -1,6 +1,6 @@
-# Verifica que templates/repo-servicio no se haya quedado atras de los archivos comunes
-# de la raiz. Es el bug mas probable de este repo: alguien edita la fuente y se olvida
-# de la copia que arranca cada servicio nuevo.
+# Checks that templates/repo-servicio has not fallen behind the common files at the
+# root. It is the likeliest bug here: somebody edits the source and forgets the copy
+# every new service starts from.
 
 name: Verificar plantilla
 
@@ -54,8 +54,8 @@ jobs:
 
           exit $FALLO
 
-      # AGENTS.md no se compara entero: cada repo tiene su propio mapa. Solo el bloque
-      # delimitado, que es lo que sincroniza scripts/sync-comunes.sh.
+      # AGENTS.md is not compared whole: each repo has its own map. Only the marked
+      # block, which is what scripts/sync-comunes.sh keeps in sync.
       - name: Comparar el bloque comun de AGENTS.md
         run: |
           extraer() {

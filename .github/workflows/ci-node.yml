@@ -1,21 +1,18 @@
-# CI for the Python services. Lives here once and is consumed with:
+# CI for the TypeScript repos. Lives here once and is consumed with:
 #
 #   jobs:
 #     ci:
-#       uses: tds-g3-2s2026/udesa-x-platform/.github/workflows/ci-python.yml@main
-#       secrets: inherit
+#       uses: tds-g3-2s2026/udesa-x-platform/.github/workflows/ci-node.yml@main
 #
-# Tests run inside the image: the consumer needs a `test` stage in its Dockerfile.
+# Same shape as ci-python.yml: tests run inside the image, not on the runner.
+# The consumer needs a `test` stage in its docker/Dockerfile that writes
+# coverage/cobertura-coverage.xml and coverage/junit.xml.
 
-name: CI Python
+name: CI Node
 
 on:
   workflow_call:
     inputs:
-      version-python:
-        description: "Version de Python. Fijada en ARQUITECTURA.md."
-        type: string
-        default: "3.13"
       cobertura-minima:
         description: "Porcentaje minimo de cobertura que exige la consigna."
         type: number
@@ -23,14 +20,25 @@ on:
       bloquear-por-cobertura:
         description: >
           Si es true, el PR se bloquea cuando la cobertura queda por debajo del minimo.
-          ARQUITECTURA.md activa el gate en S3 para backend y en S5 para los clientes;
-          hasta entonces el porcentaje se reporta sin frenar a nadie.
+          ARQUITECTURA.md activa el gate en S5 para los clientes; hasta entonces el
+          porcentaje se reporta sin frenar a nadie.
         type: boolean
         default: false
-      correr-integracion:
-        description: "Correr tests/integration contra PostgreSQL y Redis."
+      verificar-imagen:
+        description: >
+          Construir tambien la imagen de produccion y verificar que levante. Solo para
+          los repos que despliegan un contenedor: el backoffice si, mobile no, porque
+          se distribuye por Expo y no tiene imagen.
         type: boolean
-        default: true
+        default: false
+      puerto-imagen:
+        description: "Puerto que expone la imagen de produccion."
+        type: number
+        default: 80
+      ruta-verificacion:
+        description: "Ruta que tiene que responder 200 en la imagen de produccion."
+        type: string
+        default: "/"
 
 jobs:
   calidad:
@@ -41,54 +49,23 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Instalar uv
-        uses: astral-sh/setup-uv@v7
+      - name: Instalar Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          python-version: ${{ inputs.version-python }}
-          enable-cache: true
+          bun-version-file: .bun-version
 
       - name: Instalar dependencias
-        run: uv sync --locked
+        run: bun install --frozen-lockfile
 
-      - name: Ruff, reglas de lint
-        run: uv run ruff check --output-format=github .
+      - name: ESLint y Prettier
+        run: bun run lint
 
-      - name: Ruff, formato
-        run: uv run ruff format --check .
+      - name: Tipos
+        run: bun x tsc --noEmit
 
   tests:
     name: Tests y cobertura
     runs-on: ubuntu-latest
-
-    services:
-      postgres:
-        image: postgres:18-alpine
-        env:
-          POSTGRES_USER: users
-          POSTGRES_PASSWORD: users
-          POSTGRES_DB: users
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U users -d users"
-          --health-interval 5s
-          --health-timeout 3s
-          --health-retries 10
-
-      redis:
-        image: redis:8-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 5s
-          --health-timeout 3s
-          --health-retries 10
-
-    env:
-      # They live on the runner's localhost, which is why the steps use --network host.
-      DATABASE_URL: postgresql+asyncpg://users:users@localhost:5432/users
-      REDIS_URL: redis://localhost:6379/0
 
     steps:
       - uses: actions/checkout@v5
@@ -104,26 +81,18 @@ jobs:
           target: test
           # Into the local daemon, not a registry.
           load: true
-          tags: servicio:test
+          tags: cliente:test
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: Correr la suite dentro de la imagen
-        run: |
-          if [ "${{ inputs.correr-integracion }}" = "true" ]; then
-            COMANDO=""
-          else
-            COMANDO="uv run --no-sync pytest tests/unit --cov=src --cov-report=xml --cov-report=term"
-          fi
-          docker run --name suite --network host \
-            -e DATABASE_URL -e REDIS_URL \
-            servicio:test $COMANDO
+        run: docker run --name suite cliente:test
 
       - name: Sacar los reportes del contenedor
         if: always()
         run: |
-          docker cp suite:/app/coverage.xml ./coverage.xml || true
-          docker cp suite:/app/report.xml ./report.xml || true
+          docker cp suite:/app/coverage/cobertura-coverage.xml ./coverage.xml || true
+          docker cp suite:/app/coverage/junit.xml ./report.xml || true
 
       # Reachable without digging through the job log.
       - name: Publicar los reportes
@@ -155,7 +124,7 @@ jobs:
             echo "| Cobertura de lineas | ${PORCENTAJE}% |"
             echo "| Minimo exigido | ${{ inputs.cobertura-minima }}% |"
             echo "| Bloquea el PR | ${{ inputs.bloquear-por-cobertura }} |"
-            echo "| Medida dentro de | la imagen Docker del servicio |"
+            echo "| Medida dentro de | la imagen Docker del repo |"
           } >> "$GITHUB_STEP_SUMMARY"
 
       # Codecov shows the trend over time and comments on the PR with which
@@ -185,26 +154,27 @@ jobs:
 
       # Building proves it compiles; starting it proves it works.
       - name: Construir la imagen de produccion
+        if: inputs.verificar-imagen
         uses: docker/build-push-action@v6
         with:
           context: .
           file: docker/Dockerfile
           load: true
-          tags: servicio:produccion
+          tags: cliente:produccion
           cache-from: type=gha
 
       - name: Verificar que la imagen de produccion levanta
+        if: inputs.verificar-imagen
         run: |
-          docker run -d --name servicio --network host \
-            -e DATABASE_URL -e REDIS_URL servicio:produccion
+          docker run -d --name servicio -p 8080:${{ inputs.puerto-imagen }} cliente:produccion
           for _ in $(seq 1 30); do
-            if [ "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/healthcheck)" = "200" ]; then
-              echo "El healthcheck responde 200 desde la imagen construida."
+            if [ "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080${{ inputs.ruta-verificacion }})" = "200" ]; then
+              echo "La imagen responde 200 en ${{ inputs.ruta-verificacion }}."
               exit 0
             fi
             sleep 2
           done
-          echo "::error::La imagen no respondio 200 en /healthcheck."
+          echo "::error::La imagen no respondio 200 en ${{ inputs.ruta-verificacion }}."
           docker logs servicio
           exit 1
 
