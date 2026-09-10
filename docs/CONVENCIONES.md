@@ -41,7 +41,7 @@ empezar. El chequeo se repite antes de commitear, porque el estado pudo cambiar 
 tanto.
 
 Saltear esto ya costó trabajo duplicado: dos personas editaron los mismos archivos porque
-había una rama pusheada que nadie miró. Con seis repositorios y cuatro personas, el estado del
+había una rama pusheada que nadie miró. Con seis repositorios y tres personas, el estado del
 proyecto nunca es el que uno recuerda.
 
 ## Ramas
@@ -179,16 +179,53 @@ corresponda.
 `carry-over` marca toda historia que se corrió de un sprint al siguiente. Si al cierre de un
 sprint hay más de dos, el problema no es de esa semana sino de la estimación.
 
+### Cómo se parte el trabajo en issues
+
+Cinco reglas, salidas de la revisión del tutor del 8 de septiembre de 2026, donde marcó que
+los PR eran demasiado grandes y que estábamos avanzando demasiado rápido sin interiorizar en
+detalle los conocimientos.
+
+**1. Toda issue tiene que poder empezar el día uno.** Si necesita que otra termine, no es una
+issue: es un paso de esa otra. Nadie puede quedar esperando a que un compañero pushee para
+arrancar, porque cada uno trabaja los días que puede.
+
+**2. Se corta por archivos, no por criterio de aceptación.** Si dos piezas editan el mismo
+archivo, van en la misma issue. Cortar por CA parece prolijo y produce issues que chocan: los
+contadores y el límite de intentos de un endpoint son comportamiento de ese endpoint, no
+funcionalidades aparte.
+
+**3. Una historia entera pertenece a una persona**, de punta a punta: modelo, endpoint,
+pantalla, tests y demo. Es lo que hace que quien la hizo la pueda defender entera. La variedad
+de stack sale de rotar qué historia toma cada uno, no de repartirse las capas.
+
+**4. Los puntos de una historia se reparten entre sus piezas** y suman exactamente lo que fija
+la consigna. Si una historia de 5 puntos se parte en tres, las tres suman 5. Ninguna pieza
+vale cero, o se pierde la trazabilidad de lo entregado en la semana.
+
+**5. Si una historia necesita un repositorio que todavía no existe, crearlo es parte de esa historia**, 
+y esa semana nadie más entra a ese repo. Es lo que evita que el nacimiento de un servicio bloquee a todo el equipo.
+
+Y una que no es de forma: **si algo no se entiende, se deja afuera y se anota en la issue**, en
+vez de incorporarlo porque funciona. Vale más entregar menos y poder defenderlo.
+
+### Cuántas issues por sprint
+
+Menos de las que entran. **Es preferible correr una historia al sprint siguiente que cerrarlas
+todas apuradas**, y así lo pidió el tutor explícitamente. Lo que se corre se marca
+`carry-over` y se dice en la reunión del lunes, con el motivo.
+
 ## Milestones y tags
 
 **(tutor)** Un milestone por sprint. Cada lunes se cierra el milestone de la semana y se
 crea el tag correspondiente.
 
 - Nombre del milestone: `S1` a `S15`, con vencimiento el lunes de la review.
-- El milestone se crea **solo en los repos que tienen trabajo esa semana**. Quince
-  milestones por seis repos sería inmanejable y no aporta nada.
-- Tag semanal: `sN` en cada repo que tuvo cambios esa semana, creado el lunes al cerrar el
-  milestone.
+- El milestone `SN` se crea en **los seis repos**. Cuesta un comando y evita que una issue
+  quede sin milestone por haberse cargado en un repo que no estaba previsto.
+- **El tag es una versión, no el número de sprint.** Cada repo avanza su propia minor:
+  `v0.1.0`, `v0.2.0`, `v0.3.0`. **Las versiones no se emparejan entre repos**: un repo que
+  recién estrena queda en `v0.1.0` aunque otro vaya por `v0.3.0`.
+- **Solo se etiquetan los repos con código.** Etiquetar un repo vacío es inventar una versión.
 - El facilitador de la semana es quien cierra los milestones y crea los tags.
 
 El Project de la organización toma issues de todos los repos, así que el tablero funciona
@@ -202,8 +239,18 @@ igual con las issues distribuidas.
 Plantilla obligatoria en `.github/PULL_REQUEST_TEMPLATE.md`. La sección "Explicación de la
 implementación" es obligatoria: **sin ella el PR no se revisa.**
 
-Un PR por historia, o por criterio de aceptación si la historia es grande. Ningún PR queda
-abierto de un lunes al siguiente.
+**Una issue se entrega en varios PR chicos**, uno por paso lógico. La issue es la unidad de
+propiedad y de puntos; el PR es la unidad de revisión.
+
+| | Regla |
+|---|---|
+| Archivos por PR | **Máximo 8. Lo normal son 3 o 4.** |
+| Commits por PR | Uno por paso lógico, que se lean solos. No uno con todo adentro. |
+| Vida de un PR | Ninguno queda abierto de un lunes al siguiente. |
+
+Cada issue dice en su cuerpo **en cuántos PR se entrega y qué va en cada uno**. Un PR de veinte
+archivos y un solo commit no se puede revisar a conciencia: fue el señalamiento del tutor del
+8 de septiembre de 2026 y es la razón de este límite.
 
 ## Código
 
