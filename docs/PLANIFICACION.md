@@ -2,7 +2,7 @@
 
 ## Propósito
 
-Este documento baja a un plan ejecutable la consigna de UdeSA-X para un equipo de cuatro integrantes, sobre el calendario real de la cursada, con quince sprints semanales y gestión mediante GitHub Issues, Milestones y GitHub Projects.
+Este documento baja a un plan ejecutable la consigna de UdeSA-X para un equipo de tres integrantes, sobre el calendario real de la cursada, con quince sprints semanales y gestión mediante GitHub Issues, Milestones y GitHub Projects.
 
 Las fechas salen de `Cronograma Taller de Desarrollo de Software.pdf`. Cada sprint es una semana y termina en la reunión del lunes, que es donde el tutor revisa lo hecho y se acuerda lo que viene.
 
@@ -25,19 +25,25 @@ La infraestructura de nube va en S5 y S6, sincronizada con las clases de Cloud C
 
 ## Alcance de aprobación
 
-La consigna exige implementar las 30 historias obligatorias, que suman 82 puntos, y 15 puntos de historias optativas por cada integrante. Para cuatro integrantes, el mínimo optativo de aprobación es 60 puntos.
+La consigna exige implementar las 30 historias obligatorias, que suman 82 puntos, y 15 puntos de historias optativas por cada integrante. **Para tres integrantes, el mínimo optativo de aprobación es 45 puntos.**
 
-El equipo compromete deliberadamente **por encima del mínimo**:
+> **El equipo pasó de cuatro a tres integrantes** al dejar la materia María González del Solar, después de S1. Este documento se recalculó el 10 de septiembre de 2026 sobre esa base. La versión anterior comprometía 155 puntos y estaba escrita para cuatro personas.
+
+El equipo compromete **por encima del mínimo**, pero con menos margen que antes:
 
 | Concepto | Historias | Puntos |
 |---|---:|---:|
 | Obligatorias | 30 | 82 |
-| Optativas comprometidas | 23 | 73 |
-| **Total comprometido** | **53** | **155** |
-| Mínimo exigido por la consigna | - | 142 |
-| Colchón sobre el mínimo | - | +13 (21% del alcance optativo) |
+| Optativas comprometidas | 17 | 54 |
+| **Total comprometido** | **47** | **136** |
+| Mínimo exigido por la consigna | - | 127 |
+| Colchón sobre el mínimo | - | +9 (20% del alcance optativo) |
 
-El colchón no es capricho. Comprometer exactamente 60 puntos optativos significa que si una sola historia se cae por un criterio de aceptación rechazado, el grupo queda por debajo del umbral de aprobación sin margen de reacción. Con 73 puntos repartidos en 18-19 por integrante, cada uno puede perder una historia de 3 puntos y seguir cumpliendo los 15.
+El colchón no es capricho. Comprometer exactamente 45 puntos optativos significa que si una sola historia se cae por un criterio de aceptación rechazado, el grupo queda por debajo del umbral sin margen de reacción. Con 54 puntos repartidos en 18 por integrante, cada uno puede perder una historia de 3 puntos y seguir cumpliendo los 15.
+
+**Qué se recortó y por qué.** El Bloque 1 de optativas —hashtags, menciones, notificación de mención, trending topics y citar post, 19 puntos— sale del alcance comprometido. Es el bloque que arrancaba en cero al 28 de septiembre porque depende del modelo de post, que recién se estabiliza en S5, y era el que el propio plan marcaba como el más expuesto a un atraso (`R13`). Con cuatro personas tenía dueño; con tres, sostenerlo obligaba a un ritmo que el equipo no puede sostener sin caer en lo que el tutor marcó el 8 de septiembre: avanzar rápido sin entender lo implementado.
+
+Las historias del Bloque 1 quedan en el backlog. Si el equipo llega a S11 con margen, se retoman.
 
 Además del alcance puntuado, el compromiso incluye una funcionalidad de Inteligencia Artificial acordada con el tutor y todos los requisitos técnicos y no funcionales de la consigna, que no otorgan puntos pero son condición de aprobación.
 
@@ -54,7 +60,7 @@ Además del alcance puntuado, el compromiso incluye una funcionalidad de Intelig
 
 ## Reparto de historias optativas
 
-Las optativas están agrupadas en cuatro bloques por afinidad técnica, no por reparto ciego de puntos. Cada bloque concentra historias que comparten modelo de datos, servicio y pantallas, de modo que el costo de contexto se paga una sola vez y los conflictos de merge se minimizan.
+Las optativas están agrupadas en tres bloques por afinidad técnica, uno por integrante, no por reparto ciego de puntos. Cada bloque concentra historias que comparten modelo de datos, servicio y pantallas, de modo que el costo de contexto se paga una sola vez y los conflictos de merge se minimizan.
 
 **Un bloque no es una persona.** Quién toma cuál se decide en el planning, cuando el equipo lo acuerde; hasta entonces cualquiera puede agarrar lo que esté libre. Los bloques existen para que ese acuerdo, cuando llegue, reparta trabajo coherente y no historias sueltas.
 
@@ -62,20 +68,25 @@ Cada bloque incluye una historia marcada como **flex**: es la primera que se sac
 
 La columna `Sprint` es la que hace verificable el compromiso: sin ella el agrupamiento dice cuánto pesa cada bloque pero no cuándo, y el riesgo de que alguien llegue a noviembre con 15 puntos sin empezar queda invisible.
 
-### Bloque 1: contenido y descubrimiento
+### Recortado: contenido y descubrimiento
 
-| Historia | Puntos | Sprint | Nota |
-|---|---:|---|---|
-| E.2 H8. Hashtags | 3 | S8 | |
-| E.2 H9. Menciones a Usuarios | 3 | S8 | |
-| E.4 H4. Notificación de Mención | 5 | S10 | |
-| E.2 H11. Trending Topics | 3 | S11 | **flex** |
-| E.2 H13. Citar Post | 5 | S12 | |
-| **Total** | **19** | | mínimo tras flex: 16 |
+Recortado el 10 de septiembre de 2026 al pasar el equipo de cuatro integrantes a tres. Eran
+19 puntos: hashtags (3), menciones a usuarios (3), notificación de mención (5), trending
+topics (3) y citar post (5).
 
-E.4 H4 entra al alcance porque E.2 H9 CA.3 ya exige notificar al usuario mencionado. Dejarla en el backlog sería hacer el trabajo sin cobrar los puntos.
+Se eligió este bloque y no otro por dos razones. Arrancaba en **cero puntos** al 28 de
+septiembre, porque todas sus historias dependen del modelo de post que recién se estabiliza en
+S5, y el propio plan lo marcaba como el más expuesto a un atraso en el riesgo `R13`. Y ninguna
+historia obligatoria depende de él.
 
-### Bloque 2: identidad y experiencia mobile
+Las cinco historias quedan en el backlog con `scope:backlog`. Si el equipo llega a S11 con
+margen sobre el mínimo, se retoman en ese orden.
+
+Una consecuencia a registrar: **`E.3 H10 Silenciar Usuario` pierde su justificación original.**
+Entró al alcance porque `E.4 H4 CA.2` exigía no notificar menciones de usuarios silenciados, y
+`E.4 H4` era de este bloque. Se mantiene en el Bloque 3 por peso del bloque, no por dependencia.
+
+### Bloque 1: identidad y experiencia mobile
 
 | Historia | Puntos | Sprint | Nota |
 |---|---:|---|---|
@@ -88,7 +99,7 @@ E.4 H4 entra al alcance porque E.2 H9 CA.3 ya exige notificar al usuario mencion
 | E.2 H12. Guardar Posts | 3 | S12 | **flex** |
 | **Total** | **18** | | mínimo tras flex: 15 |
 
-### Bloque 3: grafo social y notificaciones
+### Bloque 2: grafo social y notificaciones
 
 | Historia | Puntos | Sprint | Nota |
 |---|---:|---|---|
@@ -102,7 +113,7 @@ E.4 H4 entra al alcance porque E.2 H9 CA.3 ya exige notificar al usuario mencion
 
 E.3 H10 entra al alcance porque E.4 H4 CA.2 exige no notificar menciones de usuarios silenciados. Sin silenciar implementado, ese criterio de aceptación no se puede demostrar.
 
-### Bloque 4: backoffice y plataforma
+### Bloque 3: backoffice y plataforma
 
 | Historia | Puntos | Sprint | Nota |
 |---|---:|---|---|
@@ -123,12 +134,17 @@ La consigna evalúa 15 puntos optativos **por integrante**. Un bloque que concen
 
 | Bloque | 28 sept (entrega intermedia) | 26 oct (obligatorias cerradas) | 16 nov (cierre de optativas) |
 |---|---:|---:|---:|
-| Bloque 1 | 0 | 6 | 19 |
-| Bloque 2 | 9 | 9 | 18 |
-| Bloque 3 | 2 | 7 | 18 |
-| Bloque 4 | 5 | 10 | 18 |
+| Bloque 1 · identidad y mobile | 6 | 6 | 18 |
+| Bloque 2 · grafo y notificaciones | 0 | 3 | 18 |
+| Bloque 3 · backoffice y plataforma | 5 | 8 | 18 |
 
-El Bloque 1 arranca en cero porque sus historias (hashtags, menciones, citas, trending) dependen del modelo de post, que recién se estabiliza en S5. Es una dependencia real, no un descuido, pero hay que vigilarla: si S8 se atrasa, el Bloque 1 es el que queda más expuesto. Mitigación registrada como R13.
+Los tres bloques cierran en 18 puntos, tres por encima del mínimo individual de 15.
+
+**Los tres acumulan tarde y hay que vigilarlo en cada checkpoint.** Al 26 de octubre, cuando las
+obligatorias tienen que estar cerradas, ninguno pasa de 8 de sus 18 puntos: el 70% del alcance
+optativo cae en las últimas tres semanas. Es consecuencia directa de haber priorizado las
+obligatorias, que es lo correcto, pero convierte a S10, S11 y S12 en el tramo crítico. Si alguno
+de esos tres sprints se cae, el riesgo es individual de aprobación, no solo del equipo.
 
 ### Historias fuera de alcance
 
@@ -250,12 +266,23 @@ Las tres historias fuera de alcance (Social Login, Post con Video y Mensajes Dir
 
 Este es el número que hace honesta a toda la planificación.
 
-- 155 puntos comprometidos.
-- 12 semanas efectivas de entrega de historias (S2 a S12; S1 es fundaciones y S13 a S15 son estabilización y defensa).
-- **12,9 puntos por semana.**
-- Con 4 integrantes: **3,2 puntos por persona por semana.**
+- 136 puntos comprometidos, de los cuales **18 están entregados** al cierre de S3.
+- Restan **118 puntos en 9 sprints** (S4 a S12).
+- **13,1 puntos por semana.**
+- Con 3 integrantes: **4,4 puntos por persona por semana.**
 
 Ese es el ritmo que hay que sostener, no un promedio deseable.
+
+**El ritmo por persona subió y no hay forma de evitarlo.** El plan original pedía 3,2 puntos por
+persona con cuatro integrantes. Ser tres lo lleva a 4,4, y ni siquiera bajar al mínimo exacto de
+la consigna lo arregla: 127 puntos comprometidos darían 4,0. La diferencia entre comprometer 136
+y comprometer el mínimo es 0,4 puntos por persona por semana, y a cambio se conserva el colchón
+para perder una historia sin quedar por debajo del umbral.
+
+Conviene tenerlo presente en los checkpoints con el tutor: **el equipo trabaja un 38% más rápido
+por persona que lo que preveía el plan original**, y eso convive mal con el pedido de ir más
+despacio para entender lo que se implementa. Si los dos objetivos chocan, se recorta alcance en
+el checkpoint, no se acelera.
 
 **Mecanismo de control semanal.** Cada lunes, en la reunión, se registra en el issue del sprint los puntos aceptados reales frente a los planificados. La regla:
 
@@ -263,31 +290,63 @@ Ese es el ritmo que hay que sostener, no un promedio deseable.
 |---|---|
 | Un sprint por debajo del 70% | Se anota, no se actúa. Una semana mala pasa. |
 | Dos sprints consecutivos por debajo del 80% | Se recorta la primera historia **flex** del backlog y se avisa al tutor. |
-| Menos de 60 puntos aceptados al 28 de septiembre | Revisión formal de alcance con el tutor en el checkpoint del 19 de octubre. |
+| Menos de 40 puntos aceptados al 28 de septiembre | Revisión formal de alcance con el tutor en el checkpoint del 19 de octubre. El plan prevé 51 acumulados a esa fecha. |
 | Menos de 82 puntos obligatorios al 26 de octubre | Situación crítica. Se congelan todas las optativas hasta cerrarlas. |
 
 Recortar tarde es lo que hace fracasar los proyectos de cursada. Los checkpoints de "% de avance acordado con el tutor" del 7 de septiembre, 21 de septiembre y 19 de octubre son la vía legítima para renegociar, y están en el cronograma de la cátedra precisamente para eso.
 
-## Participación pareja de los cuatro integrantes
+## Participación pareja de los tres integrantes
 
 La consigna exige que cada estudiante pueda explicar y justificar lo que hizo. Un reparto que encierre a alguien en una capa lo perjudica en la defensa, y un reparto que cargue a uno con el 40% de los puntos de un sprint hace que el resto no tenga qué contar. Tres reglas resuelven esto sin pelearse con la especialización:
 
-**1. Propiedad vertical, no por capa.** El dueño de una historia la lleva de punta a punta: migración, endpoint, tests unitarios y de integración, pantalla en mobile o en backoffice, y la demo del lunes. No existe "el del backend" y "el del front". Esto garantiza que los cuatro toquen FastAPI, NestJS, React y Expo a lo largo del semestre.
+**1. Propiedad vertical, no por capa.** El dueño de una historia la lleva de punta a punta: migración, endpoint, tests unitarios y de integración, pantalla en mobile o en backoffice, y la demo del lunes. No existe "el del backend" y "el del front". Esto garantiza que los tres toquen FastAPI, NestJS, React y Expo a lo largo del semestre.
 
 **2. La especialización vive en las optativas y en los roles, no en las obligatorias.** Cada bloque de optativas se mantiene junto, que es donde se concentra su área y donde se paga una sola vez el costo de contexto. Las obligatorias se reparten en el planning de cada lunes con dos objetivos: nivelar los puntos de la semana y cubrir el hueco de stack de quien lo tenga.
 
-**3. Roles rotativos semanales.** Cada semana los cuatro roles rotan una posición, así en cuatro semanas todos pasaron por los cuatro:
+**3. Roles rotativos semanales.** Con tres integrantes son **tres roles**, que rotan una posición cada lunes: en tres semanas todos pasaron por los tres.
 
 | Rol | Responsabilidad de la semana |
 |---|---|
-| Facilitador | Modera el planning del lunes y el daily escrito. Mantiene el board limpio. Persigue bloqueos. |
+| Facilitador y escriba | Modera el planning del lunes y el daily escrito. Mantiene el board limpio. Persigue bloqueos. Escribe el acta en `docs/actas/` y los ADR de las decisiones de la semana. |
 | Guardián de CI | El pipeline queda verde. Cobertura por encima del gate. Tests intermitentes arreglados o dados de baja con issue. |
 | Revisor primario | Primer revisor de todos los PR de la semana. Nadie mergea sin su aprobación o la de un suplente. |
-| Escriba | Acta del lunes en `docs/actas/`. ADRs de las decisiones de la semana. Documentación que el sprint haya generado. |
+
+Facilitador y escriba se fusionaron al pasar el equipo a tres: son los dos roles de registro y
+coordinación, y separarlos con tres personas dejaba a alguien haciendo dos.
 
 **Techo y piso de carga.** Nadie cierra más del 40% ni menos del 15% de los puntos de un sprint. Si alguien va a pasarse del techo, se le pasa una historia a quien esté por debajo del piso. Se verifica cada lunes en la vista `Por integrante` del Project, que suma Story Points por asignado filtrando por el sprint actual. Es una vista, no una planilla aparte: si el control vive fuera del board, no se hace.
 
-La regla mide puntos de historia, que no son todo el trabajo. Quien lidera una issue técnica grande, como provisionar el cluster o correr la prueba de carga, puede quedar legítimamente por debajo del piso esa semana. Cuando pasa, se anota en el acta del lunes con la issue técnica que lo justifica. Sin esa anotación, quedar por debajo del piso es un problema, no una excepción. Los cuatro casos previstos en este plan son S1 y S2, donde casi no hay historias, S6 con el Bloque 1 en el 14% mientras corre la línea base de carga, y S12 con el Bloque 2 en cero mientras lidera el seed y la prueba de carga final.
+La regla mide puntos de historia, que no son todo el trabajo. Quien lidera una issue técnica grande, como provisionar el cluster o correr la prueba de carga, puede quedar legítimamente por debajo del piso esa semana. Cuando pasa, se anota en el acta del lunes con la issue técnica que lo justifica. Sin esa anotación, quedar por debajo del piso es un problema, no una excepción. Los casos previstos en este plan son S1 y S2, donde casi no hay historias, y S12, donde quien lidere el seed y la prueba de carga final va a quedar por debajo del piso de puntos.
+
+## Cómo trabajamos
+
+Acordado el 10 de septiembre de 2026, después de la revisión del tutor del día 8. Reemplaza la
+forma de trabajo de S1 a S3, donde las historias se cerraban de a bloques grandes en un fin de
+semana.
+
+**Qué señaló el tutor.** PR de más de veinte archivos con uno o dos commits, imposibles de
+revisar a conciencia. Todas las issues del sprint cerradas el mismo fin de semana. Soluciones
+complejas que el equipo no sabe explicar ni habría producido por su cuenta. Componentes de
+mobile y backoffice implementados que nadie puede defender.
+
+**Las cinco reglas de diseño de issues** están en
+[`CONVENCIONES.md`](./CONVENCIONES.md), sección "Cómo se parte el trabajo en issues": toda
+issue empieza el día uno, se corta por archivos y no por criterio de aceptación, una historia
+entera pertenece a una persona, los puntos suman lo que fija la consigna, y crear un repo que
+falta es parte de la historia que lo necesita.
+
+**El tamaño de PR también**: máximo 8 archivos, lo normal 3 o 4, con un commit por paso lógico.
+Cada issue declara en cuántos PR se entrega.
+
+**Tres consecuencias sobre este plan:**
+
+1. **Un sprint puede cerrar con menos puntos de los planificados y no es un fracaso.** El tutor
+   prefiere trabajo entendido a alcance cumplido. Lo que no cierra se marca `carry-over` y se
+   informa el lunes con el motivo.
+2. **Los carriles de trabajo son independientes.** Cada semana el sprint se reparte de modo que
+   nadie espere a que un compañero pushee para arrancar: cada uno trabaja los días que puede.
+3. **Nada entra al repositorio si quien lo sube no lo puede explicar.** Si una solución no se
+   entiende, se deja afuera y se anota en la issue. Aplica también a lo que produce un agente.
 
 ## Sprints
 
@@ -302,15 +361,15 @@ El orden de las historias no sigue el orden de las épicas de la consigna sino e
 | S1 | 19 - 23 ago | 24 ago | 0 | Tablero y API dockerizada |
 | S2 | 24 - 30 ago | 31 ago | 8 | Backoffice dockerizado y registro |
 | S3 | 31 ago - 6 sept | 7 sept | 15 | Testing, CI y administradores |
-| S4 | 7 - 13 sept | 14 sept | 13 | Grafo social y E2E backoffice |
-| S5 | 14 - 20 sept | 21 sept | 11 | Posts, feed y E2E mobile |
-| S6 | 21 - 27 sept | **28 sept** | 14 | Despliegue productivo en AWS |
-| S7 | 28 sept - 4 oct | 5 oct | 15 | Interacciones y media |
-| S8 | 5 - 18 oct | 19 oct | 24 | Búsqueda, notificaciones y spike de IA |
+| S4 | 7 - 13 sept | 14 sept | 13 | Grafo social, E2E backoffice y nace posts-api |
+| S5 | 14 - 20 sept | 21 sept | 5 | Grafo social completo, cola y nace notifications-api |
+| S6 | 21 - 27 sept | **28 sept** | 15 | Despliegue productivo en AWS, posts y feed |
+| S7 | 28 sept - 4 oct | 5 oct | 16 | Interacciones, media y perfil |
+| S8 | 5 - 18 oct | 19 oct | 18 | Búsqueda, notificaciones y spike de IA |
 | S9 | 19 - 25 oct | **26 oct** | 14 | Cierre de obligatorias |
-| S10 | 26 oct - 1 nov | 2 nov | 13 | Observabilidad e IA |
-| S11 | 2 - 8 nov | 9 nov | 14 | Escalabilidad y optativas |
-| S12 | 9 - 15 nov | 16 nov | 14 | Carga, documentación y últimas optativas |
+| S10 | 26 oct - 1 nov | 2 nov | 11 | Observabilidad e IA |
+| S11 | 2 - 8 nov | 9 nov | 15 | Escalabilidad y optativas |
+| S12 | 9 - 15 nov | 16 nov | 11 | Carga, documentación y últimas optativas |
 | S13 | 16 - 29 nov | **30 nov** | 0 | Endurecimiento y release |
 | S14 | 30 nov - 6 dic | 7 dic | 0 | Entrega final y correcciones |
 | S15 | 7 - 13 dic | 14 dic | 0 | Recuperatorio y funcionalidad extra |
@@ -341,7 +400,7 @@ Sprint de cinco días sin puntos de historia. Todo el esfuerzo va a destrabar a 
 | `T-65` `.editorconfig`, linters y formatters en los seis repos | sin asignar, faltan linters |
 | `T-66` Instrucciones de Copilot y plantilla de PR en español | Fede |
 | `T-67` Script de sincronización de comunes y convención de tags | Fede |
-| `T-02` Definir límites, responsables y contratos de cada servicio | Los cuatro, sesión conjunta |
+| `T-02` Definir límites, responsables y contratos de cada servicio | Los tres, sesión conjunta |
 | `T-05` Plantilla de repositorio de servicio: estructura, Dockerfile, scripts, reusable workflows | Fede |
 | `T-06` `docker-compose.dev.yml` en `users-api` con PostgreSQL y Redis | Tomás |
 | `T-08` `/healthcheck` estandarizado, con dependencias verificadas | sin asignar |
@@ -350,7 +409,7 @@ Sprint de cinco días sin puntos de historia. Todo el esfuerzo va a destrabar a 
 | `T-23` Presupuesto del cluster y alertas de gasto | sin asignar |
 | `T-24` Formato de error con Problem Details | Tomás |
 | `T-25` Versionado de API y política de cambios | Tomás |
-| `T-61` Cuentas de AWS con plan pago, budget con alertas | Los cuatro |
+| `T-61` Cuentas de AWS con plan pago, budget con alertas | Los tres |
 
 **Consultas al tutor esta semana:** qué fecha de entrega intermedia y final le toca al grupo 3, si hay créditos de AWS disponibles o aplica AWS Academy Learner Lab, y validación de los ADR y del alcance comprometido.
 
@@ -373,7 +432,7 @@ Sprint de cinco días sin puntos de historia. Todo el esfuerzo va a destrabar a 
 
 **Técnicas:** `T-04` bases gestionadas fuera del cluster · `T-05` y `T-06` replicados en `posts-api`, `backoffice` y `mobile` · `T-07` compose integrado en platform · `T-15` registry e imágenes por SHA · `T-22` definición de entornos · `T-51` navegación y tabs de la app · `T-52` splash, sesión persistente y refresco de token · `T-58` textos de Términos y Privacidad.
 
-**Puntos por bloque:** 1 · 3 · 1 · 3. Está desparejo en historias a propósito: en S1 y S2 el grueso del trabajo son issues técnicas, y ahí la carga sí está repartida. El techo y el piso de carga empiezan a aplicar en S3.
+**Reparto:** se define en el planning del lunes, en carriles independientes.
 
 **Decisión de la semana:** el email de verificación se manda **sincrónico** desde `users-api`, con un adaptador detrás de una interfaz. No se levanta la cola todavía, por dos razones. La consigna exige una cola "para comunicar dos microservicios", y en S2 el único consumidor posible sería el propio `users-api`, así que no cumpliría el requisito. Y la clase de Escalabilidad con la demo de colas es el 2 de noviembre: adelantarse diez semanas no aporta nada. La cola entra en S4, cuando nace `notifications-api` y hay dos servicios de verdad. El adaptador es lo que hace que ese cambio sea de una tarde.
 
@@ -397,7 +456,7 @@ Sprint de cinco días sin puntos de historia. Todo el esfuerzo va a destrabar a 
 
 **Técnicas:** `T-13` gate de cobertura del 85% activo en los repos backend · `T-36` y `T-37` suites unitarias y de integración en los dos servicios backend · `T-26` rate limiting por usuario reutilizable, que E.1 H5 CA.8 ya exige · `T-29` RBAC de SuperAdmin y Moderador · `T-19` sistema de componentes de mobile y backoffice.
 
-**Puntos por bloque:** 4 · 3 · 3 · 5.
+**Reparto:** se define en el planning del lunes, en carriles independientes.
 
 **Decisión de la semana:** mobile arranca directo en React Native Testing Library 14, con las APIs core async desde el primer test, y el E2E de mobile es Maestro, no Detox, que está abandonado.
 
@@ -407,44 +466,59 @@ Sprint de cinco días sin puntos de historia. Todo el esfuerzo va a destrabar a 
 
 **Trabajo:** 7 - 13 de septiembre · **Se revisa:** lunes 14 de septiembre · **Clase previa:** Arquitectura (7 sept)
 
-**Compromiso con la cátedra:** flujo completo end to end desde el backoffice hasta el backend. Inicio del desarrollo mobile. Los microservicios acordados con el tutor ya están creados desde S1; en S4 entra en producción el tercero, `notifications-api`, con la cola.
+**Compromiso con la cátedra:** flujo completo end to end desde el backoffice hasta el backend. Inicio del desarrollo mobile. Inicio de nuevos microservicios definidos por el equipo y acordados con el tutor.
 
-**Entregable demostrable:** el backoffice hace login, lista usuarios y crea administradores contra `users-api` real, sin mocks. `notifications-api` consume su primer evento de la cola y manda el email de verificación. En mobile se sigue y se deja de seguir a un usuario.
+**Entregable demostrable:** el backoffice crea administradores contra `users-api` real, sin mocks. Nace `posts-api` con el grafo social. Desde mobile se sigue a un usuario y se resuelven las solicitudes pendientes.
 
-| Historia | Pts | Dueño |
-|---|---:|---|
-| E.3 H1. Seguir a un Usuario | 5 | sin asignar |
-| E.3 H3. Listado de Seguidores y Seguidos | 3 | sin asignar |
-| E.1 H7. Preferencias (optativa) | 2 | sin asignar |
-| E.3 H2. Dejar de Seguir a un Usuario | 2 | sin asignar |
-| E.1 H10. Tema de la Aplicación (optativa) | 1 | sin asignar |
+**Replanificado el 10 de septiembre**, después de la revisión del tutor del día 8. Ver "Qué cambió en S4" más abajo.
 
-**Técnicas:** `T-27` cola con contratos de eventos versionados: `users-api` publica y `notifications-api` consume el envío de emails, que es el requisito de la consigna cumplido con un caso de uso real · `T-16` script de sincronización de contratos y test de divergencia · `T-28` patrón outbox para publicación confiable de eventos · `T-30` paginación por cursor como estándar transversal · `T-50` primera versión de los diagramas C4 · `T-56` pantalla de solicitudes de seguimiento pendientes.
+| Carril | Historia | Pts | Repos |
+|---|---|---:|---|
+| A | E.3 H1. Seguir a un Usuario | 5 | `posts-api` (lo crea) + `mobile` |
+| B | E.5 H1. Creación de Administradores, `carry-over` de S3 | 5 | `users-api` + `backoffice` |
+| C | E.1 H7. Preferencias (optativa) | 2 | `users-api` + `mobile` |
+| C | E.1 H10. Tema de la Aplicación (optativa) | 1 | `mobile` |
 
-**Puntos por bloque:** 3 · 3 · 5 · 2.
+**Técnicas:** creación de `posts-api` con su esqueleto, Dockerfile, compose y CI · `T-56` pantalla de solicitudes de seguimiento pendientes, dentro de `E.3 H1`.
 
-**Spike en paralelo:** el Bloque 4 arranca el spike de EKS esta semana, sin esperar a la clase de Cloud Computing II del 21 de septiembre. Es lo que evita que la entrega intermedia dependa de aprender AWS en siete días.
+**Reparto:** se define en el planning del lunes, en carriles independientes.
+
+#### Qué cambió en S4
+
+El tutor señaló el 8 de septiembre que el equipo avanzaba demasiado rápido, con PR de más de veinte archivos y un solo commit, cerrando todas las issues de un fin de semana y sin poder explicar lo implementado. El sprint se rearmó sobre tres criterios:
+
+**Tres carriles independientes, uno por persona.** Cada carril es una historia de punta a punta, en repositorios que no comparte con los otros. Nadie espera a que un compañero pushee para arrancar, porque cada uno trabaja los días que puede.
+
+**Lo que se corrió a S5.** `E.3 H2` Dejar de Seguir y `E.3 H3` Listados, porque viven en `posts-api` y esta semana ese repo lo toca una sola persona. Y toda la cola: `T-27`, `T-28`, `T-16` y la creación de `notifications-api`, que serían un cuarto carril y el equipo es de tres. Del entregable de la cátedra se cumplen dos de sus tres partes; la cola queda pendiente y se informa en la reunión.
+
+**El único roce entre carriles.** Los carriles B y C agregan columnas distintas al modelo de usuario de `users-api`. Es un conflicto de merge de dos líneas, no un bloqueo: ninguno espera al otro y el segundo que mergea resuelve.
+
+**Spike en paralelo:** el spike de EKS arranca esta semana, sin esperar a la clase de Cloud Computing II del 21 de septiembre. Es lo que evita que la entrega intermedia dependa de aprender AWS en siete días.
 
 ---
 
-### S5 - Publicaciones, feed y flujo end to end de mobile
+### S5 - Grafo social, cola y flujo end to end de mobile
 
 **Trabajo:** 14 - 20 de septiembre · **Se revisa:** lunes 21 de septiembre · **Clase previa:** Cloud Computing I, Kubernetes (14 sept)
 
 **Compromiso con la cátedra:** flujo end to end desde la app mobile hasta el backend. Segundo checkpoint de porcentaje de avance con el tutor.
 
-**Entregable demostrable:** desde el teléfono, un usuario se registra, sigue a otro, publica, ve su feed cronológico con scroll infinito y visita un perfil. El cluster de EKS existe y sirve el healthcheck de los tres servicios a través del Gateway con TLS.
+**Replanificado el 10 de septiembre.** Absorbe lo que se corrió de S4 y por eso las publicaciones se desplazan. El feed y los posts pasan a S6, y la entrega intermedia del 28 de septiembre se defiende con el grafo social funcionando de punta a punta en lugar del feed.
 
-| Historia | Pts | Dueño |
+**Entregable demostrable:** desde el teléfono se sigue y se deja de seguir a un usuario, y se ven las listas de seguidores y seguidos. `notifications-api` consume su primer evento de la cola y manda el email de verificación, que es el requisito de la consigna de comunicar dos microservicios.
+
+| Historia | Pts | Repos |
 |---|---:|---|
-| E.2 H1. Crear Post | 3 | sin asignar |
-| E.2 H2. Feed Principal | 3 | sin asignar |
-| E.2 H14. Visualización de Perfil de Usuario | 3 | sin asignar |
-| E.2 H3. Eliminar Post | 2 | sin asignar |
+| E.3 H3. Listado de Seguidores y Seguidos | 3 | `posts-api` + `mobile` |
+| E.3 H2. Dejar de Seguir a un Usuario | 2 | `posts-api` + `mobile` |
 
-**Técnicas:** `T-09` provisionar el cluster de EKS · `T-10` Gateway API con NGINX Gateway Fabric: TLS, routing y rate limiting por IP · `T-11` manifiestos base con Kustomize y overlays · `T-12` SOPS con age y configuración por entorno · `T-14` workflow de CD con despliegue, rollback y OIDC hacia AWS · `T-53` estados de carga, vacío y error en todas las pantallas · `T-54` pull to refresh en el feed.
+**Técnicas:** `T-09` provisionar el cluster de EKS · `T-10` Gateway API con NGINX Gateway Fabric: TLS, routing y rate limiting por IP · `T-11` manifiestos base con Kustomize y overlays · `T-12` SOPS con age y configuración por entorno · `T-14` workflow de CD con despliegue, rollback y OIDC hacia AWS · `T-30` paginación por cursor · `T-50` primera versión de los diagramas C4.
 
-**Puntos por bloque:** 3 · 3 · 3 · 2.
+**Reparto:** se define en el planning del lunes, en carriles independientes.
+
+**Por qué solo 5 puntos de historia.** La semana está cargada de técnicas, no de historias: es la que levanta el cluster. Sin EKS provisionado acá, la entrega intermedia del 28 de septiembre depende de provisionar y desplegar en la misma semana. Es un caso previsto por la regla de techo y piso: quien lidere el cluster va a quedar por debajo del piso de puntos y se anota en el acta.
+
+**La cola se corre a S7.** `T-27`, `T-28`, `T-16` y la creación de `notifications-api` no tienen fecha de la cátedra: la clase de Escalabilidad con la demo de colas es el 2 de noviembre, y el plan ya las adelantaba diez semanas por dependencia, no por temario. Provisionar el cluster sí tiene fecha, así que S5 va para ahí.
 
 ---
 
@@ -454,21 +528,23 @@ Sprint de cinco días sin puntos de historia. Todo el esfuerzo va a destrabar a 
 
 **Compromiso con la cátedra:** sistema funcionando en forma productiva, desplegado en AWS, con toda la funcionalidad comprometida y acordada con el tutor.
 
-**Entregable demostrable:** la app instalada en un teléfono pega contra el backend desplegado en EKS, no contra localhost. El backoffice está publicado con dominio y TLS. La pantalla de estado de los microservicios muestra los tres servicios en verde, con su versión desplegada.
+**Entregable demostrable:** la app instalada en un teléfono pega contra el backend desplegado en EKS, no contra localhost. Desde el teléfono se publica un post y se ve el feed cronológico. El backoffice está publicado con dominio y TLS. La pantalla de estado de los microservicios muestra los tres servicios en verde, con su versión desplegada.
+
+**Replanificado el 10 de septiembre.** Absorbe `E.2 H1` Crear Post y `E.2 H2` Feed Principal, que venían de S5. Salen `E.1 H8` Foto de Perfil a S10 y `E.5 H9` Registro de Última Conexión a S11: son optativas, y la semana de la entrega intermedia no es donde conviene apilarlas. El cluster se provisiona en S5, así que esta semana despliega sobre algo que ya existe.
 
 | Historia | Pts | Dueño |
 |---|---:|---|
-| E.5 H11. Estado de los Microservicios (optativa) | 5 | sin asignar |
-| E.1 H8. Foto de Perfil (optativa) | 3 | sin asignar |
-| E.5 H9. Registro de Última Conexión (optativa) | 2 | sin asignar |
+| E.2 H1. Crear Post | 3 | sin asignar |
+| E.2 H2. Feed Principal | 3 | sin asignar |
 | E.3 H4. Bloquear Usuario | 2 | sin asignar |
 | E.3 H5. Denunciar Usuario | 2 | sin asignar |
+| E.5 H11. Estado de los Microservicios (optativa) | 5 | sin asignar |
 
 **Técnicas:** `T-20` walking skeleton completo desplegado y accesible · `T-21` observabilidad mínima con logs estructurados y dashboard de healthchecks · `T-43` cuenta de Grafana Cloud y acceso del tutor verificado, dado el límite de 3 asientos del free tier · `T-31` servicio de media con subida por streams y validación por magic numbers · `T-39` seed de datos y generador de volumen · `T-40` primera prueba de carga con línea base sobre el feed.
 
 **Nota operativa:** pasar el nodegroup a on-demand antes de la entrega y dejarlo así hasta el 28 de septiembre; una interrupción de Spot durante la defensa no vale el ahorro.
 
-**Puntos por bloque:** 2 · 3 · 4 · 5. El Bloque 1 queda por debajo del piso del 15% porque lidera `T-39` y `T-40`, el seed y la prueba de carga de línea base. Queda registrado en el acta.
+**Reparto:** se define en el planning del lunes, en carriles independientes.
 
 **Estado al cerrar S6:** 45 de 82 puntos obligatorios (55%) y 16 de 73 optativos. Ese es el número que se lleva a la entrega intermedia y el que hay que acordar con el tutor en el checkpoint del 21 de septiembre, antes de la entrega, no después.
 
@@ -480,18 +556,22 @@ Sprint de cinco días sin puntos de historia. Todo el esfuerzo va a destrabar a 
 
 **Entregable demostrable:** el hilo de conversación funciona de punta a punta: responder, retweetear, dar like y publicar con imagen, todo desde mobile y visible en el feed de los seguidores.
 
+**Replanificado el 10 de septiembre.** Absorbe `E.2 H14` Visualización de Perfil y `E.2 H3` Eliminar Post, que venían de S5. Salen `E.3 H9` Invitar Usuarios Externos a S11 y `E.5 H8` Exportar Datos a S12, las dos optativas. Y recibe **la cola completa**, que se corrió desde S4.
+
+**Es la semana más cargada del semestre y es la primera candidata a recortar.** 16 puntos de historia más el nacimiento de `notifications-api` y toda la mensajería asincrónica. Si al llegar a S7 el equipo viene ajustado, lo que se corre es la cola: no tiene fecha de la cátedra hasta la clase de Escalabilidad del 2 de noviembre.
+
 | Historia | Pts | Dueño |
 |---|---:|---|
 | E.2 H7. Post con Imagen | 5 | sin asignar |
+| E.2 H14. Visualización de Perfil de Usuario | 3 | sin asignar |
 | E.2 H4. Responder a un Post | 2 | sin asignar |
 | E.2 H6. Like a un Post | 2 | sin asignar |
-| E.3 H9. Invitar Usuarios Externos (optativa) | 2 | sin asignar |
 | E.2 H5. Retweet / Repost | 2 | sin asignar |
-| E.5 H8. Exportar Datos (optativa) | 2 | sin asignar |
+| E.2 H3. Eliminar Post | 2 | sin asignar |
 
-**Técnicas:** `T-18` primera revisión OWASP completa sobre los flujos implementados · `T-32` política de soft-delete y retención documentada · `T-55` pantalla de detalle de post e hilo de conversación · idempotencia verificada en likes y retweets.
+**Técnicas:** creación de `notifications-api` (`T-03`) · `T-27` cola con contratos de eventos versionados: `users-api` publica y `notifications-api` consume el envío de emails, que es el requisito de la consigna cumplido con un caso de uso real · `T-28` patrón outbox · `T-16` script de sincronización de contratos y test de divergencia · `T-18` primera revisión OWASP completa sobre los flujos implementados · `T-32` política de soft-delete y retención documentada · `T-55` pantalla de detalle de post e hilo de conversación · idempotencia verificada en likes y retweets.
 
-**Puntos por bloque:** 5 · 2 · 4 · 4, sobre 15.
+**Reparto:** se define en el planning del lunes, en carriles independientes.
 
 **Por qué esta semana bajó de 18 a 15 puntos.** S7 arranca el lunes de la entrega intermedia y termina en la segunda fecha de entrega. Es la semana donde con más probabilidad hay que corregir lo que el tutor observe, y además lleva `T-18`, la primera revisión OWASP completa. Cargarla al 40% por encima del promedio del semestre era planificar el atraso. E.1 H14, Onboarding Inicial, se corrió a S11.
 
@@ -511,8 +591,6 @@ El Bloque 2 queda en el 13%, por debajo del piso, porque lidera las correcciones
 
 | Historia | Pts | Dueño |
 |---|---:|---|
-| E.2 H8. Hashtags (optativa) | 3 | sin asignar |
-| E.2 H9. Menciones a Usuarios (optativa) | 3 | sin asignar |
 | E.1 H4. Eliminación de Cuenta | 3 | sin asignar |
 | E.4 H3. Centro de Notificaciones In-App | 3 | sin asignar |
 | E.4 H1. Notificación de nuevo seguidor | 2 | sin asignar |
@@ -522,7 +600,7 @@ El Bloque 2 queda en el 13%, por debajo del piso, porque lidera las correcciones
 
 **Técnicas:** `T-33` FCM con registro, actualización y depuración de device tokens · `T-34` deep linking en la app instalada · `T-38` suite E2E de los flujos críticos · `AI-02` datos enviados, privacidad, proveedor y modelo · `AI-03` spike técnico con prompt, salida estructurada y costo medido.
 
-**Puntos por bloque:** 6 · 6 · 4 · 8, sobre dos semanas y 24 puntos. Son 12 por semana, por debajo del promedio del semestre: S8 parece el sprint más grande y no lo es, porque dura el doble. E.5 H12 se adelantó desde S11 aprovechando esa holgura.
+**Reparto:** se define en el planning del lunes, en carriles independientes.
 
 E.1 H4 va acá y no antes porque sus criterios de aceptación dependen de que ya existan seguidores (CA.2), respuestas y retweets (CA.5). Ubicarla antes garantiza que quede a medias.
 
@@ -546,7 +624,7 @@ E.1 H4 va acá y no antes porque sus criterios de aceptación dependen de que ya
 
 **Técnicas:** `AI-01` presentación formal de la feature de IA al tutor · arranque de `T-42`, instrumentación de métricas y trazas.
 
-**Puntos por bloque:** 5 · 3 · 3 · 3.
+**Reparto:** se define en el planning del lunes, en carriles independientes.
 
 **Este es el hito que hay que defender.** 82 de 82 puntos obligatorios aceptados, 26 de octubre. Si el 19 de octubre el equipo tiene más de 8 puntos obligatorios abiertos, se congela toda historia optativa hasta cerrarlos.
 
@@ -562,17 +640,17 @@ E.1 H4 va acá y no antes porque sus criterios de aceptación dependen de que ya
 
 | Historia | Pts | Dueño |
 |---|---:|---|
-| E.4 H4. Notificación de Mención (optativa) | 5 | sin asignar |
 | E.3 H10. Silenciar Usuario (optativa) | 5 | sin asignar |
 | E.1 H11. Enviar Feedback o Reportar Error (optativa) | 3 | sin asignar |
+| E.1 H8. Foto de Perfil (optativa) | 3 | sin asignar |
 
 **Técnicas:** `T-42` métricas, logs y trazas distribuidas con correlación entre servicios · `T-44` alertas y notificación de incidentes · `AI-04` implementar el triage asistido · `AI-05` integrar la sugerencia en la bandeja · `AI-06` tests de casos válidos, errores, timeout y baja confianza.
 
-**Puntos por bloque:** 5 · 3 · 5 · 0, sobre 13.
+**Reparto:** se define en el planning del lunes, en carriles independientes.
 
 **Por qué esta semana bajó de 18 a 13 puntos.** S10 es la semana de la feature de IA completa (`AI-04`, `AI-05`, `AI-06`) más métricas, logs y trazas distribuidas (`T-42`, `T-44`). Ese trabajo técnico no da puntos de historia pero es el entregable que la cátedra espera el 2 de noviembre. Sumarle 18 puntos encima era la sobrecarga más clara del plan. E.5 H3 se corrió a S11, donde además llega después de que exista la observabilidad de la que se alimenta.
 
-El Bloque 4 queda en cero puntos de historia porque lidera `T-42` y `T-44`, que es el compromiso de la semana con la cátedra. Queda registrado en el acta.
+Quien lidere `T-42` y `T-44`, que es el compromiso de la semana con la cátedra, va a quedar en cero puntos de historia. Queda registrado en el acta.
 
 E.3 H10 va antes que E.4 H4 en la misma semana por dependencia: E.4 H4 CA.2 exige no notificar menciones de usuarios silenciados.
 
@@ -589,13 +667,14 @@ E.3 H10 va antes que E.4 H4 en la misma semana por dependencia: E.4 H4 CA.2 exig
 | Historia | Pts | Dueño |
 |---|---:|---|
 | E.5 H3. Visualización de Métricas (optativa) | 5 | sin asignar |
-| E.2 H11. Trending Topics (optativa) | 3 | sin asignar |
 | E.1 H14. Onboarding Inicial (optativa) | 3 | sin asignar |
 | E.3 H7. Usuarios en Línea (optativa) | 3 | sin asignar |
+| E.5 H9. Registro de Última Conexión (optativa) | 2 | sin asignar |
+| E.3 H9. Invitar Usuarios Externos (optativa) | 2 | sin asignar |
 
 **Técnicas:** `T-59` HorizontalPodAutoscaler por servicio, más KEDA escalando `notifications-api` por profundidad de cola con `minReplicaCount: 0` · `T-35` detección de idioma del contenido para el filtro de feed de E.1 H7 CA.2 · revisión del outbox bajo carga · arranque de `T-49`, documentación técnica y funcional.
 
-**Puntos por bloque:** 3 · 3 · 3 · 5, sobre 14. Una historia por integrante y por área, sin dependencias entre ellas. E.5 H3 llegó desde S10 y encaja mejor acá: el dashboard de métricas del backoffice se apoya en la observabilidad que se terminó de instrumentar la semana anterior.
+**Reparto:** se define en el planning del lunes, en carriles independientes.
 
 ---
 
@@ -609,14 +688,14 @@ E.3 H10 va antes que E.4 H4 en la misma semana por dependencia: E.4 H4 CA.2 exig
 
 | Historia | Pts | Dueño |
 |---|---:|---|
-| E.2 H13. Citar Post (optativa) | 5 | sin asignar |
 | E.2 H12. Guardar Posts (optativa) | 3 | sin asignar |
 | E.3 H8. Listas Personalizadas (optativa) | 3 | sin asignar |
 | E.5 H10. Borrado Forzado de Contenido (optativa) | 3 | sin asignar |
+| E.5 H8. Exportar Datos (optativa) | 2 | sin asignar |
 
 **Técnicas:** `T-39` seed con el volumen completo, 10.000 usuarios y 500.000 follows · `T-41` prueba de carga final contra los SLOs · `T-49` documentación técnica y funcional · tuning de índices según lo que muestre la prueba.
 
-**Puntos por bloque:** 5 · 3 · 3 · 3, sobre 14. El Bloque 2 lidera además la prueba de carga y el seed, que es el avance que la cátedra espera el 16 de noviembre; por eso toma una sola historia de 3 puntos y no dos.
+**Reparto:** se define en el planning del lunes, en carriles independientes.
 
 **Tres de las cuatro historias de esta semana son flex** (E.2 H12, E.3 H8 y E.5 H10). Es deliberado: el último sprint con puntos es el más recortable de todos, y si el semestre se atrasó, acá se corta sin tocar nada anterior.
 
@@ -646,7 +725,7 @@ Sin puntos nuevos. Este sprint se reserva íntegro para estabilizar. Si se usa p
 - Evidencias consolidadas de CI/CD, cobertura y observabilidad.
 - Retrospectiva del semestre y ensayo de la exposición.
 
-**Reparto:** los cuatro tienen el mismo tipo de trabajo. Cada uno se hace cargo de la regresión y la documentación de sus propias historias, más un ítem transversal de la lista.
+**Reparto:** los tres tienen el mismo tipo de trabajo. Cada uno se hace cargo de la regresión y la documentación de sus propias historias, más un ítem transversal de la lista.
 
 ---
 
@@ -708,7 +787,7 @@ Registro vivo. Se revisa cada lunes en el planning, no una vez por mes.
 | R5 | Mantener dos stacks backend duplica la infraestructura de calidad | Alta | Medio | Limitar a exactamente dos lenguajes. Plantillas de servicio compartidas. Workflows de CI parametrizados. | S1 |
 | R6 | Consistencia de contadores entre servicios | Media | Alto | Mantener follows y posts en el mismo servicio para poder usar transacciones locales. Documentado como ADR. | S1 |
 | R7 | Un integrante se atrasa y bloquea a los demás | Media | Alto | Historias flex identificadas. Techo del 40% y piso del 15% de los puntos del sprint por persona, verificado cada lunes. Pair programming en las historias de 5 puntos. | Semanal |
-| R8 | Alcance de 155 puntos resulta inalcanzable | Media | Alto | Umbral de recorte definido: menos de 60 puntos aceptados al 28 de septiembre dispara revisión formal en el checkpoint del 19 de octubre. | 28 sept |
+| R8 | Alcance de 136 puntos resulta inalcanzable | Media | Alto | Umbral de recorte definido: menos de 40 puntos aceptados al 28 de septiembre dispara revisión formal en el checkpoint del 19 de octubre. El recorte del Bloque 1 de optativas, del 10 de septiembre, ya fue una aplicación de este riesgo. | 28 sept |
 | R9 | El tutor rechaza criterios de aceptación al final | Baja | Alto | Aceptación incremental: cada lunes se demuestra lo de la semana, no se acumula para la entrega. | Semanal |
 | R10 | Deriva entre lo documentado y lo implementado | Alta | Medio | Documentación en el repositorio, actualizada en el mismo PR que el código. Parte de la Definition of Done. | Continuo |
 | R11 | **El despliegue en EKS se corre y arrastra la entrega intermedia del 28 de septiembre** | Media | Muy alto | El spike arranca en S4, el 7 de septiembre, sin esperar a la clase del 21. Plan B: desplegar en ECS con Fargate, que no exige aprender Kubernetes, aceptando que se pierde el alineamiento con el temario. La decisión se toma el 20 de septiembre, no después. | S5 |
@@ -808,7 +887,7 @@ Sin ese registro, la regla de recorte de la sección de capacidad no se puede ap
 
 ### Roles rotativos
 
-Los cuatro roles de la sección "Participación pareja" rotan una posición cada lunes. En cuatro semanas todos pasaron por los cuatro. La rotación es fija y se publica al inicio del semestre, para que nadie tenga que negociarla cada semana.
+Los tres roles de la sección "Participación pareja" rotan una posición cada lunes. En tres semanas todos pasaron por los tres. La rotación es fija y se publica al inicio del semestre, para que nadie tenga que negociarla cada semana.
 
 El **Escriba** de la semana suma una responsabilidad: mantener `AGENTS.md` y las skills al día. Si una regla aparece en una revisión, se escribe ese mismo día. Sin dueño explícito, esos archivos envejecen en tres semanas y dejan de servir.
 
@@ -822,7 +901,7 @@ Esto no es una recomendación: es parte del proceso desde S1, con issues propias
 
 **Tres pasos, siempre en este orden.** Planear: se parte de la historia y su issue, el agente arma un plan y una persona lo corrige antes de que se escriba código. Ejecutar y verificar: se corre el plan y se corren los checks del repo. Mergear: PR con la explicación, revisión de otra persona, merge.
 
-**Skills versionadas en el repositorio, no en la máquina de cada uno.** Viven en `.agents/skills/` y se sincronizan a los seis repos. Así los cuatro usan el mismo procedimiento y la mejora que hace uno la heredan los otros tres.
+**Skills versionadas en el repositorio, no en la máquina de cada uno.** Viven en `.agents/skills/` y se sincronizan a los seis repos. Así los tres usan el mismo procedimiento y la mejora que hace uno la heredan los otros dos.
 
 | Skill | Cuándo se usa |
 |---|---|
@@ -984,13 +1063,18 @@ El detalle historia por historia, con tipo, puntos, sprint y bloque, está en [`
 
 | Bloque | Obligatorias | Optativas | Total |
 |---|---:|---:|---:|
-| Bloque 1 | 23 | 19 | 42 |
-| Bloque 2 | 17 | 18 | 35 |
-| Bloque 3 | 20 | 18 | 38 |
-| Bloque 4 | 22 | 18 | 40 |
-| **Total** | **82** | **73** | **155** |
+| Bloque 1 · identidad y mobile | 27 | 18 | 45 |
+| Bloque 2 · grafo y notificaciones | 27 | 18 | 45 |
+| Bloque 3 · backoffice y plataforma | 28 | 18 | 46 |
+| **Total** | **82** | **54** | **136** |
 
-El Bloque 2 tiene 5 a 7 puntos menos que el resto, y es deliberado: lleva la navegación y la sesión de la app mobile en S2, que no dan puntos y son el andamiaje sobre el que trabajan los otros tres, y lidera el seed y la prueba de carga final en S12. Si en la práctica esa carga resulta menor de lo previsto, la historia que se le reasigna primero es E.2 H10, Búsqueda, del Bloque 4.
+Los tres quedan parejos: 45, 45 y 46. **Las obligatorias no pertenecen a ningún bloque**, se
+reparten en el planning de cada lunes según quién esté por debajo del piso de carga y a quién
+le convenga cubrir un hueco de stack. La columna está para verificar que el total por persona
+cierre, no para asignar de antemano.
+
+Al recortar el Bloque 1 de optativas, sus 23 puntos obligatorios se redistribuyeron entre los
+tres que quedan; los 19 optativos salieron del alcance.
 
 ## Issues técnicos transversales
 

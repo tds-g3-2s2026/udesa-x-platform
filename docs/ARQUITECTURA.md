@@ -18,7 +18,7 @@ El resto sigue sujeto a validación en S1. Cada decisión relevante debe quedar 
 
 **Revisión del stack del 2026-08-20.** Cada pieza se contrastó contra fuentes primarias y las conclusiones están incorporadas a este documento. La más importante: **el NGINX Ingress Controller está archivado desde marzo de 2026**, así que la entrada del cluster va con Gateway API.
 
-El criterio que gobierna el documento: **elegir lo más simple que cumpla el requisito**. Cuatro personas en quince sprints semanales no pueden pagar el costo operativo de una arquitectura sofisticada, y con un repo por servicio ese costo se multiplica por servicio.
+El criterio que gobierna el documento: **elegir lo más simple que cumpla el requisito**. Tres personas en quince sprints semanales no pueden pagar el costo operativo de una arquitectura sofisticada, y con un repo por servicio ese costo se multiplica por servicio.
 
 ## Cómo se cumple cada requisito de la consigna
 
@@ -406,7 +406,7 @@ igual que el módulo de subida. En `notifications-api` es un filtro de NestJS eq
 
 La versión va **en el path**: `/v1/users`, `/v1/posts`. Se descartó el header `Accept` con
 versión: es más elegante pero invisible en un log, en un `curl` y en la barra del navegador, y
-con cuatro personas aprendiendo el costo de depurar pesa más que la elegancia.
+con tres personas aprendiendo el costo de depurar pesa más que la elegancia.
 
 **Qué obliga a subir de versión:**
 
@@ -548,6 +548,10 @@ Las bases persistentes corren **fuera del cluster**, como servicios gestionados.
 
 Migraciones versionadas y ejecutadas como Job de Kubernetes antes del rollout: **Alembic en los dos servicios de Python**. `notifications-api` usa MongoDB y no lleva migraciones de esquema. Una sola herramienta de migraciones en todo el proyecto es una consecuencia directa de haber concentrado el backend relacional en Python, y ahorra mantener dos flujos distintos.
 
+**Cuándo entran.** Recién cuando exista una base desplegada. Lo marcó el tutor en la revisión del 8 de septiembre de 2026: una migración sirve para hacer evolucionar un esquema **sin perder datos vivos**, y hasta que el servicio no esté desplegado no hay datos que proteger. Mientras tanto las tablas se crean desde los modelos con `Base.metadata.create_all()`, en el arranque de desarrollo y en los tests.
+
+`users-api` ya tiene Alembic y sus migraciones de S2 y S3: se dejan como están, porque quitarlas es trabajo sobre algo que funciona. Lo que no se hace es sumar la maquinaria a los servicios nuevos antes de que la necesiten. `posts-api` arranca sin Alembic y lo incorpora al desplegar.
+
 El Job toma un `pg_advisory_lock` durante toda la migración, para que dos rollouts en carrera no migren a la vez. Los cambios van en expand y contract, en deploys separados: primero lo aditivo, el `DROP` o el `NOT NULL` en un deploy posterior. El rollback es forward-only: las down-migrations casi nunca se prueban y fallan justo cuando se las necesita.
 
 ## Aplicaciones cliente
@@ -633,7 +637,7 @@ Palancas, por impacto:
 
 **Dos trampas que hay que desactivar el primer día.** Los clusters de EKS se crean con `upgradePolicy=EXTENDED`: si el cluster cae en soporte extendido, AWS no bloquea nada, empieza a cobrar seis veces más. Se corrige con `aws eks update-cluster-config --upgrade-policy supportType=STANDARD`. Y hay que evitar Kubernetes 1.34, cuyo soporte estándar termina el 2 de diciembre de 2026, justo sobre el cierre del cuatrimestre.
 
-**El free tier de 12 meses de AWS no existe más** desde el 15 de julio de 2025. Las cuentas nuevas reciben hasta 200 USD de crédito y **se cierran solas a los 6 meses o al agotar el crédito, lo que pase primero**, que es menos que el cuatrimestre. Por eso las cuentas se abren con **plan pago**: mismo crédito, sin cierre. Cuatro personas con una cuenta cada una son 800 USD, rotando quién hostea. Dos avisos: si la cuenta se une a una AWS Organization los créditos expiran de inmediato, y el GitHub Student Pack **no** incluye créditos de AWS. Definir presupuesto y alertas es `T-23`, que se adelanta a S1.
+**El free tier de 12 meses de AWS no existe más** desde el 15 de julio de 2025. Las cuentas nuevas reciben hasta 200 USD de crédito y **se cierran solas a los 6 meses o al agotar el crédito, lo que pase primero**, que es menos que el cuatrimestre. Por eso las cuentas se abren con **plan pago**: mismo crédito, sin cierre. Tres personas con una cuenta cada una son 600 USD, rotando quién hostea. Dos avisos: si la cuenta se une a una AWS Organization los créditos expiran de inmediato, y el GitHub Student Pack **no** incluye créditos de AWS. Definir presupuesto y alertas es `T-23`, que se adelanta a S1.
 
 **Plan B, con fecha de decisión el 20 de septiembre:** si el spike de EKS que arranca el 7 de septiembre no llega a servir tráfico para la entrega intermedia, se despliega en **ECS con Fargate**. Cumple el requisito de microservicios contenedorizados en un entorno productivo de AWS sin exigir Kubernetes, a costa de perder el alineamiento con las clases de Cloud Computing. Además es cuatro veces más barato: entre 34 y 44 USD mensuales con Fargate ARM y Spot, contra 147 de EKS. El control plane de EKS, solo, cuesta más que todo el cómputo Fargate del mismo workload. Decidirlo tarde es peor que decidirlo mal. App Runner **no** es una alternativa: está cerrado a clientes nuevos.
 
