@@ -1,0 +1,72 @@
+name: Cerrar la issue padre
+
+# GitHub keeps the count of an issue's pieces but does not close the one that
+# groups them when they are all done. This does that part.
+
+# Consumed by the other repositories with:
+#
+#   jobs:
+#     cerrar:
+#       uses: tds-g3-2s2026/udesa-x-platform/.github/workflows/cerrar-padre.yml@main
+#       secrets:
+#         token: ${{ secrets.ADD_TO_PROJECT_PAT }}
+
+# Fires on this repository's own issues and is called by the other five, so the
+# logic lives in one place instead of a copy per repository.
+on:
+  issues:
+    types: [closed]
+  workflow_call:
+    secrets:
+      token:
+        description: Token con permiso de escritura sobre las issues de la organización, porque el padre suele vivir en otro repositorio.
+        required: false
+
+jobs:
+  cerrar:
+    name: Cerrar la issue padre si ya no le quedan piezas
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Cerrar el padre cuando se completa la última pieza
+        env:
+          # `token` arrives when another repository calls this; when it fires on
+          # an issue from here, it comes from the organisation secret. The
+          # repository's own GITHUB_TOKEN would not do: the parent usually lives
+          # in a different repository.
+          GH_TOKEN: ${{ secrets.token || secrets.ADD_TO_PROJECT_PAT }}
+          REPO: ${{ github.repository }}
+          NUMERO: ${{ github.event.issue.number }}
+        run: |
+          set -euo pipefail
+
+          PADRE=$(gh api "repos/$REPO/issues/$NUMERO" --jq '.parent_issue_url // empty')
+          if [ -z "$PADRE" ]; then
+            echo "La issue #$NUMERO no es pieza de ninguna otra."
+            exit 0
+          fi
+
+          # The parent's count can take a moment to reflect the close that just
+          # triggered this run, so it is read again before concluding that pieces
+          # are still open. That is the only case that matters: the last one.
+          for INTENTO in 1 2 3; do
+            LEIDO=$(gh api "$PADRE" --jq '[.state, .sub_issues_summary.total, .sub_issues_summary.completed, .html_url] | @tsv')
+            IFS=$'\t' read -r ESTADO TOTAL COMPLETAS URL <<< "$LEIDO"
+            [ "$COMPLETAS" = "$TOTAL" ] && break
+            sleep 5
+          done
+
+          if [ "$ESTADO" != "open" ]; then
+            echo "El padre $URL ya estaba cerrado."
+            exit 0
+          fi
+
+          if [ "$COMPLETAS" != "$TOTAL" ]; then
+            echo "Al padre $URL le quedan $((TOTAL - COMPLETAS)) de $TOTAL piezas abiertas."
+            exit 0
+          fi
+
+          gh api --method POST "$PADRE/comments" \
+            -f body="Se cierra automáticamente: sus $TOTAL piezas están completas." > /dev/null
+          gh api --method PATCH "$PADRE" -f state=closed -f state_reason=completed > /dev/null
+          echo "Cerrado $URL."
