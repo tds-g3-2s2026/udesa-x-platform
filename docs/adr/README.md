@@ -12,10 +12,12 @@ escribe una nueva que reemplaza a la anterior y se anota acá.
 | [ADR-005](./ADR-005-limites-de-servicios.md) | Límites de servicios, contratos y dependencias de infraestructura | 2026-08-30 | Aceptada |
 | [ADR-006](./ADR-006-inversion-de-dependencias.md) | Inversión de dependencias en los servicios backend | 2026-09-03 | Reemplazada por ADR-007 |
 | [ADR-007](./ADR-007-estructura-por-capas.md) | Estructura por capas en los servicios backend | 2026-09-04 | Aceptada |
+| [ADR-008](./ADR-008-plataforma-de-despliegue.md) | Plataforma de despliegue sobre el cluster de la cátedra | 2026-09-14 | Aceptada |
 
 Solo se registran decisiones ya tomadas y que el equipo pueda justificar, numeradas en el
 orden en que se toman. Lo que todavía está por definirse vive como decisión abierta `Dxx` en
 `PLANIFICACION.md`, con fecha límite, y pasa a ADR recién cuando se resuelve.
 
-La plataforma de despliegue y el proveedor de nube todavía no tienen ADR: se deciden con la
-clase de Cloud Computing cursada, en la ventana de `D21`.
+La plataforma de despliegue quedó registrada en el ADR-008, con la clase de Cloud Computing I
+cursada. Cerró `D21` y reemplazó las decisiones `A17` y `A18` del registro de
+`ARQUITECTURA.md`.
