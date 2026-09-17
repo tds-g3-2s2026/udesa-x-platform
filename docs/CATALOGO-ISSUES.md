@@ -167,11 +167,11 @@ no funcionales de la consigna.
 | `T-06` | `docker-compose.dev.yml` en cada repo de servicio | S1 |
 | `T-07` | `docker-compose.full.yml` en platform, con imágenes publicadas | S2 |
 | `T-08` | Endpoint `/healthcheck` y probes de Kubernetes estandarizados | S1 |
-| `T-09` | Provisionar el cluster de EKS | S5 |
-| `T-10` | Gateway API con NGINX Gateway Fabric: TLS, routing y rate limiting por IP | S5 |
-| `T-11` | Manifiestos base con Kustomize y overlays de staging y producción | S5 |
-| `T-12` | SOPS con age y gestión de configuración por entorno | S5 |
-| `T-14` | Workflow de CD: build, push, `kubectl apply`, rollback automático y OIDC hacia AWS | S5 |
+| `T-09` | Provisionar el cluster de EKS | Cerrada por el ADR-008: la provisiona la cátedra |
+| `T-10` | Entrada del cluster: `ingress.yaml` único que aplica el docente | S5 |
+| `T-11` | Estructura de Kubernetes: manifiestos planos en `k8s/` por repositorio | S5 |
+| `T-12` | Secretos: plantilla versionada y valores desde GitHub Secrets | S5 |
+| `T-14` | Workflow de CD: build, push, `kubectl apply`, rollback automático y OIDC hacia AWS | S6 |
 | `T-15` | Registry de imágenes y política de etiquetado por SHA | S2 |
 | `T-16` | Script de sincronización de contratos y test de divergencia | S4 |
 | `T-17` | Ramas protegidas, convención de commits y plantilla de PR en los seis repos | S1 |
@@ -292,7 +292,7 @@ en el que bloquea una historia.
 | `D18` | Zona horaria |
 | `D19` | Retención de datos |
 | `D20` | Presupuesto de AWS |
-| `D21` | Plan B si EKS se complica |
+| `D21` | Plan B si EKS se complica. Cerrada por el ADR-008 |
 | `D22` | Sincronización de contratos copiados |
 | `D23` | Autenticación: JWT con denylist vs. token opaco |
 | `D24` | Subida de media: stream vs. presigned URL |

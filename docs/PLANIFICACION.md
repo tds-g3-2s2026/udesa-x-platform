@@ -512,7 +512,9 @@ El tutor señaló el 8 de septiembre que el equipo avanzaba demasiado rápido, c
 | E.3 H3. Listado de Seguidores y Seguidos | 3 | `posts-api` + `mobile` |
 | E.3 H2. Dejar de Seguir a un Usuario | 2 | `posts-api` + `mobile` |
 
-**Técnicas:** `T-09` provisionar el cluster de EKS · `T-10` Gateway API con NGINX Gateway Fabric: TLS, routing y rate limiting por IP · `T-11` manifiestos base con Kustomize y overlays · `T-12` SOPS con age y configuración por entorno · `T-14` workflow de CD con despliegue, rollback y OIDC hacia AWS · `T-30` paginación por cursor · `T-50` primera versión de los diagramas C4.
+**Técnicas:** `T-11` estructura de Kubernetes: manifiestos planos por repositorio, `namespace.yaml` e `ingress.yaml` para que los apruebe el docente · `T-30` paginación por cursor · `T-50` primera versión de los diagramas C4.
+
+**Replanificado el 14 de septiembre, después de Cloud Computing I.** El [ADR-008](./adr/ADR-008-plataforma-de-despliegue.md) cerró que el cluster lo provisiona la cátedra. `T-09` se cierra por eso, `T-10` y `T-12` quedan reemplazadas, `T-11` se simplifica y `T-14` pasa a S6, porque la clase que cubre el workflow de despliegue es el 21 de septiembre.
 
 **Reparto:** se define en el planning del lunes, en carriles independientes.
 
@@ -830,12 +832,13 @@ Cada una necesita dueño y fecha de resolución. Se cargan como issues con la la
 | D18 | Zona horaria | Todo en UTC en backend, conversión a local en el cliente. |
 | D19 | Retención de datos | E.1 H12 exige política de privacidad. Definir qué dice sobre borrado real y cuánto se conserva tras el soft-delete. |
 | D20 | Presupuesto de AWS | Queda abierto quién paga: el control plane no escala a cero (73 USD/mes fijos), una config razonable ronda 166 USD/mes, y la palanca real es destruir y recrear el cluster entre sprints (~9 USD/mes apagado). Definir en S1: cuentas con plan pago, una por integrante, y confirmar con el docente si AWS Academy Learner Lab sirve. |
-| D21 | Plan B si EKS se complica | Definir el 20 de septiembre, no después: ECS con Fargate cumple el requisito de contenedores y despliegue productivo sin exigir Kubernetes, a costa de perder el alineamiento con las clases de Cloud Computing. Además es cuatro veces más barato: entre 34 y 44 USD/mes contra 147 de EKS. **App Runner ya no es opción**, está cerrado a clientes nuevos. |
+| D21 | Plan B si EKS se complica | **Cerrada el 14 de septiembre por el ADR-008.** El plan B con ECS existía por el costo de EKS y por el tiempo de provisionarlo. Las dos razones desaparecen: el cluster lo provisiona la cátedra y el equipo despliega en su namespace. |
 | D22 | Sincronización de contratos copiados | El tutor indicó copiar los esquemas en vez de empaquetarlos. Definir el script de sincronización y el test de contrato que detecta divergencia. |
 | D23 | Autenticación: JWT con denylist vs. token opaco | **Cerrada el 30-08.** La resuelve la consigna: `E1-H2 CA.1` exige un token JWT, así que el token opaco reprobaría el criterio. Implementado con EdDSA. Ver A22. |
 | D24 | Subida de media: stream vs. presigned URL | Stream cumple E1-H8 CA.7 y CA.3 al pie de la letra; presigned URL con validación posterior es mejor práctica pero incumple esos criterios como están redactados. Ver `T-31`. |
 | D25 | Acceso del tutor a Grafana Cloud con 3 asientos | El free tier son 3 usuarios y el equipo más el tutor son 5. Opciones: dashboards públicos, asientos rotativos, o Honeycomb como complemento. |
 | D26 | UUIDv7 como PK de posts | PostgreSQL 18 lo trae nativo (`uuidv7()`). Decidir antes de la primera migración, después sale más caro. |
+| D27 | Lenguaje de `api-gateway` | **Decidir antes de escribir la primera línea del servicio.** La consigna exige que el backend no esté en una única tecnología, y hoy `users-api` y `posts-api` son los dos Python. El segundo lenguaje lo iba a aportar `notifications-api`, pero su creación quedó en S7, que arranca el 28 de septiembre, **el mismo día de la entrega intermedia**: ese día el backend sería enteramente Python. El gateway es el candidato más barato para el segundo stack porque no tiene lógica de dominio, y `ci-node.yml` ya existe. En contra: suma un stack más para mantener. |
 
 ### Decisiones ya cerradas por el tutor (2026-08-19)
 
@@ -848,7 +851,7 @@ Se registran como ADR en `udesa-x-platform/docs/adr/` a medida que se toman, num
 | ADR-003 | Visibilidad de los repositorios | **Públicos.** Es lo que habilita ramas protegidas, secrets de organización y Actions sin cuota en el plan gratuito. |
 | ADR-004 | Alta de issues en el Project | **Un workflow por repositorio** con `actions/add-to-project`. El incorporado de GitHub acepta un solo repo. |
 
-La plataforma de despliegue y el proveedor de nube **no tienen ADR todavía**. Se deciden con la clase de Cloud Computing cursada, dentro de la ventana de `D21`: registrarlas hoy sería dar por cerrado algo que el equipo no puede justificar.
+La plataforma de despliegue quedó cerrada el 14 de septiembre en el ADR-008, con la clase de Cloud Computing I cursada: el cluster lo provisiona la cátedra y el equipo despliega en su namespace.
 
 ## Proceso ágil
 
