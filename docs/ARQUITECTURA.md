@@ -7,14 +7,14 @@ Propuesta de arquitectura. Dos decisiones las respondió el tutor por Slack el 2
 1. **Un repositorio por servicio.** Cada repo lleva sus tests y coverage, su pipeline de CI, sus scripts, su Docker y compose de desarrollo, y sus manifiestos de Kubernetes.
 2. **Kubernetes** como plataforma de despliegue. Sin cerrar: el tutor lo nombró al listar qué lleva cada repo de servicio, no como respuesta a una pregunta sobre despliegue. Hay que confirmarlo antes de escribir el primer manifiesto, en S5.
 3. **Los contratos de eventos se copian** entre repos. Recomendación textual del tutor: copiar en lugar de armar librerías, para no pelear con empaquetado y publicación.
-4. **AWS con EKS** como proveedor de nube. El cronograma dedica la clase del 21 de septiembre a deployar en EKS y la entrega intermedia del 28 de septiembre exige el sistema "desplegado en AWS". Sigue abierta como `D21` hasta el 20 de septiembre: hasta no haber cursado esa clase el equipo no puede justificar la elección, y ECS con Fargate es el plan B.
+4. **AWS con EKS sobre el cluster de la cátedra.** Cerrado el 2026-09-14 en el [ADR-008](./adr/ADR-008-plataforma-de-despliegue.md): el cluster `tds-cluster` lo provisiona la cátedra en `us-east-2` y cada grupo recibe un namespace propio. Dejó sin efecto el plan B con ECS.
 
 El resto sigue sujeto a validación en S1. Cada decisión relevante debe quedar como ADR en el repositorio de plataforma.
 
 **Decisiones del equipo del 2026-08-20**, incorporadas a todo el documento:
 
 1. **Python es el stack principal del backend.** `users-api` y `posts-api` van en Python con FastAPI, y `notifications-api` en TypeScript con NestJS. La consigna pide que el backend no esté en una única tecnología y no dice cuál lleva más peso: conviene que el servicio más grande quede en el stack que el equipo maneja mejor.
-2. **No hay `media-api`.** La subida de archivos se resuelve dentro de `users-api` y `posts-api`, con el módulo de streaming escrito una vez y copiado. Son seis repositorios.
+2. **No hay `media-api`.** La subida de archivos se resuelve dentro de `users-api` y `posts-api`, con el módulo de streaming escrito una vez y copiado. **Son siete repositorios desde el 17 de septiembre**, cuando se sumó `udesa-x-api-gateway` para el ruteo interno que mostró la clase de Cloud Computing I.
 
 **Revisión del stack del 2026-08-20.** Cada pieza se contrastó contra fuentes primarias y las conclusiones están incorporadas a este documento. La más importante: **el NGINX Ingress Controller está archivado desde marzo de 2026**, así que la entrada del cluster va con Gateway API.
 
@@ -52,6 +52,7 @@ Seis repositorios en `tds-g3-2s2026`, todos creados y **públicos** desde el 202
 | `udesa-x-users-api`         | existe    | Identidad, perfiles, administradores, avatares     | FastAPI + Python           |
 | `udesa-x-posts-api`         | existe    | Contenido, grafo social, feed, búsqueda, imágenes  | FastAPI + Python           |
 | `udesa-x-notifications-api` | existe    | Push, centro in-app, emails, triage de IA          | NestJS + TypeScript        |
+| `udesa-x-api-gateway`       | existe    | Ruteo interno de `/api` hacia `users-api` y `posts-api` | A definir en `D27`         |
 | `udesa-x-platform`          | existe    | Gestión, documentación, infraestructura compartida | Kustomize, Terraform, docs |
 
 **Por qué dos servicios en Python y uno en TypeScript.** La consigna exige que el backend no esté en una única tecnología y no dice más que eso. Dado el margen, conviene que el peso caiga donde el equipo es más rápido: `posts-api` concentra casi la mitad de los puntos del sistema y ponerlo en el stack menos conocido era pagar ese costo en la parte más grande. `notifications-api` es el candidato natural para el segundo lenguaje porque es el más acotado: consume la cola, habla con FCM y con el proveedor de email, y no tiene lógica de dominio propia. Además Node tiene el mejor soporte de clientes de FCM. Y como mobile y backoffice son React, el equipo toca TypeScript igual todos los días.
@@ -135,7 +136,7 @@ Acá viven las issues **transversales**: infraestructura, documentación y decis
 
 Los milestones se crean solo en los repos que tienen trabajo esa semana. Quince milestones por seis repos serían noventa y no aportarían nada; el campo Iteration del Project ya da la vista de los quince sprints.
 
-### Cómo se relacionan los seis repositorios
+### Cómo se relacionan los repositorios
 
 ```mermaid
 flowchart LR
@@ -230,13 +231,13 @@ Lo que deliberadamente **no** dibuja, para que se entienda: los eventos concreto
 
 | Componente                  | Servicio de AWS                                 | A confirmar                                                                                                              |
 | --------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| Cluster                     | Amazon EKS                                      | Abierto hasta el 20 de septiembre, `D21`                                                                                 |
+| Cluster                     | Amazon EKS, provisto por la cátedra             | Cerrado en el ADR-008. `tds-cluster` en `us-east-2`, un namespace por grupo                                              |
 | PostgreSQL de users y posts | RDS for PostgreSQL, una instancia con dos bases | Tamaño de instancia según créditos, S2                                                                                   |
 | MongoDB                     | MongoDB Atlas en capa gratuita                  | DocumentDB solo si hay créditos: cuesta varias veces más                                                                 |
 | Redis                       | Dentro del cluster                              | Los datos son efímeros: revocación, rate limit y caché. Autohospedado, no ElastiCache: el volumen del proyecto no justifica el gestionado |
 | Almacenamiento de media     | S3 con bucket privado y URLs firmadas           | Cerrado                                                                                                                  |
 | Registry de imágenes        | GitHub Container Registry                       | Cerrado, no se usa ECR para no atar el CI a AWS                                                                          |
-| DNS y certificados          | cert-manager con Let's Encrypt sobre el Gateway | Cerrado, no se usa ACM                                                                                                   |
+| DNS y certificados          | Los resuelve la cátedra sobre el ingress        | Cerrado en el ADR-008. El equipo no administra la entrada del cluster                                                    |
 | Región                      | `us-east-1`                                     | Cerrado. `sa-east-1` sale 35% a 45% más caro en cómputo y transferencia, y el control plane cuesta lo mismo              |
 
 Mantener el registry y los certificados fuera de AWS es deliberado: si el plan B de `ECS con Fargate` se activa, o si se acaban los créditos, lo único que hay que rehacer es el despliegue, no el pipeline entero.
@@ -602,8 +603,8 @@ Mantine sobre shadcn porque trae formularios y gráficos en el mismo monorepo co
 | ------------ | --------------------------------------------- | ------------------------------------------------------------------------------------------------- |
 | Cluster      | Amazon EKS 1.36 con Auto Mode                 | Impuesto por el cronograma de la cátedra y por la entrega intermedia, que exige despliegue en AWS |
 | Nodos        | 2 × t4g.medium en Spot, subredes públicas     | Sin NAT gateway, con security groups cerrados y acceso por SSM. Imágenes arm64                    |
-| Manifiestos  | Kustomize                                     | `base` más overlays de staging y producción. Más simple que Helm sin plantillas complejas         |
-| Entrada      | **Gateway API con NGINX Gateway Fabric**      | TLS, routing por path, rate limiting por IP. Reemplaza a ingress-nginx, archivado                  |
+| Manifiestos  | YAML plano en `k8s/` por repositorio          | Cerrado en el ADR-008. Un solo entorno y un solo namespace no justifican overlays                 |
+| Entrada      | **`Ingress` único, aplicado por el docente**  | Reemplazado en el ADR-008. Instalar un gateway controller excede los permisos del grupo            |
 | TLS          | cert-manager con Let's Encrypt                | Certificados automáticos y renovados                                                              |
 | Secretos     | **SOPS con age**, desencriptado en Actions    | Cero pods en el cluster, y sobrevive a destruir y recrear el cluster                              |
 | Registry     | GitHub Container Registry                     | Integrado con Actions, sin configuración extra                                                    |
@@ -953,14 +954,14 @@ Pendientes de definir en S1:
 | A13 | Observabilidad                   | Grafana Cloud, por el requisito de acceso del tutor                                    |
 | A14 | Proveedor de email               | Resend o Brevo, con dominio verificado en S1, porque el registro de S2 depende de esto |
 | A15 | Push en iOS                      | Depende de la cuenta de Apple Developer                                                |
-| A16 | Presupuesto de AWS               | Quién paga y si hay créditos. Cuentas con plan pago, y decidir si el cluster se destruye entre sprints |
+| A16 | Presupuesto de AWS               | **Cerrada por el ADR-008**: el cluster lo provee la cátedra, el equipo no decide costo ni ciclo de vida |
 
 ### Nuevas, de la revisión del stack del 2026-08-20
 
 | #   | Decisión                    | Estado                                                                                                                    |
 | --- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| A17 | Controller de entrada       | **Cerrada por obsolescencia**: Gateway API con NGINX Gateway Fabric. ingress-nginx está archivado desde marzo de 2026     |
-| A18 | Gestión de secretos         | **SOPS con age** en vez de Sealed Secrets, cuya clave muere al recrear el cluster                                          |
+| A17 | Controller de entrada       | **Reemplazada por el ADR-008**: el controller lo elige la cátedra y el equipo entrega un `ingress.yaml` para que lo apliquen |
+| A18 | Gestión de secretos         | **Reemplazada por el ADR-008**: `secret.template.yaml` versionado, el secreto real fuera del repositorio y los valores desde GitHub Secrets |
 | A19 | Clave primaria de contenido | **UUIDv7 nativo de PostgreSQL 18.** Hay que fijarlo antes de la primera migración                                         |
 | A20 | Motor clave-valor           | **Redis.** Revertida el 2026-08-23 en la revisión del PR #6 de `users-api`. La versión anterior elegía Valkey por precio en ElastiCache, que no aplica porque se autohospeda, y por licencia, que perdió peso desde que Redis 8 ofrece AGPLv3. Queda que Redis es más estándar y el equipo lo conoce |
 | A21 | Plantillas de CI            | **Reusable workflows**, no copiadas. Los contratos de eventos se siguen copiando, porque eso lo pidió el tutor            |
