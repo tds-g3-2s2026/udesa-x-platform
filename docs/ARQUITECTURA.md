@@ -551,7 +551,7 @@ Migraciones versionadas y ejecutadas como Job de Kubernetes antes del rollout: *
 
 **Cuándo entran: ya entraron.** La regla anterior, fijada por el tutor el 8 de septiembre, era crear las tablas desde los modelos con `Base.metadata.create_all()` mientras no hubiera base desplegada, porque sin datos vivos no hay nada que una migración proteja. El ADR-009 la termina: con las bases creadas en Neon, todo cambio de esquema es una revisión de Alembic.
 
-Los dos servicios ya están ahí. `users-api` trae Alembic desde S2, `posts-api` lo incorporó con su `0001_esquema_actual.py`, y los `conftest.py` de ambos levantan el esquema con `alembic upgrade head`: no queda una llamada a `create_all` en `src/` ni en `tests/`. Desde la primera migración aplicada contra Neon, la `0001` de cada servicio queda congelada y editarla o correr `alembic stamp` contra una base con datos queda prohibido.
+Los dos servicios ya están ahí. `users-api` trae Alembic desde S2, `posts-api` lo incorporó con su `0001_esquema_actual.py`, y los `conftest.py` de ambos levantan el esquema con `alembic upgrade head`: no queda una llamada a `create_all` en `src/` ni en `tests/`. La `0001` de cada servicio queda congelada con el primer deploy, y desde ahí editarla o correr `alembic stamp` contra una base con datos queda prohibido. Lo que ya rige hoy es que un cambio de modelo llega con su migración en el mismo PR: `alembic check` lo detecta y los tests de integración lo prueban.
 
 El Job toma un `pg_advisory_lock` durante toda la migración, para que dos rollouts en carrera no migren a la vez. Los cambios van en expand y contract, en deploys separados: primero lo aditivo, el `DROP` o el `NOT NULL` en un deploy posterior. El rollback es forward-only: las down-migrations casi nunca se prueban y fallan justo cuando se las necesita.
 
@@ -962,7 +962,7 @@ Pendientes de definir en S1:
 | --- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | A17 | Controller de entrada       | **Reemplazada por el ADR-008**: el controller lo elige la cátedra y el equipo entrega un `ingress.yaml` para que lo apliquen |
 | A18 | Gestión de secretos         | **Reemplazada por el ADR-008**: `secret.template.yaml` versionado, el secreto real fuera del repositorio y los valores desde GitHub Secrets |
-| A19 | Clave primaria de contenido | **UUIDv7 nativo de PostgreSQL 18.** Fijado: el ADR-009 elige Neon, donde 18 es la versión por defecto, y la `0001` de `posts-api` queda congelada al aplicarse |
+| A19 | Clave primaria de contenido | **UUIDv7 nativo de PostgreSQL 18.** Fijado: el ADR-009 elige Neon, donde 18 es la versión por defecto, y la `0001` de `posts-api` queda congelada con el primer deploy |
 | A20 | Motor clave-valor           | **Redis.** Revertida el 2026-08-23 en la revisión del PR #6 de `users-api`. La versión anterior elegía Valkey por precio en ElastiCache, que no aplica porque se autohospeda, y por licencia, que perdió peso desde que Redis 8 ofrece AGPLv3. Queda que Redis es más estándar y el equipo lo conoce |
 | A21 | Plantillas de CI            | **Reusable workflows**, no copiadas. Los contratos de eventos se siguen copiando, porque eso lo pidió el tutor            |
 | A22 | Manejo de tokens            | **Cerrada: JWT firmado con EdDSA.** La define `E1-H2 CA.1`, que exige un token JWT; el token opaco reprobaría el criterio |

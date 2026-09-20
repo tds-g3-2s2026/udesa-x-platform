@@ -114,7 +114,7 @@ pierden la denylist de JWT y los contadores de rate limit. Un token revocado vue
 hasta su expiración natural, y los contadores arrancan de cero. Es el precio de que sea efímero,
 ya estaba implícito en `A12`, y es aceptable con tokens de vida corta.
 
-### Migraciones: desde la primera aplicación contra Neon, Alembic es el único camino
+### Migraciones: desde el primer deploy, Alembic es el único camino
 
 La regla anterior era crear las tablas desde los modelos con `Base.metadata.create_all()`
 mientras no hubiera base desplegada. **Esa regla se termina acá**, y el código ya se adelantó:
@@ -125,14 +125,22 @@ los dos servicios tienen Alembic, `posts-api` lo incorporó con `alembic.ini` y
 
 Lo que cambia con una base real:
 
-- **La `0001` de cada servicio queda congelada.** A partir de la primera aplicación contra Neon,
-  todo cambio de modelo es una revisión nueva con `alembic revision --autogenerate`. Editar la
+- **La `0001` de cada servicio queda congelada con el primer deploy.** De ahí en más, todo
+  cambio de modelo es una revisión nueva con `alembic revision --autogenerate`. Editar la
   `0001` o correr `alembic stamp` contra una base con datos queda prohibido.
 - El Job de migración corre antes del rollout, toma `pg_advisory_lock`, los cambios van en
   expand y contract, y el rollback es forward-only. Ya estaba en `ARQUITECTURA.md`, ahora aplica
   de verdad.
-- El corte es la **primera migración aplicada**, no la creación del proyecto vacío. Hasta ese
-  momento, recrear la base desde cero sigue siendo gratis.
+- **El corte es el deploy, no la creación de la base ni el primer `upgrade head` contra ella.**
+  La diferencia no es teórica: el 20 de septiembre la `0001` de `posts-api` se aplicó contra
+  Neon y ese mismo día `main` sumó tres índices de cursor que esa revisión no tenía. Con las dos
+  bases vacías y ningún servicio desplegado, lo correcto fue completar la `0001` y volver a
+  aplicarla sobre el esquema borrado, no arrastrar un `0002` que solo existía por el desfasaje
+  de unas horas. Mientras no haya datos ni pods corriendo, recrear la base desde cero es gratis
+  y es la opción más limpia.
+- **Lo que sí es permanente desde hoy:** cualquier cambio de modelo tiene que llegar con su
+  migración en el mismo PR. `alembic check` lo detecta, y el CI ya lo prueba porque los tests de
+  integración levantan el esquema con `alembic upgrade head` y no con `create_all`.
 
 ### Secretos
 
