@@ -83,7 +83,7 @@ Los manifiestos son planos, sin Kustomize ni overlays.
 |---|---|
 | [`k8s/namespace.yaml`](./k8s/namespace.yaml): Namespace, ResourceQuota y LimitRange | El docente, después de revisar y aprobar el PR |
 | [`k8s/ingress.yaml`](./k8s/ingress.yaml): entrada HTTP del sistema | El docente, después de revisar y aprobar el PR |
-| Deployment, Service, ConfigMap y Secret de cada servicio | El pipeline de CI, dentro del namespace del grupo |
+| Deployment, Service, ConfigMap, Secret y Job de migración de cada servicio | El futuro pipeline de CD, dentro del namespace del grupo |
 
 Los valores de cuota, el grupo de ALB y el host salen de la clase 6, Cloud Computing I del
 14 de septiembre, la misma que cierra el [ADR-008](./docs/adr/ADR-008-plataforma-de-despliegue.md).
@@ -95,14 +95,19 @@ Por contenedor, el mínimo es `100m` / `128Mi` y el máximo `500m` / `512Mi`.
 Los valores predeterminados son request `100m` / `128Mi` y limit `500m` / `512Mi`.
 Igualmente, cada Deployment debe declarar sus requests y limits explícitamente.
 
-**El techo de `8` pods es la restricción que más aprieta.** En régimen el namespace tiene
-`users-api`, `posts-api`, `api-gateway`, `notifications-api`, RabbitMQ y Redis: seis pods con
-una réplica cada uno. Un rolling update con el `maxSurge: 25%` por defecto pide un pod extra,
-y al séptimo u octavo el `ResourceQuota` rechaza la creación y el rollout queda trabado sin
-que el servicio viejo se caiga. Por eso los Deployment usan `maxSurge: 1` con
-`maxUnavailable: 0` solo mientras haya slots libres, y `maxSurge: 0` con `maxUnavailable: 1`
-cuando no los haya. Lo mismo vale para el máximo de `500m` / `512Mi` por contenedor: ocho
-contenedores en ese máximo agotan exactamente los `4` CPU de limits.
+**La cuota es de ocho pods, no seis.** Un escenario futuro con `users-api`, `posts-api`,
+`api-gateway`, `notifications-api`, RabbitMQ y Redis tendría seis pods con una réplica
+cada uno; no significa que esos seis componentes ya estén desplegados. El séptimo y octavo
+entran si alcanzan las demás cuotas; el noveno es rechazado.
+
+Los tres Deployment HTTP usan `maxSurge: 1` y `maxUnavailable: 0`: conservan el pod anterior
+hasta que el nuevo esté listo. Reservar capacidad para el pod adicional y los Jobs de
+migración activos, incluyendo CPU y memoria. Ejecutar los despliegues de forma secuencial
+si comparten ese margen; la exclusión de GitHub Actions de un repo no serializa otros repos.
+Un pod todavía terminando también puede consumir cuota. Sin margen, el rollout puede
+quedar trabado: no aumentar automáticamente `maxUnavailable` a costa de interrumpir el servicio.
+Una réplica con rolling update no es alta disponibilidad. Ocho contenedores con límites
+de `500m` / `512Mi` agotan los `4` CPU / `4Gi` de limits.
 
 El Ingress comparte el ALB mediante `group.name: tds-shared`, usa `group.order: "203"`
 y solo recibe tráfico para `tds-group-3.tds-linar.udesa.edu.ar`.
@@ -126,33 +131,41 @@ Ingress.
 
 El puerto `80` es una decisión del equipo para todos los Services, no un valor impuesto
 por la cátedra. Sus manifiestos deben declarar `spec.ports[].port: 80`.
-El `targetPort` de cada Service debe coincidir con el `containerPort`, el puerto que
-escucha su aplicación y el `EXPOSE` de su Dockerfile; no tiene por qué ser `80`.
-Hoy los tres escuchan en `8000`, según el `EXPOSE` de sus Dockerfile. Conviene que el Service
-apunte a un puerto nombrado (`targetPort: http`) y no al número, para que cambiarlo sea tocar
-solo el Deployment.
+El Service apunta al puerto nombrado `http`, declarado como `containerPort: 8000` en el
+Deployment. Ese número coincide con Uvicorn/Bun y el `EXPOSE` del Dockerfile; no tiene
+por qué ser el puerto `80` del Service.
 El Ingress usa la clase `alb`, targets por IP y `/healthcheck`, que el gateway expone sin
 dependencias propias, para comprobar la salud del target group.
 Las annotations de alcance de grupo (`scheme`, `listen-ports`, `certificate-arn`, subnets)
 no se declaran acá a propósito: son del ALB compartido y las fija la cátedra. Declararlas
 con un valor distinto al del resto del grupo rompe la reconciliación para todos los equipos.
 
-La prueba de ruteo de punta a punta requiere los tres Services desplegados y los endpoints ya
-bajo `/api`. Hoy `users-api` ya monta sus routers con `API_PREFIX = "/api"`, y `posts-api`
-todavía publica `/users` sin el prefijo: hasta que lo agregue, `/api/users` llega al gateway,
-el gateway lo reenvía a `posts-api` y `posts-api` responde 404.
+La integración requiere desplegar conjuntamente las versiones alineadas:
+[users-api#42](https://github.com/tds-g3-2s2026/udesa-x-users-api/pull/42),
+[posts-api#37](https://github.com/tds-g3-2s2026/udesa-x-posts-api/pull/37) y los manifiestos del
+[gateway#2](https://github.com/tds-g3-2s2026/udesa-x-api-gateway/issues/2). El gateway conserva
+`/api` y la query: los backends deben montar sus rutas bajo ese prefijo. Sus URLs internas
+son `http://users-api` y `http://posts-api`, sin `/api` ni `:8000`.
+
+Las APIs usan `/livez` para liveness sin consultar dependencias y `/healthcheck` para
+readiness con PostgreSQL y Redis. Una caída de la base retira el pod del tráfico, sin
+reiniciarlo por liveness. Las sondas consultan el pod directamente y no necesitan una
+regla pública en el Ingress. El healthcheck del gateway no demuestra la salud de las APIs.
 
 ### Cifrado en tránsito
 
 El TLS del sistema se termina en el ALB compartido, con el certificado de ACM que administra
 la cátedra. Por eso el Ingress no declara `certificate-arn` ni `listen-ports`.
 
-Del ALB hacia adentro el tráfico va en HTTP plano, y es deliberado. Cifrarlo requiere un
-service mesh o cert-manager, y los dos necesitan CRDs, webhooks y un controller fuera del
-namespace del grupo: está fuera de los permisos que fija el ADR-008, igual que el gateway
-controller que descartó `A17`. Además el tráfico entre nodos ya viaja cifrado: AWS cifra en
-hardware el tráfico entre instancias Nitro dentro de una VPC. Lo que no hay es autenticación
-mutua entre servicios, que es lo que agregaría un mesh y hoy no se puede instalar.
+Del ALB hacia adentro el tráfico va en HTTP plano por decisión operativa; no hay mTLS.
+Un mesh o cert-manager necesita componentes de alcance de cluster que administra la
+cátedra, pero no es la única manera de implementar TLS: también podría terminarlo cada
+aplicación con certificados provisionados. Eso queda fuera de este despliegue.
+
+No asumir cifrado entre nodos por el solo hecho de usar Nitro: AWS lo ofrece para
+[tipos de instancia y trayectos específicos](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/data-protection.html#encryption-transit).
+Hay que confirmar los nodos y la topología reales con la cátedra; esa protección tampoco
+equivale a TLS entre aplicaciones ni a autenticación mutua.
 
 **Las conexiones que salen del cluster sí van cifradas y eso es responsabilidad del equipo.**
 Las bases persistentes son gestionadas y viven fuera del cluster, así que cada servicio tiene
@@ -160,7 +173,7 @@ que exigir TLS en su URL de conexión, no solo permitirlo:
 
 | Destino | Qué usar |
 |---|---|
-| PostgreSQL | `?sslmode=verify-full` con el bundle de CA de RDS. `require` cifra pero no valida el certificado del servidor |
+| PostgreSQL | Validación de CA y hostname con el driver real. Estas APIs usan SQLAlchemy + asyncpg (`ssl=verify-full`, no el parámetro libpq `sslmode`), con la CA de RDS disponible para el driver; comprobarlo contra la instancia asignada. No usar `require` como sustituto de validación del servidor |
 | Redis con encryption in transit | esquema `rediss://` |
 | RabbitMQ, si queda fuera del cluster | esquema `amqps://` |
 
@@ -182,15 +195,57 @@ plataforma si el workflow corre desde un repositorio de servicio.
 | `S3_BUCKET` | Nombre del bucket asignado para los archivos del sistema, sin `s3://` ni una URL. | Lo entrega la cátedra; se consulta en S3 > Buckets. No se deduce del nombre del namespace. |
 | `ECR_URI_PREFIX` | Prefijo de URI para las imágenes privadas. Tiene la forma `<account-id>.dkr.ecr.us-east-2.amazonaws.com`, más el prefijo de repositorio si la cátedra asigna uno; sin `https://` ni tag de imagen. | Pedir el prefijo exacto a la cátedra y contrastarlo con la URI de los repositorios asignados en ECR > Private registry > Repositories. Respetar también el separador entre ese prefijo y el nombre del servicio. |
 
-`ECR_URI_PREFIX` es el nombre elegido acá para el secret del prefijo de ECR; el futuro
-workflow de CD debe usar el mismo nombre y construir una URI que coincida con el
-repositorio asignado. El ARN del rol, el bucket, el Account ID y el prefijo exacto
-de ECR se completan con los datos de la cátedra, no con valores inventados.
+El pipeline construirá **`ECR_IMAGE`**, la referencia completa del repositorio asignado
+con tag inmutable por commit o digest, a partir de los datos reales de ECR. Los tres
+Deployment usan únicamente `${ECR_IMAGE}` como marcador. Kubernetes no lo expande:
+el futuro CD debe sustituirlo y rechazar valores vacíos o marcadores sin resolver antes
+de aplicar. El ARN del rol, el bucket, el Account ID y la URI real se piden a la cátedra.
 
 Las claves personales de AWS no se usan como credenciales del pipeline.
 Nunca commitear credenciales, tokens ni `k8s/secret.yaml` con valores reales:
 ese archivo debe estar en `.gitignore` de cada repositorio.
 Solo se versionan plantillas de secretos sin valores reales.
+
+### Orden del primer despliegue y de las actualizaciones
+
+**Estas PRs no implementan CD ni publican imágenes.** El workflow actual valida código e
+imágenes localmente en el runner; hacer merge no modifica EKS. El futuro CD debe:
+
+1. Partir de un commit validado, construir la imagen y publicarla en ECR con referencia
+   inmutable. Usar OIDC para asumir el rol de CI, no claves personales. Confirmar por
+   separado los permisos de push del pipeline, pull del cluster y edición del namespace.
+2. Esperar el namespace/cuotas de la cátedra y las bases accesibles. Aplicar ConfigMap y
+   Secret real antes de los workloads, nunca `secret.template.yaml` ni un `apply -f k8s/`
+   que pueda sobrescribir secretos con plantillas vacías. El gateway no necesita Secret.
+3. Ejecutar `alembic upgrade head` de cada API con la misma imagen de la versión, como
+   Job de ejecución única, y esperar su éxito antes del rollout. Crear el primer
+   superadmin de users con su comando idempotente y credenciales de bootstrap separadas.
+   Reservar cuota para los Jobs y retirar los terminados después de conservar sus logs.
+4. Aplicar los Services y Deployments con la imagen resuelta. Esperar
+   `kubectl rollout status deployment/<servicio> -n tds-group-3` con timeout; si falla,
+   detener el pipeline, no anunciar éxito ni hacer rollback de base automáticamente.
+5. Tener el gateway y las APIs listos antes de habilitar el Ingress con el docente.
+   Comprobar login y una operación autenticada de posts por HTTPS desde el host público.
+
+Users firma con una clave privada Ed25519 estable; posts recibe su pública correspondiente.
+Ambos validan `JWT_ISSUER=users-api`. No hay descubrimiento JWKS ni rotación automática.
+Agregar la validación de issuer invalida tokens antiguos que no tengan ese claim: los
+usuarios deben iniciar sesión otra vez. Una rotación de clave también requiere coordinar
+ambos servicios; no generar una clave nueva en cada deploy.
+
+Los valores de `envFrom` se leen al crear el contenedor. Cambiar Secret o ConfigMap no
+actualiza los pods existentes: el CD debe reemplazarlos también en cambios solo de
+configuración. Una migración debe ser compatible con la versión anterior durante el
+rolling update. Volver a una imagen anterior **no** revierte el esquema de la base.
+No usar `alembic stamp` para adoptar una base existente sin verificar su esquema.
+
+Pendientes externos: bases y TLS real ([#46](https://github.com/tds-g3-2s2026/udesa-x-platform/issues/46)),
+identidades/acceso ([#47](https://github.com/tds-g3-2s2026/udesa-x-platform/issues/47)),
+ECR y workflow de CD (`T-14`, S6). Los clientes deben usar
+`https://tds-group-3.tds-linar.udesa.edu.ar/api` como base, sin `/v1`, también para posts;
+los defaults locales antiguos no son configuración de producción. Si el backoffice se
+sirve desde otro origen, configurar `CORS_ALLOWED_ORIGINS` en users con ese origen real.
+No se inventan esos valores ni se promete una validación en AWS antes de disponer de ellos.
 
 ### Acceso personal de cada integrante
 
