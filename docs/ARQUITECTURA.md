@@ -16,7 +16,12 @@ El resto sigue sujeto a validación en S1. Cada decisión relevante debe quedar 
 1. **Python es el stack principal del backend.** `users-api` y `posts-api` van en Python con FastAPI, y `notifications-api` en TypeScript con NestJS. La consigna pide que el backend no esté en una única tecnología y no dice cuál lleva más peso: conviene que el servicio más grande quede en el stack que el equipo maneja mejor.
 2. **No hay `media-api`.** La subida de archivos se resuelve dentro de `users-api` y `posts-api`, con el módulo de streaming escrito una vez y copiado. **Son siete repositorios desde el 17 de septiembre**, cuando se sumó `udesa-x-api-gateway` para el ruteo interno que mostró la clase de Cloud Computing I.
 
-**Revisión del stack del 2026-08-20.** Cada pieza se contrastó contra fuentes primarias y las conclusiones están incorporadas a este documento. La más importante: **el NGINX Ingress Controller está archivado desde marzo de 2026**, así que la entrada del cluster va con Gateway API.
+**Revisión del stack del 2026-08-20** (superada por el ADR-008 del 14 de septiembre). En ese
+momento se descartó el NGINX Ingress Controller por estar archivado y se propuso Gateway API con
+NGINX Gateway Fabric como reemplazo. Esa propuesta asumía que el equipo administraba su propio
+cluster; al confirmarse que el cluster es compartido y lo administra la cátedra, instalar un
+controller propio quedó fuera de los permisos del grupo. La entrada real es un `Ingress` con AWS
+Load Balancer Controller, ya instalado por la cátedra — ver el ADR-008.
 
 El criterio que gobierna el documento: **elegir lo más simple que cumpla el requisito**. Tres personas en quince sprints semanales no pueden pagar el costo operativo de una arquitectura sofisticada, y con un repo por servicio ese costo se multiplica por servicio.
 
@@ -26,9 +31,9 @@ El criterio que gobierna el documento: **elegir lo más simple que cumpla el req
 | ------------------------------------------- | ------------------------------------------------------------------------- |
 | App principal exclusivamente mobile         | React Native con Expo                                                     |
 | Backoffice como aplicación web              | React + Vite, SPA                                                         |
-| Arquitectura de microservicios              | 3 servicios backend, un repositorio cada uno, despliegue independiente    |
+| Arquitectura de microservicios              | 4 servicios backend, un repositorio cada uno, despliegue independiente    |
 | Al menos dos tipos de base de datos         | PostgreSQL (relacional), MongoDB (documental), Redis (clave-valor)      |
-| Backend en más de una tecnología            | Python con FastAPI en `users` y `posts`, TypeScript con NestJS en `notifications` |
+| Backend en más de una tecnología            | Python con FastAPI en `users` y `posts`; TypeScript en `api-gateway` (Bun/Hono) y, más adelante, en `notifications` (NestJS) |
 | Desplegada en entorno productivo en la nube | Kubernetes gestionado                                                     |
 | Cada microservicio contenedorizado          | Dockerfile en cada repo, imágenes versionadas en el registry              |
 | Buenas prácticas de seguridad, OWASP Top 10 | Sección "Seguridad"                                                       |
@@ -37,7 +42,7 @@ El criterio que gobierna el documento: **elegir lo más simple que cumpla el req
 | Cobertura mínima del 85% ejecutada en CI    | Gate en el workflow de cada repo. Backend desde S3, clientes desde S5     |
 | Pipeline de CD con GitHub Actions           | Build, push al registry y `kubectl apply` por servicio                    |
 | Observabilidad con métricas, logs y trazas  | OpenTelemetry hacia Grafana Cloud                                         |
-| Rate limiting en al menos un microservicio  | Gateway por IP, `users-api` y `posts-api` por usuario                     |
+| Rate limiting en al menos un microservicio  | `users-api` y `posts-api` por usuario. Por IP en la entrada: dónde exactamente (`Ingress` compartido o `api-gateway`) sigue sin confirmar con el tutor |
 | Al menos una cola entre dos microservicios  | RabbitMQ, `posts-api` y `users-api` publican, `notifications-api` consume |
 | Buena experiencia de usuario                | Sistema de diseño compartido, revisión de UX en S13                       |
 
@@ -113,12 +118,9 @@ udesa-x-platform/
 │   ├── eventos/             # esquemas fuente de los contratos
 │   ├── actas/               # reuniones con el tutor
 │   └── retros/
-├── k8s/
-│   ├── namespaces/
-│   ├── gateway/             # Gateway API, NGINX Gateway Fabric y reglas
-│   ├── rabbitmq/
-│   └── observability/
-├── terraform/               # cluster, bases gestionadas, registry, DNS
+├── k8s/                      # el cluster lo provisiona la cátedra, no hay terraform propio
+│   ├── namespace.yaml        # cuota y límites del grupo, lo aplica el docente
+│   └── ingress.yaml          # único Ingress del sistema, lo aplica el docente
 ├── compose/
 │   └── docker-compose.full.yml    # sistema completo con imágenes publicadas
 ├── templates/
@@ -171,36 +173,41 @@ Cada repo lleva sus propias issues y sus propios milestones semanales. `udesa-x-
 
 ## Vista general
 
+**Arquitectura objetivo, no estado actual.** Este diagrama es la propuesta a la que el sistema
+converge. El estado real de cada pieza —qué está desplegado hoy y qué todavía no— vive en el
+Nivel 2 del C4 (`C4.md`), que se actualiza cada semana; acá abajo no se repite esa distinción
+para no duplicar mantenimiento.
+
 ```mermaid
 flowchart TB
     subgraph clientes["Clientes"]
         direction LR
         MOB["App Mobile<br/>React Native + Expo"]
-        BO["Backoffice Web<br/>React + Vite"]
+        BO["Backoffice Web<br/>React + Vite<br/>SPA estática"]
     end
-    subgraph aws["AWS"]
-        subgraph eks["Amazon EKS"]
-            ING["Gateway API · NGINX Gateway Fabric<br/>TLS · routing · rate limit por IP"]
-            USR["users-api<br/>FastAPI"]
-            PST["posts-api<br/>FastAPI"]
-            NTF["notifications-api<br/>NestJS"]
-            MQ{{"RabbitMQ · exchange topic"}}
-            RED[("Redis<br/>compartido")]
-        end
-        subgraph datos["Datos persistentes, fuera del cluster"]
-            direction LR
-            PGU[("PostgreSQL<br/>users")]
-            PGP[("PostgreSQL<br/>posts")]
-            MDB[("MongoDB<br/>notifications")]
-            OBJ[("S3<br/>media")]
-        end
+    CDN["CloudFront + S3<br/>hosting estático del backoffice"]
+    subgraph cluster["tds-cluster · EKS, provisionado por la cátedra"]
+        ING["Ingress · AWS Load Balancer Controller<br/>una sola regla: /api → api-gateway<br/>IngressGroup compartido con otros equipos"]
+        GW["api-gateway<br/>Bun + Hono<br/>ruteo interno hacia /api/*"]
+        USR["users-api<br/>FastAPI"]
+        PST["posts-api<br/>FastAPI"]
+        NTF["notifications-api<br/>NestJS"]
+        MQ{{"RabbitMQ · exchange topic"}}
+        RED[("Redis<br/>compartido")]
     end
+    subgraph datos["Datos persistentes, gestionados fuera del cluster"]
+        direction LR
+        PGU[("PostgreSQL<br/>users")]
+        PGP[("PostgreSQL<br/>posts")]
+        MDB[("MongoDB<br/>notifications")]
+        OBJ[("S3<br/>media")]
+    end
+    BO -->|"build estático"| CDN
+    BO -.->|"llamadas a la API,<br/>desde el navegador"| ING
     MOB -->|HTTPS| ING
-    BO -->|HTTPS| ING
-    ING --> USR
-    ING --> PST
-    ING --> NTF
-    PST -.->|"REST<br/>hidrata autor"| USR
+    ING --> GW
+    GW --> USR
+    GW --> PST
     USR --> MQ
     PST --> MQ
     MQ --> NTF
@@ -217,15 +224,33 @@ flowchart TB
     classDef bus fill:#f5d0fe,stroke:#a21caf,stroke-width:1.5px,color:#0f172a
     classDef store fill:#e2e8f0,stroke:#475569,stroke-width:1.5px,color:#0f172a
     class MOB,BO cliente
-    class ING borde
+    class ING,GW borde
     class USR,PST,NTF svc
     class MQ bus
     class PGU,PGP,RED,MDB,OBJ store
+    class CDN store
 ```
 
-Lo que el diagrama deja explícito y conviene no perder de vista: **las bases persistentes están fuera del cluster**, mientras que Redis corre adentro porque sus datos son efímeros y perderlos no cuesta nada, la única llamada sincrónica entre servicios es `posts-api` hidratando datos de autor contra `users-api`, todo lo demás cruza por la cola, y **los dos servicios de Python escriben al mismo bucket de S3 con prefijos distintos** (`avatars/` y `posts/`), cada uno dueño de lo suyo.
+Lo que el diagrama deja explícito y conviene no perder de vista: **el cluster es compartido con
+el resto de los equipos de la cátedra**, no propio — el `Ingress` usa un `IngressGroup` para que
+todos los grupos compartan un único Application Load Balancer, y quien aplica `namespace.yaml` e
+`ingress.yaml` es el docente, no el equipo. `api-gateway` es quien decide a qué servicio va cada
+request; el `Ingress` ya no rutea directo a `users-api`/`posts-api` por path, tiene una sola
+regla y apunta siempre a `api-gateway`. **El backoffice no se sirve a través del cluster**: es
+una SPA que se compila a estático y se publica en S3 detrás de CloudFront; lo único que cruza el
+`Ingress` es el tráfico que el JavaScript ya cargado en el navegador del administrador le hace a
+la API. `mobile`, al no tener un paso de "servido", habla directo con el `Ingress`. Las bases
+persistentes están fuera del cluster, mientras que Redis corre adentro porque sus datos son
+efímeros y perderlos no cuesta nada. Hoy no hay ninguna llamada síncrona entre `users-api` y
+`posts-api`: cada uno verifica el JWT por su cuenta contra la clave pública de `users-api`, sin
+pedirle nada por REST. Todo lo demás entre servicios cruza por la cola, y **los dos servicios de
+Python escriben al mismo bucket de S3 con prefijos distintos** (`avatars/` y `posts/`), cada uno
+dueño de lo suyo.
 
-Lo que deliberadamente **no** dibuja, para que se entienda: los eventos concretos que viajan por la cola están en el diagrama de "Comunicación entre servicios", la telemetría en el de "Observabilidad", y los proveedores externos que consume `notifications-api` son FCM para push, el proveedor de email y la Claude API para el triage de denuncias.
+Lo que deliberadamente **no** dibuja, para que se entienda: los eventos concretos que viajan por
+la cola están en el diagrama de "Comunicación entre servicios", la telemetría en el de
+"Observabilidad", y los proveedores externos que consume `notifications-api` son FCM para push,
+el proveedor de email y la Claude API para el triage de denuncias.
 
 ### Correspondencia con la nube
 
@@ -236,9 +261,9 @@ Lo que deliberadamente **no** dibuja, para que se entienda: los eventos concreto
 | MongoDB                     | MongoDB Atlas en capa gratuita                  | DocumentDB solo si hay créditos: cuesta varias veces más                                                                 |
 | Redis                       | Dentro del cluster                              | Los datos son efímeros: revocación, rate limit y caché. Autohospedado, no ElastiCache: el volumen del proyecto no justifica el gestionado |
 | Almacenamiento de media     | S3 con bucket privado y URLs firmadas           | Cerrado                                                                                                                  |
-| Registry de imágenes        | GitHub Container Registry                       | Cerrado, no se usa ECR para no atar el CI a AWS                                                                          |
+| Registry de imágenes        | Amazon ECR                                      | Sin ADR propio todavía. Los manifiestos en revisión (`platform#51`, `users-api#42`, `posts-api#37`, `api-gateway#3`) usan `${ECR_IMAGE}` y probaron imágenes reales contra ECR |
 | DNS y certificados          | Los resuelve la cátedra sobre el ingress        | Cerrado en el ADR-008. El equipo no administra la entrada del cluster                                                    |
-| Región                      | `us-east-1`                                     | Cerrado. `sa-east-1` sale 35% a 45% más caro en cómputo y transferencia, y el control plane cuesta lo mismo              |
+| Región                      | `us-east-2`                                     | Cerrado en el ADR-008 (Ohio)                                                                                             |
 
 Mantener el registry y los certificados fuera de AWS es deliberado: si el plan B de `ECS con Fargate` se activa, o si se acaban los créditos, lo único que hay que rehacer es el despliegue, no el pipeline entero.
 
@@ -374,7 +399,7 @@ RFC 9457, que obsoleta a la RFC 7807 y conserva el mismo medio: `application/pro
   "title": "La solicitud tiene campos inválidos",
   "status": 422,
   "detail": "El handle debe tener entre 4 y 15 caracteres",
-  "instance": "/v1/users",
+  "instance": "/api/me",
   "traceId": "0af7651916cd43dd8448eb211c80319c",
   "errors": [{ "field": "handle", "message": "longitud fuera de rango" }]
 }
@@ -403,11 +428,45 @@ detalle real va al log con el mismo `traceId`.
 Se implementa una vez como manejador de excepciones y se copia entre `users-api` y `posts-api`,
 igual que el módulo de subida. En `notifications-api` es un filtro de NestJS equivalente.
 
+### Paginación por cursor
+
+Un único formato para todo listado que puede superar una pantalla: `GET /api/users/{user_id}/followers`, `GET /api/users/{user_id}/following` y `GET /api/follow-requests` lo usan desde S4 en `posts-api`, y el feed cronológico de `E2-H2` lo va a reusar.
+
+**Por qué no `LIMIT`/`OFFSET`.** El offset cuenta posiciones. Si alguien te sigue mientras scrolleás la lista de seguidores, o llega un post nuevo mientras scrolleás el feed, el corrimiento hace que la página siguiente repita o saltee elementos. Un cursor no cuenta posiciones: recuerda la fila exacta en la que terminó la página anterior y pide lo que sigue después de esa fila, así que una escritura en cualquier otro lugar no lo afecta.
+
+**Forma de la respuesta**, igual en todos los listados paginados:
+
+```json
+{
+  "items": [ "..." ],
+  "nextCursor": "eyJhdCI6ICIyMDI2LTA5LTIwVDEyOjAwOjAwWiIsICJ0aWVicmVhayI6ICIuLi4ifQ=="
+}
+```
+
+`nextCursor` es `null` cuando no queda una página siguiente. El cliente lo devuelve tal cual en `?cursor=`, sin interpretarlo: es opaco a propósito, para poder cambiar la columna de orden más adelante sin romper a ningún cliente que ya lo esté usando.
+
+**Adentro del cursor** (no es parte del contrato, es detalle de implementación): la columna de orden más un id de desempate, en base64. El desempate es obligatorio — dos filas con el mismo timestamp sin un id que las distinga pueden aparecer dos veces o ninguna.
+
+**Página de 20**, fija, no configurable por query param. Un cursor inválido o corrompido responde `400` con el formato de "Formato de error" de arriba (`code: invalid-cursor`), nunca un `500`.
+
+**Toda consulta paginada necesita un índice que la sostenga.** La combinación filtro más columna de orden más desempate tiene que ser exactamente las columnas del índice, en ese orden, o el `EXPLAIN` cae a `Seq Scan` apenas la tabla crece.
+
+**El wire es camelCase en toda esta familia de endpoints** (`/users/*/follow*`), no solo en la paginación: `nextCursor`, `requesterHandle`, `createdAt`, `displayName`, `avatarUrl`, `following`. Viene de antes de T-30 (PR #34 de `posts-api`) y se mantuvo al extenderlo, así que no es una excepción de esta convención sino el formato ya establecido para esta parte de la API.
+
 ### Versionado de la API
 
-La versión va **en el path**: `/v1/users`, `/v1/posts`. Se descartó el header `Accept` con
-versión: es más elegante pero invisible en un log, en un `curl` y en la barra del navegador, y
-con tres personas aprendiendo el costo de depurar pesa más que la elegancia.
+**Hoy todo cuelga de un único prefijo, `/api`, sin número de versión.** `/api/auth/login`,
+`/api/me`, `/api/users/{user_id}/followers`, así en todos los servicios. Reemplaza a la
+propuesta original de esta sección, que ponía la versión en el path (`/v1/...`): el prefijo
+`/api` nació de una necesidad de ruteo (`#43`, `#35`, `#25`, el `Ingress` compartido rutea por
+ese prefijo) y terminó siendo también el esquema de versionado de hecho, al no convivir con
+ningún `/v1`.
+
+**No hay versionado todavía, y está bien que no lo haya:** con un solo cliente mobile y un
+backoffice, ambos controlados por el propio equipo, forzar una versión desde el día uno es
+resolver un problema que no existe. El día que haga falta (un cambio incompatible real), la
+versión se agrega como un segmento nuevo bajo el prefijo ya establecido: `/api/v2/...`, dejando
+`/api/...` de hoy como la `v1` implícita.
 
 **Qué obliga a subir de versión:**
 
@@ -422,7 +481,7 @@ con tres personas aprendiendo el costo de depurar pesa más que la elegancia.
 La regla que hace segura la columna derecha: **los clientes ignoran los campos que no
 conocen.** Sin eso, agregar un campo rompe, y toda evolución pasa a necesitar versión nueva.
 
-**Durante el semestre se trabaja solo con `v1`.** Si aparece un cambio incompatible, se acuerda
+**Durante el semestre se trabaja solo con el `/api` de hoy, la `v1` implícita.** Si aparece un cambio incompatible, se acuerda
 en el planning antes de escribirlo, porque la app mobile es el caso duro: una versión instalada
 sigue llamando al endpoint viejo y no se le puede forzar la actualización. La salida es
 convivir las dos versiones un tiempo, no cortar.
@@ -601,17 +660,23 @@ Mantine sobre shadcn porque trae formularios y gráficos en el mismo monorepo co
 
 | Componente   | Elección                                      | Notas                                                                                             |
 | ------------ | --------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| Cluster      | Amazon EKS 1.36 con Auto Mode                 | Impuesto por el cronograma de la cátedra y por la entrega intermedia, que exige despliegue en AWS |
-| Nodos        | 2 × t4g.medium en Spot, subredes públicas     | Sin NAT gateway, con security groups cerrados y acceso por SSM. Imágenes arm64                    |
+| Cluster      | `tds-cluster`, EKS, provisionado por la cátedra | Compartido con el resto de los equipos, un namespace por grupo. Cerrado en el ADR-008              |
+| Nodos        | Compartidos, gestionados por la cátedra       | El equipo no elige tipo de instancia ni escalado de nodos: eso es de la cátedra                   |
 | Manifiestos  | YAML plano en `k8s/` por repositorio          | Cerrado en el ADR-008. Un solo entorno y un solo namespace no justifican overlays                 |
 | Entrada      | **`Ingress` único, aplicado por el docente**  | Reemplazado en el ADR-008. Instalar un gateway controller excede los permisos del grupo            |
-| TLS          | cert-manager con Let's Encrypt                | Certificados automáticos y renovados                                                              |
+| TLS          | ACM, vía annotations del `Ingress`            | `certificate-arn` + `ssl-redirect`, ya configurado por la cátedra en el ALB compartido             |
 | Secretos     | **SOPS con age**, desencriptado en Actions    | Cero pods en el cluster, y sobrevive a destruir y recrear el cluster                              |
-| Registry     | GitHub Container Registry                     | Integrado con Actions, sin configuración extra                                                    |
-| Identidad    | EKS Pod Identity                              | Lo recomendado hoy sobre IRSA: sin proveedor OIDC y el rol se reutiliza entre clusters            |
+| Registry     | Amazon ECR                                    | Sin ADR propio todavía; los manifiestos en revisión ya usan `${ECR_IMAGE}` con imágenes reales |
+| Identidad    | OIDC + IRSA                                   | Vista en la clase de Cloud Computing I: el pod asume un IAM Role vía ServiceAccount anotado        |
 | Autoescalado | HPA por servicio, más **KEDA** para la cola   | KEDA escala `notifications-api` por profundidad de cola, con `minReplicaCount: 0`                  |
 
-**Por qué cambia el ingress.** El repositorio `kubernetes/ingress-nginx` está archivado desde el 24 de marzo de 2026 y su README dice textualmente que quien no lo esté usando ya no debería desplegarlo. No va a haber más parches de seguridad, y antes de cerrar acumulaba seis CVEs en cuatro meses. Lo traicionero es que no se rompe: funcionaría perfecto los quince sprints. NGINX Gateway Fabric conserva el motor NGINX; TLS y routing no pierden nada, y el rate limiting por IP sigue siendo gratis pero pasa a una CRD `RateLimitPolicy` en `v1alpha1`, así que hay que fijar la versión del chart. La API `Ingress` de Kubernetes no está deprecada: lo que murió es ese controller.
+**Por qué cambia el ingress.** El repositorio `kubernetes/ingress-nginx` está archivado desde el 24 de marzo de 2026 y su README dice textualmente que quien no lo esté usando ya no debería desplegarlo. No va a haber más parches de seguridad, y antes de cerrar acumulaba seis CVEs en cuatro meses. Lo traicionero es que no se rompe: funcionaría perfecto los quince sprints. La API `Ingress` de Kubernetes no está deprecada: lo que murió es ese controller.
+
+El primer reemplazo evaluado fue NGINX Gateway Fabric, instalado por el propio equipo. Quedó
+descartado al confirmarse (ADR-008) que el cluster es compartido y administrado por la cátedra:
+el equipo no tiene permisos para instalar un controller propio, solo para editar recursos dentro
+de su namespace. El reemplazo real es el AWS Load Balancer Controller que la cátedra ya tiene
+instalado, consumido a través de la misma API `Ingress` de Kubernetes.
 
 **Por qué SOPS y no Sealed Secrets.** Sealed Secrets está sano, pero su clave privada vive solo dentro del cluster, y la palanca de ahorro principal es destruir y recrear el cluster entre sprints. Cada recreación dejaría todos los secretos del repositorio irrecuperables.
 
@@ -619,7 +684,13 @@ Mantine sobre shadcn porque trae formularios y gráficos en el mismo monorepo co
 
 ### Costo: los números reales
 
-Verificados el 2026-08-20 contra la Price List API, en `us-east-1`:
+**Obsoleto desde el ADR-008.** Esta tabla asumía que el equipo paga y elige los nodos de su
+propio cluster. El cluster real (`tds-cluster`) lo provisiona y paga la cátedra, compartido con
+los demás equipos — no hay un costo de cómputo que el equipo decida o cubra. Queda como registro
+histórico de la estimación previa al 14 de septiembre, no como presupuesto vigente.
+
+Verificados el 2026-08-20 contra la Price List API, en `us-east-1` (anterior a que el ADR-008
+fijara `us-east-2` como la región real del cluster de la cátedra):
 
 | Configuración                                              | USD/mes    |
 | ---------------------------------------------------------- | ---------- |
