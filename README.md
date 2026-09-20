@@ -32,6 +32,7 @@ udesa-x-platform/
 │   ├── actas/                 # Minutas de reuniones de seguimiento
 │   └── retros/                # Retrospectivas semanales
 ├── compose/                   # Docker Compose integrado para ambiente local completo
+├── k8s/                       # Namespace, cuotas, límites e Ingress; los aplica el docente
 ├── templates/
 │   └── repo-servicio/         # Plantilla de repositorio de servicio
 ├── scripts/                   # sync-contracts.sh y sync-comunes.sh
@@ -47,7 +48,7 @@ La solución se estructura en seis repositorios bajo la organización `tds-g3-2s
 
 | Repositorio | Descripción | Stack principal |
 |---|---|---|
-| `udesa-x-platform` | Gestión central, docs, infra compartida, CI/CD reusable | Kustomize, Terraform, GitHub Actions |
+| `udesa-x-platform` | Gestión central, docs, infra compartida, CI/CD reusable | Kubernetes (manifiestos planos), GitHub Actions |
 | `udesa-x-mobile` | Aplicación mobile para usuarios finales | React Native + Expo, TanStack Query, Zustand |
 | `udesa-x-backoffice` | Panel web de administración y moderación | React 19 + Vite 8 + Mantine |
 | `udesa-x-users-api` | Identidad, autenticación, perfiles, administradores y avatares | FastAPI + Python 3.13, PostgreSQL 18, Redis, S3 |
@@ -71,3 +72,194 @@ Estos archivos tienen su fuente acá y se sincronizan al resto de los repos con 
 | `.agents/skills/` | todos los repos |
 | bloque común de `AGENTS.md` | todos los repos |
 | `docs/eventos/*.json` → `contracts/events/` | repos de servicio, vía `sync-contracts.sh` |
+
+## Despliegue en el cluster de la cátedra
+
+Según el [ADR-008](./docs/adr/ADR-008-plataforma-de-despliegue.md), usamos el cluster
+`tds-cluster`, región `us-east-2`, y únicamente el namespace `tds-group-3`.
+Los manifiestos son planos, sin Kustomize ni overlays.
+
+| Recurso | Quién lo aplica |
+|---|---|
+| [`k8s/namespace.yaml`](./k8s/namespace.yaml): Namespace, ResourceQuota y LimitRange | El docente, después de revisar y aprobar el PR |
+| [`k8s/ingress.yaml`](./k8s/ingress.yaml): entrada HTTP del sistema | El docente, después de revisar y aprobar el PR |
+| Deployment, Service, ConfigMap y Secret de cada servicio | El pipeline de CI, dentro del namespace del grupo |
+
+Los valores de cuota, el grupo de ALB y el host salen de la clase 6, Cloud Computing I del
+14 de septiembre, la misma que cierra el [ADR-008](./docs/adr/ADR-008-plataforma-de-despliegue.md).
+Los fija la cátedra: no son decisiones del equipo y no se cambian por cuenta propia.
+
+La cuota del equipo es de `2` CPU y `2Gi` de memoria en requests, `4` CPU y `4Gi`
+en limits, hasta `8` pods, `10` Services, `10` ConfigMaps y `10` Secrets.
+Por contenedor, el mínimo es `100m` / `128Mi` y el máximo `500m` / `512Mi`.
+Los valores predeterminados son request `100m` / `128Mi` y limit `500m` / `512Mi`.
+Igualmente, cada Deployment debe declarar sus requests y limits explícitamente.
+
+**El techo de `8` pods es la restricción que más aprieta.** En régimen el namespace tiene
+`users-api`, `posts-api`, `api-gateway`, `notifications-api`, RabbitMQ y Redis: seis pods con
+una réplica cada uno. Un rolling update con el `maxSurge: 25%` por defecto pide un pod extra,
+y al séptimo u octavo el `ResourceQuota` rechaza la creación y el rollout queda trabado sin
+que el servicio viejo se caiga. Por eso los Deployment usan `maxSurge: 1` con
+`maxUnavailable: 0` solo mientras haya slots libres, y `maxSurge: 0` con `maxUnavailable: 1`
+cuando no los haya. Lo mismo vale para el máximo de `500m` / `512Mi` por contenedor: ocho
+contenedores en ese máximo agotan exactamente los `4` CPU de limits.
+
+El Ingress comparte el ALB mediante `group.name: tds-shared`, usa `group.order: "203"`
+y solo recibe tráfico para `tds-group-3.tds-linar.udesa.edu.ar`.
+No cambiar el grupo compartido ni agregar reglas sin host: eso puede crear otro ALB
+o interferir con otros equipos. Los cambios de DNS se coordinan con el docente.
+
+| Path (`Prefix`, sin reescritura) | Service | Puerto del Service |
+|---|---|---|
+| `/api` | `api-gateway` | `80` |
+
+**El Ingress tiene una sola regla y apunta a `api-gateway`.** Ese servicio reparte
+internamente por prefijo (`udesa-x-api-gateway`, `src/routing.ts`): `/api/auth`, `/api/me` y
+`/api/admin` van a `users-api`, y `/api/users` a `posts-api`. La razón es el ciclo de cambio:
+este archivo lo aplica el docente a mano, así que agregar un backend nuevo tiene que ser un
+cambio en el gateway que despliega CI, y no una revisión más de este manifiesto. Además evita
+mantener la misma tabla de ruteo en dos lugares.
+
+La contrapartida es que `api-gateway` queda en el camino crítico: si su Deployment no está
+arriba, todo `/api` responde 503. Tiene que desplegarse antes o junto con el primer apply del
+Ingress.
+
+El puerto `80` es una decisión del equipo para todos los Services, no un valor impuesto
+por la cátedra. Sus manifiestos deben declarar `spec.ports[].port: 80`.
+El `targetPort` de cada Service debe coincidir con el `containerPort`, el puerto que
+escucha su aplicación y el `EXPOSE` de su Dockerfile; no tiene por qué ser `80`.
+Hoy los tres escuchan en `8000`, según el `EXPOSE` de sus Dockerfile. Conviene que el Service
+apunte a un puerto nombrado (`targetPort: http`) y no al número, para que cambiarlo sea tocar
+solo el Deployment.
+El Ingress usa la clase `alb`, targets por IP y `/healthcheck`, que el gateway expone sin
+dependencias propias, para comprobar la salud del target group.
+Las annotations de alcance de grupo (`scheme`, `listen-ports`, `certificate-arn`, subnets)
+no se declaran acá a propósito: son del ALB compartido y las fija la cátedra. Declararlas
+con un valor distinto al del resto del grupo rompe la reconciliación para todos los equipos.
+
+La prueba de ruteo de punta a punta requiere los tres Services desplegados y los endpoints ya
+bajo `/api`. Hoy `users-api` ya monta sus routers con `API_PREFIX = "/api"`, y `posts-api`
+todavía publica `/users` sin el prefijo: hasta que lo agregue, `/api/users` llega al gateway,
+el gateway lo reenvía a `posts-api` y `posts-api` responde 404.
+
+### Cifrado en tránsito
+
+El TLS del sistema se termina en el ALB compartido, con el certificado de ACM que administra
+la cátedra. Por eso el Ingress no declara `certificate-arn` ni `listen-ports`.
+
+Del ALB hacia adentro el tráfico va en HTTP plano, y es deliberado. Cifrarlo requiere un
+service mesh o cert-manager, y los dos necesitan CRDs, webhooks y un controller fuera del
+namespace del grupo: está fuera de los permisos que fija el ADR-008, igual que el gateway
+controller que descartó `A17`. Además el tráfico entre nodos ya viaja cifrado: AWS cifra en
+hardware el tráfico entre instancias Nitro dentro de una VPC. Lo que no hay es autenticación
+mutua entre servicios, que es lo que agregaría un mesh y hoy no se puede instalar.
+
+**Las conexiones que salen del cluster sí van cifradas y eso es responsabilidad del equipo.**
+Las bases persistentes son gestionadas y viven fuera del cluster, así que cada servicio tiene
+que exigir TLS en su URL de conexión, no solo permitirlo:
+
+| Destino | Qué usar |
+|---|---|
+| PostgreSQL | `?sslmode=verify-full` con el bundle de CA de RDS. `require` cifra pero no valida el certificado del servidor |
+| Redis con encryption in transit | esquema `rediss://` |
+| RabbitMQ, si queda fuera del cluster | esquema `amqps://` |
+
+Se fija cuando se creen las bases, en la issue
+[#46](https://github.com/tds-g3-2s2026/udesa-x-platform/issues/46).
+
+### GitHub Secrets para el despliegue
+
+Cargar los valores en **Settings > Secrets and variables > Actions** de cada repositorio
+que ejecute el despliegue, o como secrets de organización con acceso a esos repositorios.
+Documentar un valor acá no lo crea en GitHub. No alcanza con cargarlo solo en la
+plataforma si el workflow corre desde un repositorio de servicio.
+
+| Secret | Qué contiene y para qué se usa | De dónde sale |
+|---|---|---|
+| `AWS_ROLE_ARN` | ARN completo del rol IAM que asume GitHub Actions para desplegar. No es un usuario IAM ni una clave de acceso. | Lo entrega la cátedra; se consulta en IAM > Roles > rol de CI > ARN. El acceso a EKS de ese rol está acotado a `tds-group-3`. |
+| `AWS_REGION` | Región donde opera el despliegue: `us-east-2`. | La fija la cátedra y está registrada en ADR-008. |
+| `EKS_CLUSTER_NAME` | Nombre del cluster que usa el pipeline al preparar kubeconfig: `tds-cluster`. | Lo entrega la cátedra; se confirma en EKS > Clusters y en ADR-008. |
+| `S3_BUCKET` | Nombre del bucket asignado para los archivos del sistema, sin `s3://` ni una URL. | Lo entrega la cátedra; se consulta en S3 > Buckets. No se deduce del nombre del namespace. |
+| `ECR_URI_PREFIX` | Prefijo de URI para las imágenes privadas. Tiene la forma `<account-id>.dkr.ecr.us-east-2.amazonaws.com`, más el prefijo de repositorio si la cátedra asigna uno; sin `https://` ni tag de imagen. | Pedir el prefijo exacto a la cátedra y contrastarlo con la URI de los repositorios asignados en ECR > Private registry > Repositories. Respetar también el separador entre ese prefijo y el nombre del servicio. |
+
+`ECR_URI_PREFIX` es el nombre elegido acá para el secret del prefijo de ECR; el futuro
+workflow de CD debe usar el mismo nombre y construir una URI que coincida con el
+repositorio asignado. El ARN del rol, el bucket, el Account ID y el prefijo exacto
+de ECR se completan con los datos de la cátedra, no con valores inventados.
+
+Las claves personales de AWS no se usan como credenciales del pipeline.
+Nunca commitear credenciales, tokens ni `k8s/secret.yaml` con valores reales:
+ese archivo debe estar en `.gitignore` de cada repositorio.
+Solo se versionan plantillas de secretos sin valores reales.
+
+### Acceso personal de cada integrante
+
+Cada integrante necesita **su propio usuario IAM**, claves de acceso y MFA habilitado,
+entregados o autorizados por la cátedra. No se comparten usuarios, claves ni dispositivos
+MFA. El nombre del perfil local puede ser el mismo en las tres máquinas; eso no significa
+que usen la misma identidad.
+
+Instalar una versión actual de AWS CLI v2 que incluya `aws configure mfa-login` y
+`kubectl` compatible con la versión del cluster. La cátedra también debe habilitar el
+acceso de la identidad personal al cluster y el permiso para describirlo.
+
+1. Configurar el perfil personal. Ingresar las claves propias cuando el CLI las pida,
+   región `us-east-2` y formato de salida `json`:
+
+   ```bash
+   aws configure --profile tds-group-3
+   ```
+
+2. Obtener una sesión temporal con MFA. Reemplazar `<MFA_DEVICE_ARN>` por el ARN del
+   dispositivo propio, visible en IAM > Users > usuario propio > Security credentials:
+
+   ```bash
+   aws configure set mfa_serial '<MFA_DEVICE_ARN>' --profile tds-group-3
+   aws configure mfa-login --profile tds-group-3 --update-profile tds-group-3-mfa
+   aws sts get-caller-identity --profile tds-group-3-mfa --region us-east-2
+   ```
+
+   El CLI pide el código MFA y guarda credenciales temporales en el perfil
+   `tds-group-3-mfa`, sin reemplazar las claves del perfil base.
+   Habilitar MFA en la consola y ejecutar solo `aws configure` no alcanza:
+   hay que obtener la sesión temporal. Al vencer, repetir `mfa-login`.
+   Este flujo usa MFA de códigos de un solo uso, no passkeys; ver la
+   [documentación de AWS](https://docs.aws.amazon.com/cli/latest/reference/configure/mfa-login.html).
+
+3. Configurar kubeconfig usando explícitamente el perfil con MFA:
+
+   ```bash
+   aws eks update-kubeconfig \
+     --profile tds-group-3-mfa \
+     --region us-east-2 \
+     --name tds-cluster \
+     --alias tds-group-3
+   ```
+
+   El comando actualiza el kubeconfig local y selecciona ese contexto.
+   El perfil queda referenciado para que `kubectl` obtenga los tokens de EKS.
+   No usar el rol de CI para acceder desde una máquina personal.
+
+4. Verificar la lectura, siempre con el contexto y namespace del grupo explícitos:
+
+   ```bash
+   kubectl --context tds-group-3 -n tds-group-3 get pods,services,ingresses
+   kubectl --context tds-group-3 -n tds-group-3 describe resourcequota
+   kubectl --context tds-group-3 -n tds-group-3 describe limitrange
+   ```
+
+   No consultar ni modificar namespaces ajenos.
+
+**El acceso personal es de solo lectura. Un `kubectl apply` devuelve `Forbidden`:
+es lo esperado, no un error que haya que resolver ampliando permisos.**
+Para comprobarlo sin persistir cambios, desde la raíz de la plataforma:
+
+```bash
+kubectl --context tds-group-3 -n tds-group-3 apply --server-side --dry-run=server -f k8s/ingress.yaml
+```
+
+El dry-run del servidor verifica la autorización de escritura y debe ser rechazado.
+Si se acepta, avisar al docente; no probar un apply real.
+Si falla una lectura por credenciales vencidas, renovar MFA; si persiste un error de
+autorización o de conectividad, consultar al docente. La comprobación real de acceso
+de los tres integrantes se sigue en [la issue #47](https://github.com/tds-g3-2s2026/udesa-x-platform/issues/47).
