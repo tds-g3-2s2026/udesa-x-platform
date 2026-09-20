@@ -174,12 +174,39 @@ que exigir TLS en su URL de conexión, no solo permitirlo:
 
 | Destino | Qué usar |
 |---|---|
-| PostgreSQL | Validación de CA y hostname con el driver real. Estas APIs usan SQLAlchemy + asyncpg (`ssl=verify-full`, no el parámetro libpq `sslmode`), con la CA de RDS disponible para el driver; comprobarlo contra la instancia asignada. No usar `require` como sustituto de validación del servidor |
-| Redis con encryption in transit | esquema `rediss://` |
+| PostgreSQL | Validación de CA y hostname con el driver real. Estas APIs usan SQLAlchemy + asyncpg, así que va `?ssl=verify-full` en la URL y no el parámetro libpq `sslmode`, que asyncpg no acepta y hace fallar la conexión. No usar `require` como sustituto de validación del servidor. asyncpg no mira el almacén del sistema: hace falta además `PGSSLROOTCERT=/etc/ssl/certs/ca-certificates.crt`, que ya está en el ConfigMap de cada servicio |
+| Redis | Va dentro del cluster, no sale del namespace: `redis://`. Si alguna vez pasa a ser gestionado, `rediss://` |
 | RabbitMQ, si queda fuera del cluster | esquema `amqps://` |
 
-Se fija cuando se creen las bases, en la issue
-[#46](https://github.com/tds-g3-2s2026/udesa-x-platform/issues/46).
+### Bases de datos gestionadas
+
+Decidido en el [ADR-009](./docs/adr/ADR-009-bases-gestionadas-y-migraciones.md), issue
+[#46](https://github.com/tds-g3-2s2026/udesa-x-platform/issues/46). **Proveedor: Neon**, capa
+gratuita, sin tarjeta, PostgreSQL 18 y TLS obligatorio. Un proyecto por servicio, región
+`aws-us-east-2`, la del cluster.
+
+| Qué | Dónde vive | Quién lo consume | Dónde está la URL |
+|---|---|---|---|
+| Proyecto `users-api` (`mute-hat-57607938`), base `users` | Neon, `aws-us-east-2` | `users-api` | Secret `DATABASE_URL` del repo `udesa-x-users-api` |
+| Proyecto `posts-api` (`floral-haze-34260608`), base `posts` | Neon, `aws-us-east-2` | `posts-api` | Secret `DATABASE_URL` del repo `udesa-x-posts-api` |
+| Redis compartido | Pod del namespace `tds-group-3`, manifiesto `k8s/redis.yaml` de este repo | `users-api` con `/0`, `posts-api` con `/1` | Secret `REDIS_URL` de cada repo de servicio |
+
+Estado al 2026-09-20: los dos proyectos existen con PostgreSQL 18.6, su `0001` aplicada y los
+cuatro secrets cargados. El Redis todavía no tiene manifiesto.
+
+Ninguna URL se escribe en un archivo del repositorio: van como GitHub Secret del repositorio
+que las usa, y `k8s/secret.yaml` sigue en `.gitignore`. La URL que da la consola de Neon se
+carga **corrigiendo los parámetros**: `postgresql+asyncpg://<rol>:<clave>@<host>/<base>?ssl=verify-full`,
+con el endpoint directo y no el `-pooler`, que es PgBouncer en modo transacción y choca con el
+caché de prepared statements de asyncpg.
+
+El Redis compartido lo aplica el CD de este repositorio, no una persona: el permiso del equipo
+sobre el cluster es de solo lectura. Un reinicio de ese pod pierde la denylist de JWT y los
+contadores de rate limit, que es el precio aceptado de que no tenga volumen.
+
+**Desde la primera migración aplicada contra Neon, el esquema solo cambia con Alembic.** La
+`0001` de cada servicio queda congelada: nada de editarla ni de `alembic stamp` contra una base
+con datos.
 
 ### GitHub Secrets para el despliegue
 
