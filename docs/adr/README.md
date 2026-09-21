@@ -13,6 +13,7 @@ escribe una nueva que reemplaza a la anterior y se anota acá.
 | [ADR-006](./ADR-006-inversion-de-dependencias.md) | Inversión de dependencias en los servicios backend | 2026-09-03 | Reemplazada por ADR-007 |
 | [ADR-007](./ADR-007-estructura-por-capas.md) | Estructura por capas en los servicios backend | 2026-09-04 | Aceptada |
 | [ADR-008](./ADR-008-plataforma-de-despliegue.md) | Plataforma de despliegue sobre el cluster de la cátedra | 2026-09-14 | Aceptada |
+| [ADR-009](./ADR-009-bases-gestionadas-y-migraciones.md) | Bases gestionadas en Neon, un Redis en el cluster y migraciones obligatorias | 2026-09-20 | Aceptada |
 
 Solo se registran decisiones ya tomadas y que el equipo pueda justificar, numeradas en el
 orden en que se toman. Lo que todavía está por definirse vive como decisión abierta `Dxx` en
@@ -21,3 +22,6 @@ orden en que se toman. Lo que todavía está por definirse vive como decisión a
 La plataforma de despliegue quedó registrada en el ADR-008, con la clase de Cloud Computing I
 cursada. Cerró `D21` y reemplazó las decisiones `A17` y `A18` del registro de
 `ARQUITECTURA.md`.
+
+El proveedor de bases quedó registrado en el ADR-009, antes de crear nada. Actualiza `A12` del
+registro de `ARQUITECTURA.md` y termina con la política de crear las tablas desde los modelos.
