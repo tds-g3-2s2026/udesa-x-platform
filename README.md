@@ -210,24 +210,36 @@ con datos.
 
 ### GitHub Secrets para el despliegue
 
-Cargar los valores en **Settings > Secrets and variables > Actions** de cada repositorio
-que ejecute el despliegue, o como secrets de organización con acceso a esos repositorios.
-Documentar un valor acá no lo crea en GitHub. No alcanza con cargarlo solo en la
-plataforma si el workflow corre desde un repositorio de servicio.
+Los valores viven como **secrets de organización** con visibilidad para todos los
+repositorios, y no en este archivo: los repositorios son públicos y el Account ID quedaría
+a la vista en cualquier log de Actions. Acá se documenta qué es cada uno y de dónde salió,
+no su contenido. Documentar un valor acá tampoco lo crea en GitHub.
+
+Los recursos los creó el equipo en la Parte 1 de la guía de despliegue
+([#60](https://github.com/tds-g3-2s2026/udesa-x-platform/issues/60)), todos en `us-east-2` y
+con el prefijo `tds-group-3`. La infraestructura compartida es de la cátedra y no se toca:
+cluster, VPC, ALB, certificados y zona DNS.
 
 | Secret | Qué contiene y para qué se usa | De dónde sale |
 |---|---|---|
-| `AWS_ROLE_ARN` | ARN completo del rol IAM que asume GitHub Actions para desplegar. No es un usuario IAM ni una clave de acceso. | Lo entrega la cátedra; se consulta en IAM > Roles > rol de CI > ARN. El acceso a EKS de ese rol está acotado a `tds-group-3`. |
+| `AWS_ROLE_ARN` | ARN del rol `GitHubActions-tds-group-3-Deploy`, que GitHub Actions asume por OIDC. No es un usuario IAM ni una clave de acceso: no hay ninguna credencial de largo plazo. | Rol propio del grupo. Confía en `token.actions.githubusercontent.com` con `aud` igual a `sts.amazonaws.com` y `sub` acotado a `repo:tds-g3-2s2026/*`, lleva la permissions boundary `tds-group-boundary`, y su acceso al cluster sale de un Access Entry con `AmazonEKSEditPolicy` de alcance `tds-group-3`. |
 | `AWS_REGION` | Región donde opera el despliegue: `us-east-2`. | La fija la cátedra y está registrada en ADR-008. |
-| `EKS_CLUSTER_NAME` | Nombre del cluster que usa el pipeline al preparar kubeconfig: `tds-cluster`. | Lo entrega la cátedra; se confirma en EKS > Clusters y en ADR-008. |
-| `S3_BUCKET` | Nombre del bucket asignado para los archivos del sistema, sin `s3://` ni una URL. | Lo entrega la cátedra; se consulta en S3 > Buckets. No se deduce del nombre del namespace. |
-| `ECR_URI_PREFIX` | Prefijo de URI para las imágenes privadas. Tiene la forma `<account-id>.dkr.ecr.us-east-2.amazonaws.com`, más el prefijo de repositorio si la cátedra asigna uno; sin `https://` ni tag de imagen. | Pedir el prefijo exacto a la cátedra y contrastarlo con la URI de los repositorios asignados en ECR > Private registry > Repositories. Respetar también el separador entre ese prefijo y el nombre del servicio. |
+| `EKS_CLUSTER_NAME` | Nombre del cluster que usa el pipeline al preparar kubeconfig: `tds-cluster`. | Cluster compartido de la cátedra; se confirma en EKS > Clusters y en ADR-008. |
+| `S3_BUCKET` | Nombre del bucket de los archivos del backoffice, sin `s3://` ni una URL. | Bucket propio del grupo, con los cuatro bloqueos de acceso público activos: quien lo sirve es CloudFront por OAC, no el bucket. |
+| `ECR_URI_PREFIX` | Prefijo de URI de las imágenes, con la forma `<account-id>.dkr.ecr.us-east-2.amazonaws.com/tds-group-3`; sin `https://` ni tag. **Ya incluye el prefijo del grupo**, así que la referencia se arma como `${ECR_URI_PREFIX}/<servicio>:<tag>` y no repite `tds-group-3`. | Tres repositorios propios del grupo, uno por servicio con código: `tds-group-3/api-gateway`, `tds-group-3/users-api` y `tds-group-3/posts-api`, los tres con tags mutables. |
 
 El pipeline construirá **`ECR_IMAGE`**, la referencia completa del repositorio asignado
 con tag inmutable por commit o digest, a partir de los datos reales de ECR. Los tres
 Deployment usan únicamente `${ECR_IMAGE}` como marcador. Kubernetes no lo expande:
 el futuro CD debe sustituirlo y rechazar valores vacíos o marcadores sin resolver antes
-de aplicar. El ARN del rol, el bucket, el Account ID y la URI real se piden a la cátedra.
+de aplicar.
+
+**Falta un valor y está anotado.** Invalidar la caché de CloudFront necesita el Distribution
+ID, y la distribución se crea en la Parte 4
+([backoffice#23](https://github.com/tds-g3-2s2026/udesa-x-backoffice/issues/23)). Hasta
+entonces `tds-group-3-deploy-policy` lo cubre con `*`, lo que habilita a invalidar la caché de
+cualquier distribución de la cuenta. Al crear la distribución hay que volver a esa policy,
+reemplazar el comodín por el ID real y sumar `CLOUDFRONT_DISTRIBUTION_ID` a la tabla.
 
 Las claves personales de AWS no se usan como credenciales del pipeline.
 Nunca commitear credenciales, tokens ni `k8s/secret.yaml` con valores reales:
@@ -269,7 +281,7 @@ No usar `alembic stamp` para adoptar una base existente sin verificar su esquema
 
 Pendientes externos: bases y TLS real ([#46](https://github.com/tds-g3-2s2026/udesa-x-platform/issues/46)),
 identidades/acceso ([#47](https://github.com/tds-g3-2s2026/udesa-x-platform/issues/47)),
-ECR y workflow de CD (`T-14`, S6). Los clientes deben usar
+workflow de CD (`T-14`, S6). Los clientes deben usar
 `https://tds-group-3.tds-linar.udesa.edu.ar/api` como base, sin `/v1`, también para posts;
 los defaults locales antiguos no son configuración de producción. Si el backoffice se
 sirve desde otro origen, configurar `CORS_ALLOWED_ORIGINS` en users con ese origen real.
