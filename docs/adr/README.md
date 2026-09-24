@@ -13,7 +13,7 @@ escribe una nueva que reemplaza a la anterior y se anota acá.
 | [ADR-006](./ADR-006-inversion-de-dependencias.md) | Inversión de dependencias en los servicios backend | 2026-09-03 | Reemplazada por ADR-007 |
 | [ADR-007](./ADR-007-estructura-por-capas.md) | Estructura por capas en los servicios backend | 2026-09-04 | Aceptada |
 | [ADR-008](./ADR-008-plataforma-de-despliegue.md) | Plataforma de despliegue sobre el cluster de la cátedra | 2026-09-14 | Aceptada |
-| [ADR-009](./ADR-009-proveedor-de-correo.md) | Proveedor de correo: Resend con dominio propio | 2026-09-23 | Propuesta |
+| [ADR-009](./ADR-009-proveedor-de-correo.md) | Proveedor de correo: Resend con dominio propio | 2026-09-23 | Aceptada |
 
 Solo se registran decisiones ya tomadas y que el equipo pueda justificar, numeradas en el
 orden en que se toman. Lo que todavía está por definirse vive como decisión abierta `Dxx` en

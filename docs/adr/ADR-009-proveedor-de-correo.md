@@ -1,6 +1,6 @@
 # ADR-009: Proveedor de correo
 
-**Fecha:** 2026-09-23 · **Estado:** propuesta · **Decide:** el equipo
+**Fecha:** 2026-09-23 · **Estado:** aceptada · **Decide:** el equipo
 
 ## Contexto
 
