@@ -1,0 +1,335 @@
+# Continuous deployment of one service into the group's namespace. Lives here
+# once and is consumed from each service's ci.yml, after CI, only on main:
+#
+#   deploy:
+#     needs: ci
+#     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+#     uses: tds-g3-2s2026/udesa-x-platform/.github/workflows/deploy.yml@main
+#     secrets: inherit
+#     permissions:
+#       contents: read
+#       id-token: write
+#     with:
+#       servicio: users-api
+#       secretos: DATABASE_URL REDIS_URL JWT_PRIVATE_KEY
+#       migracion: alembic upgrade head
+#
+# It applies exactly four things: k8s/configmap.yaml, the Secret built from
+# GitHub Secrets, k8s/service.yaml and k8s/deployment.yaml. Never
+# namespace.yaml nor ingress.yaml, which the docente applies and the CI role
+# cannot touch, and never secret.template.yaml, whose empty values would
+# overwrite the real ones.
+#
+# Naming contract with the service repos: the Deployment, the Service and the
+# ECR repository are called <servicio>, the ConfigMap <servicio>-config and the
+# Secret <servicio>-secret.
+
+name: Deploy
+
+on:
+  workflow_call:
+    inputs:
+      servicio:
+        description: "Nombre del Deployment, del Service y del repositorio de ECR. Ej: users-api."
+        type: string
+        required: true
+      dockerfile:
+        description: "Dockerfile de la imagen de produccion."
+        type: string
+        default: docker/Dockerfile
+      secretos:
+        description: >
+          GitHub Secrets que forman el Secret <servicio>-secret, separados por espacios.
+          Vacio si el servicio no usa Secret, como el gateway.
+        type: string
+        default: ""
+      migracion:
+        description: >
+          Comando que corre como Job, con la misma imagen, antes de actualizar los pods.
+          Vacio si el servicio no tiene base.
+        type: string
+        default: ""
+      timeout-segundos:
+        description: "Cuanto esperar a la migracion y al rollout antes de darlos por fallidos."
+        type: number
+        default: 300
+
+jobs:
+  deploy:
+    name: Desplegar ${{ inputs.servicio }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+    # One deploy per service at a time, and a queued one never cancels the one
+    # already touching the cluster. Different repos still run in parallel.
+    concurrency:
+      group: deploy-${{ inputs.servicio }}
+      cancel-in-progress: false
+
+    env:
+      NAMESPACE: tds-group-3
+      SERVICIO: ${{ inputs.servicio }}
+      DOCKERFILE: ${{ inputs.dockerfile }}
+      SECRETOS: ${{ inputs.secretos }}
+      MIGRACION: ${{ inputs.migracion }}
+      TIMEOUT: ${{ inputs.timeout-segundos }}
+      AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      EKS_CLUSTER_NAME: ${{ secrets.EKS_CLUSTER_NAME }}
+      ECR_URI_PREFIX: ${{ secrets.ECR_URI_PREFIX }}
+
+    steps:
+      - uses: actions/checkout@v5
+
+      # Everything that can be missing is checked here, before touching AWS, so
+      # the failure names what is missing instead of breaking three steps later.
+      - name: Verificar el entorno
+        env:
+          SECRETOS_JSON: ${{ toJSON(secrets) }}
+        run: |
+          faltan=()
+          for nombre in AWS_ROLE_ARN AWS_REGION EKS_CLUSTER_NAME ECR_URI_PREFIX; do
+            [ -n "${!nombre}" ] || faltan+=("secret de organizacion $nombre")
+          done
+          for nombre in $SECRETOS; do
+            valor=$(jq -r --arg n "$nombre" '.[$n] // empty' <<<"$SECRETOS_JSON")
+            [ -n "$valor" ] || faltan+=("secret $nombre del repositorio")
+          done
+          for archivo in k8s/configmap.yaml k8s/service.yaml k8s/deployment.yaml; do
+            [ -f "$archivo" ] || faltan+=("archivo $archivo")
+          done
+          [ -f "$DOCKERFILE" ] || faltan+=("archivo $DOCKERFILE")
+          # shellcheck disable=SC2016 # ${ECR_IMAGE} is the literal placeholder.
+          if [ -f k8s/deployment.yaml ] && ! grep -qF '${ECR_IMAGE}' k8s/deployment.yaml; then
+            faltan+=('el marcador ${ECR_IMAGE} en k8s/deployment.yaml')
+          fi
+          if [ ${#faltan[@]} -gt 0 ]; then
+            for falta in "${faltan[@]}"; do echo "::error::Falta $falta."; done
+            exit 1
+          fi
+          echo "Entorno completo para desplegar $SERVICIO."
+
+      - name: Asumir el rol de AWS por OIDC
+        id: aws
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          role-session-name: deploy-${{ inputs.servicio }}-${{ github.run_id }}
+
+      - name: Explicar la falla de OIDC
+        if: failure() && steps.aws.outcome == 'failure'
+        run: |
+          echo "::error::No se pudo asumir el rol. Revisar que el job que llama a este workflow declare 'permissions: id-token: write' y que la trust policy del rol acepte este repositorio."
+          exit 1
+
+      - name: Entrar a ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Preparar Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Tagged with the commit for humans; deployed by digest, which is what makes
+      # the reference immutable even though the ECR repositories allow retagging.
+      - name: Construir y publicar la imagen
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ inputs.dockerfile }}
+          push: true
+          tags: ${{ secrets.ECR_URI_PREFIX }}/${{ inputs.servicio }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Explicar la falla del push
+        if: failure() && steps.build.outcome == 'failure'
+        run: |
+          echo "::error::Fallo la construccion o el push. Si la imagen construyo, revisar que exista el repositorio de ECR tds-group-3/$SERVICIO y que el rol tenga permiso de push."
+          exit 1
+
+      - name: Resolver la imagen
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          ECR_IMAGE="${ECR_URI_PREFIX}/${SERVICIO}@${DIGEST}"
+          if ! [[ "$ECR_IMAGE" =~ ^[^[:space:]@]+/[^[:space:]@/]+@sha256:[0-9a-f]{64}$ ]]; then
+            echo "::error::La referencia de la imagen no es valida: falta el digest o el prefijo de ECR."
+            exit 1
+          fi
+          echo "ECR_IMAGE=$ECR_IMAGE" >> "$GITHUB_ENV"
+          echo "Imagen: ${SERVICIO}@${DIGEST}"
+
+      - name: Conectar con el cluster
+        run: |
+          aws eks update-kubeconfig --name "$EKS_CLUSTER_NAME" --region "$AWS_REGION"
+          kubectl version --client
+          # The quota exists once the docente applied namespace.yaml. Without it
+          # the pods would be rejected or run without the cátedra's limits.
+          if ! kubectl get resourcequota -n "$NAMESPACE" -o name | grep -q .; then
+            echo "::error::El namespace $NAMESPACE no existe todavia o no tiene su ResourceQuota. Lo aplica el docente con k8s/namespace.yaml de udesa-x-platform."
+            exit 1
+          fi
+          faltan=()
+          for recurso in configmaps secrets services deployments jobs; do
+            kubectl auth can-i create "$recurso" -n "$NAMESPACE" >/dev/null || faltan+=("$recurso")
+          done
+          if [ ${#faltan[@]} -gt 0 ]; then
+            echo "::error::El rol no puede crear ${faltan[*]} en $NAMESPACE. Revisar el Access Entry del rol en EKS."
+            exit 1
+          fi
+
+      # Kubernetes does not expand ${ECR_IMAGE}: an unresolved placeholder
+      # reaches the cluster as a literal image name and the pod never starts.
+      - name: Preparar los manifiestos
+        env:
+          SECRETOS_JSON: ${{ toJSON(secrets) }}
+        run: |
+          RENDER="$RUNNER_TEMP/render"
+          mkdir -p "$RENDER"
+          # shellcheck disable=SC2016 # ${ECR_IMAGE} is the literal placeholder.
+          envsubst '${ECR_IMAGE}' < k8s/deployment.yaml > "$RENDER/deployment.yaml"
+          # shellcheck disable=SC2016
+          if grep -n '\${' "$RENDER/deployment.yaml"; then
+            echo "::error::k8s/deployment.yaml conserva marcadores sin resolver. El pipeline solo sustituye \${ECR_IMAGE}."
+            exit 1
+          fi
+          # envFrom is read when a container starts: a change only in the
+          # ConfigMap or the Secret would not reach running pods. The hash in
+          # the pod template makes that change roll them.
+          CONFIG_HASH=$(
+            {
+              cat k8s/configmap.yaml
+              for nombre in $SECRETOS; do
+                printf '%s=' "$nombre"
+                jq -r --arg n "$nombre" '.[$n]' <<<"$SECRETOS_JSON"
+              done
+            } | sha256sum | cut -c1-16
+          )
+          export CONFIG_HASH
+          yq -i '.spec.template.metadata.annotations."udesa-x/config-hash" = strenv(CONFIG_HASH)' "$RENDER/deployment.yaml"
+          echo "RENDER=$RENDER" >> "$GITHUB_ENV"
+
+      - name: Aplicar ConfigMap y Secret
+        env:
+          SECRETOS_JSON: ${{ toJSON(secrets) }}
+        run: |
+          kubectl apply -n "$NAMESPACE" -f k8s/configmap.yaml
+          if [ -z "$SECRETOS" ]; then
+            echo "$SERVICIO no usa Secret."
+            exit 0
+          fi
+          VALORES=$(mktemp -d)
+          trap 'rm -rf "$VALORES"' EXIT
+          argumentos=()
+          for nombre in $SECRETOS; do
+            jq -j --arg n "$nombre" '.[$n]' <<<"$SECRETOS_JSON" > "$VALORES/$nombre"
+            argumentos+=("--from-file=$nombre=$VALORES/$nombre")
+          done
+          # Server-side apply: the client-side one would copy every value into
+          # the last-applied-configuration annotation.
+          kubectl create secret generic "$SERVICIO-secret" -n "$NAMESPACE" "${argumentos[@]}" \
+            --dry-run=client -o yaml \
+            | kubectl apply --server-side --field-manager=udesa-x-deploy -f -
+
+      # Same image as the rollout, before it. A failed migration stops the
+      # deploy with the previous pods still serving. There is no automatic
+      # schema rollback: migrations are forward-only.
+      - name: Correr la migracion
+        if: inputs.migracion != ''
+        run: |
+          JOB="$SERVICIO-migracion-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          # The pod label is not app=<servicio> on purpose: that one is the
+          # Service selector, and the Service would send traffic to this pod.
+          jq -n \
+            --arg job "$JOB" --arg ns "$NAMESPACE" --arg svc "$SERVICIO" \
+            --arg img "$ECR_IMAGE" --arg cmd "$MIGRACION" --arg secretos "$SECRETOS" \
+            --argjson limite "$TIMEOUT" '
+            {
+              apiVersion: "batch/v1", kind: "Job",
+              metadata: {name: $job, namespace: $ns, labels: {app: ($svc + "-migracion")}},
+              spec: {
+                backoffLimit: 0,
+                activeDeadlineSeconds: $limite,
+                ttlSecondsAfterFinished: 3600,
+                template: {
+                  metadata: {labels: {app: ($svc + "-migracion")}},
+                  spec: {
+                    restartPolicy: "Never",
+                    containers: [{
+                      name: "migracion",
+                      image: $img,
+                      command: ["sh", "-c", $cmd],
+                      envFrom: (
+                        [{configMapRef: {name: ($svc + "-config")}}]
+                        + (if $secretos == "" then [] else [{secretRef: {name: ($svc + "-secret")}}] end)
+                      ),
+                      resources: {
+                        requests: {cpu: "100m", memory: "128Mi"},
+                        limits: {cpu: "500m", memory: "512Mi"}
+                      }
+                    }]
+                  }
+                }
+              }
+            }' | kubectl apply -f -
+
+          resultado=""
+          fin=$((SECONDS + TIMEOUT + 30))
+          while [ -z "$resultado" ] && [ "$SECONDS" -lt "$fin" ]; do
+            sleep 5
+            if [ "$(kubectl get job "$JOB" -n "$NAMESPACE" -o jsonpath='{.status.conditions[?(@.type=="Complete")].status}')" = "True" ]; then
+              resultado=ok
+            elif [ "$(kubectl get job "$JOB" -n "$NAMESPACE" -o jsonpath='{.status.conditions[?(@.type=="Failed")].status}')" = "True" ]; then
+              resultado=fallo
+            fi
+          done
+          # The Job is retired after an hour; its logs stay here.
+          kubectl logs "job/$JOB" -n "$NAMESPACE" --all-containers || true
+          if [ "$resultado" != ok ]; then
+            kubectl describe job "$JOB" -n "$NAMESPACE" || true
+            echo "::error::La migracion no termino bien (${resultado:-sin respuesta en ${TIMEOUT}s}). Los pods anteriores siguen sirviendo."
+            exit 1
+          fi
+
+      - name: Actualizar el Service y el Deployment
+        run: |
+          ANTERIOR=$(kubectl get deployment "$SERVICIO" -n "$NAMESPACE" -o name 2>/dev/null || true)
+          kubectl apply -n "$NAMESPACE" -f k8s/service.yaml -f "$RENDER/deployment.yaml"
+          if kubectl rollout status "deployment/$SERVICIO" -n "$NAMESPACE" --timeout="${TIMEOUT}s"; then
+            exit 0
+          fi
+          echo "::group::Diagnostico"
+          kubectl describe "deployment/$SERVICIO" -n "$NAMESPACE" || true
+          kubectl get pods -n "$NAMESPACE" -l "app=$SERVICIO" -o wide || true
+          kubectl logs -n "$NAMESPACE" -l "app=$SERVICIO" --all-containers --prefix --tail=50 || true
+          kubectl get events -n "$NAMESPACE" --sort-by=.lastTimestamp | tail -n 30 || true
+          echo "::endgroup::"
+          if [ -z "$ANTERIOR" ]; then
+            echo "::error::El primer rollout de $SERVICIO no convergio y no hay version anterior a la cual volver."
+            exit 1
+          fi
+          # Only the pods go back. The ConfigMap, the Secret and the schema keep
+          # the new values.
+          kubectl rollout undo "deployment/$SERVICIO" -n "$NAMESPACE"
+          kubectl rollout status "deployment/$SERVICIO" -n "$NAMESPACE" --timeout="${TIMEOUT}s" || true
+          echo "::error::El rollout de $SERVICIO no convergio en ${TIMEOUT}s. Se volvio a la version anterior de los pods."
+          exit 1
+
+      - name: Resumen
+        if: always()
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          {
+            echo "## Despliegue de $SERVICIO"
+            echo ""
+            echo "| Dato | Valor |"
+            echo "|---|---|"
+            echo "| Resultado | ${{ job.status }} |"
+            echo "| Commit | \`${GITHUB_SHA}\` |"
+            echo "| Imagen | \`${SERVICIO}@${DIGEST:-sin publicar}\` |"
+            echo "| Namespace | \`${NAMESPACE}\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
