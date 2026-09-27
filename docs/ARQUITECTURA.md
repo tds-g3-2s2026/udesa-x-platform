@@ -1023,7 +1023,7 @@ Pendientes de definir en S1:
 | A11 | Herramienta de manifiestos       | Kustomize sobre Helm                                                                   |
 | A12 | Bases dentro o fuera del cluster | **Cerrada por el ADR-009**: las persistentes fuera, en Neon, un proyecto por servicio. Redis adentro, uno solo con bases lógicas separadas |
 | A13 | Observabilidad                   | Grafana Cloud, por el requisito de acceso del tutor                                    |
-| A14 | Proveedor de email               | Resend o Brevo, con dominio verificado en S1, porque el registro de S2 depende de esto |
+| A14 | Proveedor de email               | **Cerrada por el ADR-010**: Resend con el dominio propio `udesax.app` verificado |
 | A15 | Push en iOS                      | Depende de la cuenta de Apple Developer                                                |
 | A16 | Presupuesto de AWS               | **Cerrada por el ADR-008**: el cluster lo provee la cátedra, el equipo no decide costo ni ciclo de vida |
 
