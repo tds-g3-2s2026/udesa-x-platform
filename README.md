@@ -83,6 +83,7 @@ Los manifiestos son planos, sin Kustomize ni overlays.
 |---|---|
 | [`k8s/namespace.yaml`](./k8s/namespace.yaml): Namespace, ResourceQuota y LimitRange | El docente, después de revisar y aprobar el PR |
 | [`k8s/ingress.yaml`](./k8s/ingress.yaml): entrada HTTP del sistema | El docente, después de revisar y aprobar el PR |
+| [`k8s/networkpolicy.yaml`](./k8s/networkpolicy.yaml): los pods del namespace solo aceptan tráfico entre ellos | El docente, después de revisar y aprobar el PR |
 | Deployment, Service, ConfigMap, Secret y Job de migración de cada servicio | El futuro pipeline de CD, dentro del namespace del grupo |
 
 Los valores de cuota, el grupo de ALB y el host salen de la clase 6, Cloud Computing I del
@@ -90,7 +91,9 @@ Los valores de cuota, el grupo de ALB y el host salen de la clase 6, Cloud Compu
 Los fija la cátedra: no son decisiones del equipo y no se cambian por cuenta propia.
 
 La cuota del equipo es de `2` CPU y `2Gi` de memoria en requests, `4` CPU y `4Gi`
-en limits, hasta `8` pods, `10` Services, `10` ConfigMaps y `10` Secrets.
+en limits, hasta `8` pods, `4` Services, `4` ConfigMaps y `4` Secrets.
+**Uno de los cuatro ConfigMaps ya está ocupado** por `kube-root-ca.crt`, que Kubernetes
+crea solo en cada namespace: quedan tres, uno por servicio con código.
 Por contenedor, el mínimo es `100m` / `128Mi` y el máximo `500m` / `512Mi`.
 Los valores predeterminados son request `100m` / `128Mi` y limit `500m` / `512Mi`.
 Igualmente, cada Deployment debe declarar sus requests y limits explícitamente.
@@ -152,6 +155,23 @@ Las APIs usan `/livez` para liveness sin consultar dependencias y `/healthcheck`
 readiness con PostgreSQL y Redis. Una caída de la base retira el pod del tráfico, sin
 reiniciarlo por liveness. Las sondas consultan el pod directamente y no necesitan una
 regla pública en el Ingress. El healthcheck del gateway no demuestra la salud de las APIs.
+
+### Aislamiento de red
+
+Dos NetworkPolicy, sugeridas por la cátedra. [`k8s/networkpolicy.yaml`](./k8s/networkpolicy.yaml)
+deja que los pods del namespace solo reciban tráfico de otros pods del mismo namespace. La de
+`udesa-x-api-gateway` le abre además el gateway al ALB, desde sus dos subredes: `10.100.0.0/20`
+y `10.100.16.0/20`, las que llevan la etiqueta `kubernetes.io/role/elb` en la VPC del cluster.
+Funciona porque el ingress usa `target-type: ip`: el ALB le habla directo al pod, y el origen
+que ve el gateway es la IP del ALB.
+
+**Hoy no filtran nada.** El agente de red del cluster, `aws-eks-nodeagent` dentro del
+DaemonSet `aws-node`, corre con `--enable-network-policy=false`: el objeto se crea pero nadie lo
+aplica. Habilitarlo es una decisión de la cátedra sobre el cluster entero.
+
+Cuando se habilite, verificar que `users-api` y `posts-api` sigan en `Ready`. Las sondas las
+hace el kubelet desde la IP del nodo, que no es un pod del namespace; si quedan bloqueadas, los
+pods se reinician en bucle sin que el error mencione la NetworkPolicy.
 
 ### Cifrado en tránsito
 
