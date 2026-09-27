@@ -14,6 +14,7 @@ escribe una nueva que reemplaza a la anterior y se anota acá.
 | [ADR-007](./ADR-007-estructura-por-capas.md) | Estructura por capas en los servicios backend | 2026-09-04 | Aceptada |
 | [ADR-008](./ADR-008-plataforma-de-despliegue.md) | Plataforma de despliegue sobre el cluster de la cátedra | 2026-09-14 | Aceptada |
 | [ADR-009](./ADR-009-bases-gestionadas-y-migraciones.md) | Bases gestionadas en Neon, un Redis en el cluster y migraciones obligatorias | 2026-09-20 | Aceptada |
+| [ADR-010](./ADR-010-proveedor-de-correo.md) | Proveedor de correo: Resend con dominio propio | 2026-09-23 | Aceptada |
 
 Solo se registran decisiones ya tomadas y que el equipo pueda justificar, numeradas en el
 orden en que se toman. Lo que todavía está por definirse vive como decisión abierta `Dxx` en
@@ -25,3 +26,6 @@ cursada. Cerró `D21` y reemplazó las decisiones `A17` y `A18` del registro de
 
 El proveedor de bases quedó registrado en el ADR-009, antes de crear nada. Actualiza `A12` del
 registro de `ARQUITECTURA.md` y termina con la política de crear las tablas desde los modelos.
+
+El proveedor de correo quedó registrado en el ADR-010. Cierra `A14` del registro de
+`ARQUITECTURA.md` y el riesgo `R3` de `PLANIFICACION.md`.
