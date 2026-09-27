@@ -1,4 +1,4 @@
-# ADR-009: Proveedor de correo
+# ADR-010: Proveedor de correo
 
 **Fecha:** 2026-09-23 · **Estado:** aceptada · **Decide:** el equipo
 

@@ -257,9 +257,9 @@ el proveedor de email y la Claude API para el triage de denuncias.
 | Componente                  | Servicio de AWS                                 | A confirmar                                                                                                              |
 | --------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | Cluster                     | Amazon EKS, provisto por la cátedra             | Cerrado en el ADR-008. `tds-cluster` en `us-east-2`, un namespace por grupo                                              |
-| PostgreSQL de users y posts | RDS for PostgreSQL, una instancia con dos bases | Tamaño de instancia según créditos, S2                                                                                   |
+| PostgreSQL de users y posts | Neon, un proyecto por servicio                  | Cerrado en el ADR-009. RDS quedó fuera porque no hay credenciales de AWS; volver cuesta un `pg_dump` y dos secretos    |
 | MongoDB                     | MongoDB Atlas en capa gratuita                  | DocumentDB solo si hay créditos: cuesta varias veces más                                                                 |
-| Redis                       | Dentro del cluster                              | Los datos son efímeros: revocación, rate limit y caché. Autohospedado, no ElastiCache: el volumen del proyecto no justifica el gestionado |
+| Redis                       | Dentro del cluster, uno solo                    | Cerrado en el ADR-009. Datos efímeros, separación por base lógica: `/0` para users, `/1` para posts                     |
 | Almacenamiento de media     | S3 con bucket privado y URLs firmadas           | Cerrado                                                                                                                  |
 | Registry de imágenes        | Amazon ECR                                      | Sin ADR propio todavía. Los manifiestos en revisión (`platform#51`, `users-api#42`, `posts-api#37`, `api-gateway#3`) usan `${ECR_IMAGE}` y probaron imágenes reales contra ECR |
 | DNS y certificados          | Los resuelve la cátedra sobre el ingress        | Cerrado en el ADR-008. El equipo no administra la entrada del cluster                                                    |
@@ -598,19 +598,19 @@ El riesgo real de copiar no es duplicar, es **divergir en silencio**. Se mitiga 
 | MongoDB    | Documental  | notifications | Documentos de forma variable por tipo, escritura intensiva, lectura paginada por usuario    |
 | Redis      | Clave-valor | users, posts  | Revocación de JWT, contadores de rate limit, presencia con TTL, caché de trending           |
 
-**PostgreSQL 18**, que en RDS está disponible en la minor 18.4. Trae `uuidv7()` como función nativa, y esa es la clave primaria de `posts`: mantiene los inserts append-mostly en el índice, da cursor cronológico implícito y no expone IDs adivinables en un feed público, que es lo que pasaría con `bigserial`. Hay que fijarlo antes de la primera migración, después cuesta mucho más.
+**PostgreSQL 18**, que es la versión por defecto en Neon desde junio de 2026. Trae `uuidv7()` como función nativa, y esa es la clave primaria de `posts`: mantiene los inserts append-mostly en el índice, da cursor cronológico implícito y no expone IDs adivinables en un feed público, que es lo que pasaría con `bigserial`. Hay que fijarlo antes de la primera migración, después cuesta mucho más.
 
 **MongoDB Atlas M0 topea en 100 operaciones por segundo**, además de 0.5 GB y 500 conexiones. Las pruebas de carga de S6 y S12 contra `notifications-api` van a chocar contra ese techo y no contra el sistema: hay que acotar el alcance de esa prueba o correrla contra una instancia local.
 
 Cada servicio es dueño exclusivo de su esquema y **ningún servicio consulta la base de otro**. Esto no es purismo: es lo que hace que el desacoplamiento sea real y no solo estructura de carpetas.
 
-Las bases persistentes corren **fuera del cluster**, como servicios gestionados. Operar PostgreSQL con estado dentro de Kubernetes agrega volúmenes persistentes, backups y failover, que es una materia entera y no aporta nada a la nota. **Redis es la excepción y corre adentro**: guarda revocación de JWT, contadores de rate limit y caché, todo efímero y con TTL, así que perderlo ante un reinicio no rompe nada y no justifica pagar un servicio gestionado. La correspondencia concreta con los servicios de AWS está en la tabla de la sección "Vista general".
+Las bases persistentes corren **fuera del cluster**, como servicios gestionados: un proyecto de Neon por servicio, según el ADR-009. Operar PostgreSQL con estado dentro de Kubernetes agrega volúmenes persistentes, backups y failover, que es una materia entera y no aporta nada a la nota. **Redis es la excepción y corre adentro**, uno solo para los dos servicios, con la base lógica `/0` para users y `/1` para posts: guarda revocación de JWT, contadores de rate limit y caché, todo efímero y con TTL, así que perderlo ante un reinicio no rompe nada y no justifica pagar un servicio gestionado. La correspondencia concreta con los servicios de AWS está en la tabla de la sección "Vista general".
 
 Migraciones versionadas y ejecutadas como Job de Kubernetes antes del rollout: **Alembic en los dos servicios de Python**. `notifications-api` usa MongoDB y no lleva migraciones de esquema. Una sola herramienta de migraciones en todo el proyecto es una consecuencia directa de haber concentrado el backend relacional en Python, y ahorra mantener dos flujos distintos.
 
-**Cuándo entran.** Recién cuando exista una base desplegada. Lo marcó el tutor en la revisión del 8 de septiembre de 2026: una migración sirve para hacer evolucionar un esquema **sin perder datos vivos**, y hasta que el servicio no esté desplegado no hay datos que proteger. Mientras tanto las tablas se crean desde los modelos con `Base.metadata.create_all()`, en el arranque de desarrollo y en los tests.
+**Cuándo entran: ya entraron.** La regla anterior, fijada por el tutor el 8 de septiembre, era crear las tablas desde los modelos con `Base.metadata.create_all()` mientras no hubiera base desplegada, porque sin datos vivos no hay nada que una migración proteja. El ADR-009 la termina: con las bases creadas en Neon, todo cambio de esquema es una revisión de Alembic.
 
-`users-api` ya tiene Alembic y sus migraciones de S2 y S3: se dejan como están, porque quitarlas es trabajo sobre algo que funciona. Lo que no se hace es sumar la maquinaria a los servicios nuevos antes de que la necesiten. `posts-api` arranca sin Alembic y lo incorpora al desplegar.
+Los dos servicios ya están ahí. `users-api` trae Alembic desde S2, `posts-api` lo incorporó con su `0001_esquema_actual.py`, y los `conftest.py` de ambos levantan el esquema con `alembic upgrade head`: no queda una llamada a `create_all` en `src/` ni en `tests/`. La `0001` de cada servicio queda congelada con el primer deploy, y desde ahí editarla o correr `alembic stamp` contra una base con datos queda prohibido. Lo que ya rige hoy es que un cambio de modelo llega con su migración en el mismo PR: `alembic check` lo detecta y los tests de integración lo prueban.
 
 El Job toma un `pg_advisory_lock` durante toda la migración, para que dos rollouts en carrera no migren a la vez. Los cambios van en expand y contract, en deploys separados: primero lo aditivo, el `DROP` o el `NOT NULL` en un deploy posterior. El rollback es forward-only: las down-migrations casi nunca se prueban y fallan justo cuando se las necesita.
 
@@ -1021,7 +1021,7 @@ Pendientes de definir en S1:
 | A9  | Broker de mensajes               | RabbitMQ sobre Kafka, por simplicidad operativa                                        |
 | A10 | Plan B de despliegue             | ECS con Fargate si EKS no llega. Se decide el 20 de septiembre                         |
 | A11 | Herramienta de manifiestos       | Kustomize sobre Helm                                                                   |
-| A12 | Bases dentro o fuera del cluster | Las persistentes fuera, como servicios gestionados. Redis adentro: sus datos son efímeros |
+| A12 | Bases dentro o fuera del cluster | **Cerrada por el ADR-009**: las persistentes fuera, en Neon, un proyecto por servicio. Redis adentro, uno solo con bases lógicas separadas |
 | A13 | Observabilidad                   | Grafana Cloud, por el requisito de acceso del tutor                                    |
 | A14 | Proveedor de email               | Resend o Brevo, con dominio verificado en S1, porque el registro de S2 depende de esto |
 | A15 | Push en iOS                      | Depende de la cuenta de Apple Developer                                                |
@@ -1033,7 +1033,7 @@ Pendientes de definir en S1:
 | --- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | A17 | Controller de entrada       | **Reemplazada por el ADR-008**: el controller lo elige la cátedra y el equipo entrega un `ingress.yaml` para que lo apliquen |
 | A18 | Gestión de secretos         | **Reemplazada por el ADR-008**: `secret.template.yaml` versionado, el secreto real fuera del repositorio y los valores desde GitHub Secrets |
-| A19 | Clave primaria de contenido | **UUIDv7 nativo de PostgreSQL 18.** Hay que fijarlo antes de la primera migración                                         |
+| A19 | Clave primaria de contenido | **UUIDv7 nativo de PostgreSQL 18.** Fijado: el ADR-009 elige Neon, donde 18 es la versión por defecto, y la `0001` de `posts-api` queda congelada con el primer deploy |
 | A20 | Motor clave-valor           | **Redis.** Revertida el 2026-08-23 en la revisión del PR #6 de `users-api`. La versión anterior elegía Valkey por precio en ElastiCache, que no aplica porque se autohospeda, y por licencia, que perdió peso desde que Redis 8 ofrece AGPLv3. Queda que Redis es más estándar y el equipo lo conoce |
 | A21 | Plantillas de CI            | **Reusable workflows**, no copiadas. Los contratos de eventos se siguen copiando, porque eso lo pidió el tutor            |
 | A22 | Manejo de tokens            | **Cerrada: JWT firmado con EdDSA.** La define `E1-H2 CA.1`, que exige un token JWT; el token opaco reprobaría el criterio |
