@@ -26,3 +26,6 @@ cursada. Cerró `D21` y reemplazó las decisiones `A17` y `A18` del registro de
 
 El proveedor de bases quedó registrado en el ADR-009, antes de crear nada. Actualiza `A12` del
 registro de `ARQUITECTURA.md` y termina con la política de crear las tablas desde los modelos.
+
+El proveedor de correo quedó registrado en el ADR-010. Cierra `A14` del registro de
+`ARQUITECTURA.md` y el riesgo `R3` de `PLANIFICACION.md`.
