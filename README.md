@@ -84,6 +84,7 @@ Los manifiestos son planos, sin Kustomize ni overlays.
 | [`k8s/namespace.yaml`](./k8s/namespace.yaml): Namespace, ResourceQuota y LimitRange | El docente, después de revisar y aprobar el PR |
 | [`k8s/ingress.yaml`](./k8s/ingress.yaml): entrada HTTP del sistema | El docente, después de revisar y aprobar el PR |
 | Deployment, Service, ConfigMap, Secret y Job de migración de cada servicio | El futuro pipeline de CD, dentro del namespace del grupo |
+| [`k8s/redis.yaml`](./k8s/redis.yaml): Deployment y Service del Redis compartido | El pipeline de CD de este repositorio |
 
 Los valores de cuota, el grupo de ALB y el host salen de la clase 6, Cloud Computing I del
 14 de septiembre, la misma que cierra el [ADR-008](./docs/adr/ADR-008-plataforma-de-despliegue.md).
@@ -130,8 +131,9 @@ La contrapartida es que `api-gateway` queda en el camino crítico: si su Deploym
 arriba, todo `/api` responde 503. Tiene que desplegarse antes o junto con el primer apply del
 Ingress.
 
-El puerto `80` es una decisión del equipo para todos los Services, no un valor impuesto
-por la cátedra. Sus manifiestos deben declarar `spec.ports[].port: 80`.
+El puerto `80` es una decisión del equipo para todos los Services HTTP, no un valor impuesto
+por la cátedra. Sus manifiestos deben declarar `spec.ports[].port: 80`. La excepción es
+Redis, que no habla HTTP y queda en `6379`, el puerto que fija el `REDIS_URL` del ADR-009.
 El Service apunta al puerto nombrado `http`, declarado como `containerPort: 8000` en el
 Deployment. Ese número coincide con Uvicorn/Bun y el `EXPOSE` del Dockerfile; no tiene
 por qué ser el puerto `80` del Service.
@@ -192,7 +194,8 @@ gratuita, sin tarjeta, PostgreSQL 18 y TLS obligatorio. Un proyecto por servicio
 | Redis compartido | Pod del namespace `tds-group-3`, manifiesto `k8s/redis.yaml` de este repo | `users-api` con `/0`, `posts-api` con `/1` | Secret `REDIS_URL` de cada repo de servicio |
 
 Estado al 2026-09-20: los dos proyectos existen con PostgreSQL 18.6, su `0001` aplicada y los
-cuatro secrets cargados. El Redis todavía no tiene manifiesto.
+cuatro secrets cargados. El manifiesto del Redis está en `k8s/redis.yaml` y queda pendiente
+de aplicar hasta que exista el CD de este repositorio.
 
 Ninguna URL se escribe en un archivo del repositorio: van como GitHub Secret del repositorio
 que las usa, y `k8s/secret.yaml` sigue en `.gitignore`. La URL que da la consola de Neon se
@@ -203,6 +206,18 @@ caché de prepared statements de asyncpg.
 El Redis compartido lo aplica el CD de este repositorio, no una persona: el permiso del equipo
 sobre el cluster es de solo lectura. Un reinicio de ese pod pierde la denylist de JWT y los
 contadores de rate limit, que es el precio aceptado de que no tenga volumen.
+
+Detalles del manifiesto que conviene saber explicar:
+
+- **Estrategia `Recreate`, no `RollingUpdate`.** Durante un rollout convivirían dos Redis
+  independientes detrás del mismo Service, y una revocación escrita en el viejo no existiría
+  en el nuevo. El corte dura lo que tarda en arrancar el pod y, además, no consume el margen
+  de cuota que reservan los `maxSurge` de las APIs.
+- **`maxmemory 192mb` con `noeviction`.** El límite de memoria del contenedor es `256Mi`:
+  Redis rechaza escrituras antes de que el kernel mate el pod y se pierda todo junto. No se
+  expulsan claves porque expulsar una revocación volvería válido, sin aviso, un token revocado.
+- **Sin `--protected-mode`.** La imagen oficial lo apaga sola cuando arranca sin archivo de
+  configuración, que es lo que permite que las APIs se conecten desde otros pods.
 
 **Desde la primera migración aplicada contra Neon, el esquema solo cambia con Alembic.** La
 `0001` de cada servicio queda congelada: nada de editarla ni de `alembic stamp` contra una base

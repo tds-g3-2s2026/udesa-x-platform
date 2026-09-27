@@ -1,0 +1,88 @@
+# Shared Redis for the namespace, as decided in ADR-009. One instance, logical
+# database per service: users-api uses redis://redis:6379/0 and posts-api uses
+# redis://redis:6379/1. Applied by the platform CD, never by hand: the team only
+# has read access to the cluster (ADR-008).
+#
+# Ephemeral on purpose: no PVC, no RDB snapshots, no AOF. It holds JWT
+# revocations, rate limit counters and cache, all with a TTL. A restart loses
+# them; that tradeoff is documented in ADR-009.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: tds-group-3
+  labels:
+    app: redis
+spec:
+  replicas: 1
+  # Recreate, not RollingUpdate: two Redis pods behind the same Service during a
+  # rollout would split writes between two unrelated datasets, and a revocation
+  # written to the old pod would be missing from the new one.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:8-alpine
+          args:
+            - redis-server
+            - --save
+            - ""
+            - --appendonly
+            - "no"
+            # Below the container memory limit, so Redis rejects writes before
+            # the kernel kills the pod and every key is lost at once.
+            - --maxmemory
+            - 192mb
+            # noeviction on purpose: evicting a revocation key would silently
+            # make a revoked token valid again. A failed write is visible.
+            - --maxmemory-policy
+            - noeviction
+          ports:
+            - name: redis
+              containerPort: 6379
+          livenessProbe:
+            tcpSocket:
+              port: redis
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 2
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: tds-group-3
+  labels:
+    app: redis
+spec:
+  type: ClusterIP
+  selector:
+    app: redis
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: redis
+      protocol: TCP
