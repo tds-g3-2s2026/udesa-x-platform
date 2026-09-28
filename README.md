@@ -124,7 +124,8 @@ o interferir con otros equipos. Los cambios de DNS se coordinan con el docente.
 
 **El Ingress tiene una sola regla y apunta a `api-gateway`.** Ese servicio reparte
 internamente por prefijo (`udesa-x-api-gateway`, `src/routing.ts`): `/api/auth`, `/api/me` y
-`/api/admin` van a `users-api`; `/api/users` y `/api/follow-requests` van a `posts-api`.
+`/api/admin` van a `users-api`; `/api/users`, `/api/follow-requests`, `/api/posts`, `/api/feed`
+y `/api/blocks` van a `posts-api`.
 La razón es el ciclo de cambio:
 este archivo lo aplica el docente a mano, así que agregar un backend nuevo tiene que ser un
 cambio en el gateway que despliega CI, y no una revisión más de este manifiesto. Además evita
@@ -351,6 +352,37 @@ e identidades/acceso ([#47](https://github.com/tds-g3-2s2026/udesa-x-platform/is
 los defaults locales antiguos no son configuración de producción. Si el backoffice se
 sirve desde otro origen, configurar `CORS_ALLOWED_ORIGINS` en users con ese origen real.
 No se inventan esos valores ni se promete una validación en AWS antes de disponer de ellos.
+
+### Estado del despliegue
+
+Verificado el 2026-09-28 en [#59](https://github.com/tds-g3-2s2026/udesa-x-platform/issues/59).
+Corre una réplica de cada componente en `tds-group-3`:
+
+| Componente | Commit | Imagen |
+|---|---|---|
+| `users-api` | [`c645faa`](https://github.com/tds-g3-2s2026/udesa-x-users-api/commit/c645faa61e4418cf098e30a2a1f9332216ba82ff) | `users-api@sha256:9cecfc24815ee4757864c668bbb5ae4f2302e28566ada285957eb1541afaf986` |
+| `posts-api` | [`a7e07d5`](https://github.com/tds-g3-2s2026/udesa-x-posts-api/commit/a7e07d593c5e63cc62282fb377e8200035f0afdd) | `posts-api@sha256:d6aa05e847dca4bd730ebf91d2d2e5de39a64c82f494469ae74c0727826b5a2c` |
+| `api-gateway` | [`4342976`](https://github.com/tds-g3-2s2026/udesa-x-api-gateway/commit/4342976a9d147a310ef7c738b6a0fadc1d324dd0) | `api-gateway@sha256:78e2b5adf0b6def3d733a5a818fced1a3a700a01dee6d7712dc087b744a9a4de` |
+| `redis` | [`k8s/redis.yaml`](./k8s/redis.yaml) | `redis:8-alpine` |
+
+Los cuatro pods están `Running`, `1/1` y sin reinicios, y los Jobs de migración terminaron en
+`Completed`. El `/healthcheck` de las APIs no se expone por el Ingress: es su readiness probe,
+así que `1/1` significa que responde bien con PostgreSQL y Redis.
+
+Por el host público y sin token, `/api/me` llega a `users-api` y `/api/follow-requests` y
+`/api/feed` llegan a `posts-api`: los tres responden `401` del servicio. Un prefijo que no está
+en la tabla, como `/api/nada`, responde el `404` del gateway.
+
+Para repetirlo, con el acceso personal descrito abajo:
+
+```bash
+kubectl --context tds-group-3 -n tds-group-3 get pods,deploy,svc,ingress -o wide
+curl -i https://tds-group-3.tds-linar.udesa.edu.ar/api/me
+curl -i https://tds-group-3.tds-linar.udesa.edu.ar/api/feed
+```
+
+El commit de cada digest figura en el log del job `deploy` del run de CI en `main`: la imagen se
+publica con el commit como tag y se despliega por digest.
 
 ### Acceso personal de cada integrante
 
