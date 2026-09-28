@@ -287,13 +287,16 @@ Qué hace, en orden:
 5. Si hay `migracion`, la corre como Job con la misma imagen y espera que termine bien. Si
    falla, corta ahí y los pods anteriores siguen sirviendo. Los logs quedan en el run y el
    Job se retira solo a la hora.
-6. Aplica `k8s/service.yaml` y el Deployment con la imagen resuelta y espera el rollout. Si no
-   converge, muestra el diagnóstico, hace `kubectl rollout undo` y falla. En el primer
-   despliegue no hay versión anterior: solo falla.
+6. Si el servicio tiene `k8s/networkpolicy.yaml`, la aplica. Es el caso del gateway, que tiene
+   que aceptar el tráfico del ALB. Después aplica `k8s/service.yaml` y el Deployment con la
+   imagen resuelta y espera el rollout. Si no converge, muestra el diagnóstico, hace
+   `kubectl rollout undo` y falla. En el primer despliegue no hay versión anterior: solo falla.
 
 El pod template lleva la annotation `udesa-x/config-hash`, calculada sobre el ConfigMap y los
 valores del Secret: un cambio solo de configuración también reemplaza los pods. El rollback
-vuelve atrás los pods, no el ConfigMap, el Secret ni el esquema de la base.
+vuelve atrás los pods, no el ConfigMap, el Secret, la NetworkPolicy ni el esquema de la base.
+Borrar `k8s/networkpolicy.yaml` de un servicio no la borra del cluster: hay que hacerlo con
+`kubectl delete`.
 
 Un despliegue por servicio a la vez, sin cancelar el que ya está tocando el cluster. Repos
 distintos sí corren en paralelo: si se mergea en los tres a la vez, las migraciones y los
