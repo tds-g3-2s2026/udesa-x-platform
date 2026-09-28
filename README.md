@@ -84,7 +84,8 @@ Los manifiestos son planos, sin Kustomize ni overlays.
 | [`k8s/namespace.yaml`](./k8s/namespace.yaml): Namespace, ResourceQuota y LimitRange | El docente, después de revisar y aprobar el PR |
 | [`k8s/ingress.yaml`](./k8s/ingress.yaml): entrada HTTP del sistema | El docente, después de revisar y aprobar el PR |
 | [`k8s/networkpolicy.yaml`](./k8s/networkpolicy.yaml): los pods del namespace solo aceptan tráfico entre ellos | El docente, después de revisar y aprobar el PR |
-| Deployment, Service, ConfigMap, Secret y Job de migración de cada servicio | El futuro pipeline de CD, dentro del namespace del grupo |
+| Deployment, Service, ConfigMap, Secret y Job de migración de cada servicio | [`deploy.yml`](./.github/workflows/deploy.yml), en cada push a `main` del servicio |
+| [`k8s/redis.yaml`](./k8s/redis.yaml): Deployment y Service del Redis compartido | [`deploy-redis.yml`](./.github/workflows/deploy-redis.yml), cuando cambia el manifiesto o a mano desde Actions |
 
 Los valores de cuota, el grupo de ALB y el host salen de la clase 6, Cloud Computing I del
 14 de septiembre, la misma que cierra el [ADR-008](./docs/adr/ADR-008-plataforma-de-despliegue.md).
@@ -133,8 +134,9 @@ La contrapartida es que `api-gateway` queda en el camino crítico: si su Deploym
 arriba, todo `/api` responde 503. Tiene que desplegarse antes o junto con el primer apply del
 Ingress.
 
-El puerto `80` es una decisión del equipo para todos los Services, no un valor impuesto
-por la cátedra. Sus manifiestos deben declarar `spec.ports[].port: 80`.
+El puerto `80` es una decisión del equipo para todos los Services HTTP, no un valor impuesto
+por la cátedra. Sus manifiestos deben declarar `spec.ports[].port: 80`. La excepción es
+Redis, que no habla HTTP y queda en `6379`, el puerto que fija el `REDIS_URL` del ADR-009.
 El Service apunta al puerto nombrado `http`, declarado como `containerPort: 8000` en el
 Deployment. Ese número coincide con Uvicorn/Bun y el `EXPOSE` del Dockerfile; no tiene
 por qué ser el puerto `80` del Service.
@@ -212,7 +214,8 @@ gratuita, sin tarjeta, PostgreSQL 18 y TLS obligatorio. Un proyecto por servicio
 | Redis compartido | Pod del namespace `tds-group-3`, manifiesto `k8s/redis.yaml` de este repo | `users-api` con `/0`, `posts-api` con `/1` | Secret `REDIS_URL` de cada repo de servicio |
 
 Estado al 2026-09-20: los dos proyectos existen con PostgreSQL 18.6, su `0001` aplicada y los
-cuatro secrets cargados. El Redis todavía no tiene manifiesto.
+cuatro secrets cargados. El manifiesto del Redis está en `k8s/redis.yaml` y lo aplica
+`deploy-redis.yml`.
 
 Ninguna URL se escribe en un archivo del repositorio: van como GitHub Secret del repositorio
 que las usa, y `k8s/secret.yaml` sigue en `.gitignore`. La URL que da la consola de Neon se
@@ -223,6 +226,18 @@ caché de prepared statements de asyncpg.
 El Redis compartido lo aplica el CD de este repositorio, no una persona: el permiso del equipo
 sobre el cluster es de solo lectura. Un reinicio de ese pod pierde la denylist de JWT y los
 contadores de rate limit, que es el precio aceptado de que no tenga volumen.
+
+Detalles del manifiesto que conviene saber explicar:
+
+- **Estrategia `Recreate`, no `RollingUpdate`.** Durante un rollout convivirían dos Redis
+  independientes detrás del mismo Service, y una revocación escrita en el viejo no existiría
+  en el nuevo. El corte dura lo que tarda en arrancar el pod y, además, no consume el margen
+  de cuota que reservan los `maxSurge` de las APIs.
+- **`maxmemory 192mb` con `noeviction`.** El límite de memoria del contenedor es `256Mi`:
+  Redis rechaza escrituras antes de que el kernel mate el pod y se pierda todo junto. No se
+  expulsan claves porque expulsar una revocación volvería válido, sin aviso, un token revocado.
+- **Sin `--protected-mode`.** La imagen oficial lo apaga sola cuando arranca sin archivo de
+  configuración, que es lo que permite que las APIs se conecten desde otros pods.
 
 **Desde la primera migración aplicada contra Neon, el esquema solo cambia con Alembic.** La
 `0001` de cada servicio queda congelada: nada de editarla ni de `alembic stamp` contra una base
@@ -248,11 +263,11 @@ cluster, VPC, ALB, certificados y zona DNS.
 | `S3_BUCKET` | Nombre del bucket de los archivos del backoffice, sin `s3://` ni una URL. | Bucket propio del grupo, con los cuatro bloqueos de acceso público activos: quien lo sirve es CloudFront por OAC, no el bucket. |
 | `ECR_URI_PREFIX` | Prefijo de URI de las imágenes, con la forma `<account-id>.dkr.ecr.us-east-2.amazonaws.com/tds-group-3`; sin `https://` ni tag. **Ya incluye el prefijo del grupo**, así que la referencia se arma como `${ECR_URI_PREFIX}/<servicio>:<tag>` y no repite `tds-group-3`. | Tres repositorios propios del grupo, uno por servicio con código: `tds-group-3/api-gateway`, `tds-group-3/users-api` y `tds-group-3/posts-api`, los tres con tags mutables. |
 
-El pipeline construirá **`ECR_IMAGE`**, la referencia completa del repositorio asignado
-con tag inmutable por commit o digest, a partir de los datos reales de ECR. Los tres
-Deployment usan únicamente `${ECR_IMAGE}` como marcador. Kubernetes no lo expande:
-el futuro CD debe sustituirlo y rechazar valores vacíos o marcadores sin resolver antes
-de aplicar.
+El pipeline arma **`ECR_IMAGE`** como `${ECR_URI_PREFIX}/<servicio>@sha256:<digest>`: la
+imagen se publica con el commit como tag, pero se despliega por digest, que es lo que la
+hace inmutable aunque los repositorios de ECR acepten retaggear. Los tres Deployment usan
+únicamente `${ECR_IMAGE}` como marcador. Kubernetes no lo expande: el pipeline lo sustituye
+y corta el despliegue si queda cualquier otro `${...}` sin resolver.
 
 **Falta un valor y está anotado.** Invalidar la caché de CloudFront necesita el Distribution
 ID, y la distribución se crea en la Parte 4
@@ -266,42 +281,69 @@ Nunca commitear credenciales, tokens ni `k8s/secret.yaml` con valores reales:
 ese archivo debe estar en `.gitignore` de cada repositorio.
 Solo se versionan plantillas de secretos sin valores reales.
 
-### Orden del primer despliegue y de las actualizaciones
+### Despliegue continuo
 
-**Estas PRs no implementan CD ni publican imágenes.** El workflow actual valida código e
-imágenes localmente en el runner; hacer merge no modifica EKS. El futuro CD debe:
+Cada servicio llama a [`deploy.yml`](./.github/workflows/deploy.yml) desde su `ci.yml`, con
+`needs: ci` y solo en push a `main`: un PR nunca despliega y un commit que no pasó el CI
+tampoco. El job que llama tiene que declarar `permissions: id-token: write`, sin eso no hay
+token de OIDC.
 
-1. Partir de un commit validado, construir la imagen y publicarla en ECR con referencia
-   inmutable. Usar OIDC para asumir el rol de CI, no claves personales. Confirmar por
-   separado los permisos de push del pipeline, pull del cluster y edición del namespace.
-2. Esperar el namespace/cuotas de la cátedra y las bases accesibles. Aplicar ConfigMap y
-   Secret real antes de los workloads, nunca `secret.template.yaml` ni un `apply -f k8s/`
-   que pueda sobrescribir secretos con plantillas vacías. El gateway no necesita Secret.
-3. Ejecutar `alembic upgrade head` de cada API con la misma imagen de la versión, como
-   Job de ejecución única, y esperar su éxito antes del rollout. Crear el primer
-   superadmin de users con su comando idempotente y credenciales de bootstrap separadas.
-   Reservar cuota para los Jobs y retirar los terminados después de conservar sus logs.
-4. Aplicar los Services y Deployments con la imagen resuelta. Esperar
-   `kubectl rollout status deployment/<servicio> -n tds-group-3` con timeout; si falla,
-   detener el pipeline, no anunciar éxito ni hacer rollback de base automáticamente.
-5. Tener el gateway y las APIs listos antes de habilitar el Ingress con el docente.
-   Comprobar login y una operación autenticada de posts por HTTPS desde el host público.
+| Servicio | `secretos` | `migracion` |
+|---|---|---|
+| `users-api` | `DATABASE_URL REDIS_URL JWT_PRIVATE_KEY` | `alembic upgrade head` |
+| `posts-api` | `DATABASE_URL REDIS_URL JWT_PUBLIC_KEY` | `alembic upgrade head` |
+| `api-gateway` | ninguno | ninguna |
+
+Qué hace, en orden:
+
+1. Verifica que estén los secrets de organización, los secrets listados en `secretos`, los
+   manifiestos y el marcador `${ECR_IMAGE}`. Si falta algo, falla nombrando qué falta.
+2. Asume `AWS_ROLE_ARN` por OIDC, construye la imagen y la publica en ECR.
+3. Se conecta al cluster y comprueba que el namespace tenga su ResourceQuota y que el rol
+   pueda crear lo que va a aplicar.
+4. Aplica `k8s/configmap.yaml` y arma `<servicio>-secret` con los GitHub Secrets listados,
+   con server-side apply para que los valores no queden copiados en una annotation. Nunca
+   aplica `secret.template.yaml`, `namespace.yaml` ni `ingress.yaml`.
+5. Si hay `migracion`, la corre como Job con la misma imagen y espera que termine bien. Si
+   falla, corta ahí y los pods anteriores siguen sirviendo. Los logs quedan en el run y el
+   Job se retira solo a la hora.
+6. Aplica `k8s/service.yaml` y el Deployment con la imagen resuelta y espera el rollout. Si no
+   converge, muestra el diagnóstico, hace `kubectl rollout undo` y falla. En el primer
+   despliegue no hay versión anterior: solo falla.
+
+El pod template lleva la annotation `udesa-x/config-hash`, calculada sobre el ConfigMap y los
+valores del Secret: un cambio solo de configuración también reemplaza los pods. El rollback
+vuelve atrás los pods, no el ConfigMap, el Secret ni el esquema de la base.
+
+Un despliegue por servicio a la vez, sin cancelar el que ya está tocando el cluster. Repos
+distintos sí corren en paralelo: si se mergea en los tres a la vez, las migraciones y los
+pods extra del `maxSurge` comparten la cuota.
+
+Lo que el pipeline no hace y queda para el primer despliegue:
+
+- Crear el primer superadmin de users, con su comando idempotente y credenciales de
+  bootstrap separadas.
+- Aplicar el Ingress, que es del docente. El gateway y las APIs tienen que estar listos
+  antes, y después se comprueba login y una operación autenticada de posts por HTTPS desde
+  el host público.
 
 Users firma con una clave privada Ed25519 estable; posts recibe su pública correspondiente.
 Ambos validan `JWT_ISSUER=users-api`. No hay descubrimiento JWKS ni rotación automática.
 Agregar la validación de issuer invalida tokens antiguos que no tengan ese claim: los
 usuarios deben iniciar sesión otra vez. Una rotación de clave también requiere coordinar
-ambos servicios; no generar una clave nueva en cada deploy.
+ambos servicios; no generar una clave nueva en cada deploy. El par de producción se generó
+el 2026-09-27 y existe solo como GitHub Secret: `JWT_PRIVATE_KEY` en `udesa-x-users-api` y
+`JWT_PUBLIC_KEY` en `udesa-x-posts-api`.
 
 Los valores de `envFrom` se leen al crear el contenedor. Cambiar Secret o ConfigMap no
-actualiza los pods existentes: el CD debe reemplazarlos también en cambios solo de
-configuración. Una migración debe ser compatible con la versión anterior durante el
-rolling update. Volver a una imagen anterior **no** revierte el esquema de la base.
+actualiza los pods existentes: por eso el pipeline pone el hash de la configuración en el pod
+template, y un cambio solo de configuración también los reemplaza. Una migración debe ser
+compatible con la versión anterior durante el rolling update. Volver a una imagen anterior
+**no** revierte el esquema de la base.
 No usar `alembic stamp` para adoptar una base existente sin verificar su esquema.
 
-Pendientes externos: bases y TLS real ([#46](https://github.com/tds-g3-2s2026/udesa-x-platform/issues/46)),
-identidades/acceso ([#47](https://github.com/tds-g3-2s2026/udesa-x-platform/issues/47)),
-workflow de CD (`T-14`, S6). Los clientes deben usar
+Pendientes externos: bases y TLS real ([#46](https://github.com/tds-g3-2s2026/udesa-x-platform/issues/46))
+e identidades/acceso ([#47](https://github.com/tds-g3-2s2026/udesa-x-platform/issues/47)). Los clientes deben usar
 `https://tds-group-3.tds-linar.udesa.edu.ar/api` como base, sin `/v1`, también para posts;
 los defaults locales antiguos no son configuración de producción. Si el backoffice se
 sirve desde otro origen, configurar `CORS_ALLOWED_ORIGINS` en users con ese origen real.

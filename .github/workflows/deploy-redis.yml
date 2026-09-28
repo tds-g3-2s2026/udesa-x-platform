@@ -1,0 +1,76 @@
+# Applies the shared Redis (k8s/redis.yaml, ADR-009). It lives in this repo and
+# not in a service's pipeline so that posts-api does not depend on users-api to
+# start. Runs when the manifest changes on main, or by hand from Actions.
+
+name: Deploy Redis
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - k8s/redis.yaml
+      - .github/workflows/deploy-redis.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-redis
+  cancel-in-progress: false
+
+jobs:
+  redis:
+    name: Desplegar Redis
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NAMESPACE: tds-group-3
+      AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      EKS_CLUSTER_NAME: ${{ secrets.EKS_CLUSTER_NAME }}
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Verificar el entorno
+        run: |
+          faltan=()
+          for nombre in AWS_ROLE_ARN AWS_REGION EKS_CLUSTER_NAME; do
+            [ -n "${!nombre}" ] || faltan+=("secret de organizacion $nombre")
+          done
+          [ -f k8s/redis.yaml ] || faltan+=("archivo k8s/redis.yaml")
+          if [ ${#faltan[@]} -gt 0 ]; then
+            for falta in "${faltan[@]}"; do echo "::error::Falta $falta."; done
+            exit 1
+          fi
+
+      - name: Asumir el rol de AWS por OIDC
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          role-session-name: deploy-redis-${{ github.run_id }}
+
+      - name: Conectar con el cluster
+        run: |
+          aws eks update-kubeconfig --name "$EKS_CLUSTER_NAME" --region "$AWS_REGION"
+          if ! kubectl get resourcequota -n "$NAMESPACE" -o name | grep -q .; then
+            echo "::error::El namespace $NAMESPACE no existe todavia o no tiene su ResourceQuota. Lo aplica el docente con k8s/namespace.yaml."
+            exit 1
+          fi
+
+      # Recreate strategy: the old pod stops before the new one starts, so the
+      # keys in memory are lost on every change to this manifest (ADR-009).
+      - name: Aplicar Redis
+        run: |
+          kubectl apply -f k8s/redis.yaml
+          if kubectl rollout status deployment/redis -n "$NAMESPACE" --timeout=120s; then
+            exit 0
+          fi
+          kubectl describe deployment/redis -n "$NAMESPACE" || true
+          kubectl get pods -n "$NAMESPACE" -l app=redis -o wide || true
+          kubectl logs -n "$NAMESPACE" -l app=redis --tail=50 || true
+          echo "::error::Redis no quedo listo en 120s."
+          exit 1
