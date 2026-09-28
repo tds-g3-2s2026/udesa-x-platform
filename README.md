@@ -124,7 +124,8 @@ o interferir con otros equipos. Los cambios de DNS se coordinan con el docente.
 
 **El Ingress tiene una sola regla y apunta a `api-gateway`.** Ese servicio reparte
 internamente por prefijo (`udesa-x-api-gateway`, `src/routing.ts`): `/api/auth`, `/api/me` y
-`/api/admin` van a `users-api`; `/api/users` y `/api/follow-requests` van a `posts-api`.
+`/api/admin` van a `users-api`; `/api/users`, `/api/follow-requests`, `/api/posts`, `/api/feed`
+y `/api/blocks` van a `posts-api`.
 La razón es el ciclo de cambio:
 este archivo lo aplica el docente a mano, así que agregar un backend nuevo tiene que ser un
 cambio en el gateway que despliega CI, y no una revisión más de este manifiesto. Además evita
@@ -357,6 +358,33 @@ e identidades/acceso ([#47](https://github.com/tds-g3-2s2026/udesa-x-platform/is
 los defaults locales antiguos no son configuración de producción. Si el backoffice se
 sirve desde otro origen, configurar `CORS_ALLOWED_ORIGINS` en users con ese origen real.
 No se inventan esos valores ni se promete una validación en AWS antes de disponer de ellos.
+
+### Cómo verificar qué está desplegado
+
+Cada push a `main` de un servicio lo vuelve a desplegar, así que la versión que corre no se
+anota acá: se consulta. Con el acceso personal descrito abajo:
+
+```bash
+kubectl --context tds-group-3 -n tds-group-3 get pods,deploy,svc,ingress -o wide
+```
+
+Los pods tienen que estar `Running` y `1/1`. El `/healthcheck` de las APIs no se expone por el
+Ingress: es su readiness probe, así que `1/1` significa que responde bien con PostgreSQL y Redis.
+
+La columna de imágenes muestra el digest de cada servicio. Para saber a qué commit corresponde,
+buscar ese digest en el log del job `deploy` del run de CI en `main`: la imagen se publica con el
+commit como tag y se despliega por digest.
+
+El ruteo se prueba por el host público y sin token:
+
+```bash
+curl -i https://tds-group-3.tds-linar.udesa.edu.ar/api/me    # 401 de users-api
+curl -i https://tds-group-3.tds-linar.udesa.edu.ar/api/feed  # 401 de posts-api
+curl -i https://tds-group-3.tds-linar.udesa.edu.ar/api/nada  # 404 del gateway
+```
+
+Un `404 no route configured` en un prefijo que debería existir significa que falta en la tabla
+del gateway. Un `503` en todo `/api` significa que el gateway no está listo.
 
 ### Acceso personal de cada integrante
 
