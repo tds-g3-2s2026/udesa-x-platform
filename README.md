@@ -124,8 +124,8 @@ o interferir con otros equipos. Los cambios de DNS se coordinan con el docente.
 
 **El Ingress tiene una sola regla y apunta a `api-gateway`.** Ese servicio reparte
 internamente por prefijo (`udesa-x-api-gateway`, `src/routing.ts`): `/api/auth`, `/api/me` y
-`/api/admin` van a `users-api`; `/api/users`, `/api/follow-requests`, `/api/posts`, `/api/feed`
-y `/api/blocks` van a `posts-api`.
+`/api/admin` van a `users-api`; `/api/users`, `/api/follow-requests`, `/api/posts`, `/api/feed`,
+`/api/blocks` y `/api/reports` van a `posts-api`.
 La razón es el ciclo de cambio:
 este archivo lo aplica el docente a mano, así que agregar un backend nuevo tiene que ser un
 cambio en el gateway que despliega CI, y no una revisión más de este manifiesto. Además evita
