@@ -96,6 +96,9 @@ jobs:
         -----BEGIN PUBLIC KEY-----
         MCowBQYDK2VwAyEAqImbSOwLY35gB4XytjbBlXzbZnrfT3XBY5ewbejR5nk=
         -----END PUBLIC KEY-----
+      # Throwaway too. ADR-011: posts-api and users-api refuse to start without
+      # the secret of their internal routes. Services that do not read it ignore it.
+      INTERNAL_API_TOKEN: ci-internal-token
 
     steps:
       - uses: actions/checkout@v5
@@ -123,7 +126,7 @@ jobs:
             COMANDO="uv run --no-sync pytest tests/unit --cov=src --cov-report=xml --cov-report=term"
           fi
           docker run --name suite --network host \
-            -e DATABASE_URL -e REDIS_URL -e JWT_PUBLIC_KEY \
+            -e DATABASE_URL -e REDIS_URL -e JWT_PUBLIC_KEY -e INTERNAL_API_TOKEN \
             servicio:test $COMANDO
 
       - name: Sacar los reportes del contenedor
@@ -203,7 +206,7 @@ jobs:
       - name: Verificar que la imagen de produccion levanta
         run: |
           docker run -d --name servicio --network host \
-            -e DATABASE_URL -e REDIS_URL -e JWT_PUBLIC_KEY servicio:produccion
+            -e DATABASE_URL -e REDIS_URL -e JWT_PUBLIC_KEY -e INTERNAL_API_TOKEN servicio:produccion
           for _ in $(seq 1 30); do
             if [ "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/healthcheck)" = "200" ]; then
               echo "El healthcheck responde 200 desde la imagen construida."
