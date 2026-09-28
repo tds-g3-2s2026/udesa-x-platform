@@ -257,10 +257,11 @@ cluster, VPC, ALB, certificados y zona DNS.
 
 | Secret | Qué contiene y para qué se usa | De dónde sale |
 |---|---|---|
-| `AWS_ROLE_ARN` | ARN del rol `GitHubActions-tds-group-3-Deploy`, que GitHub Actions asume por OIDC. No es un usuario IAM ni una clave de acceso: no hay ninguna credencial de largo plazo. | Rol propio del grupo. Confía en `token.actions.githubusercontent.com` con `aud` igual a `sts.amazonaws.com` y `sub` acotado a `repo:tds-g3-2s2026/*`, lleva la permissions boundary `tds-group-boundary`, y su acceso al cluster sale de un Access Entry con `AmazonEKSEditPolicy` de alcance `tds-group-3`. |
+| `AWS_ROLE_ARN` | ARN del rol `GitHubActions-tds-group-3-Deploy`, que GitHub Actions asume por OIDC. No es un usuario IAM ni una clave de acceso: no hay ninguna credencial de largo plazo. | Rol propio del grupo. Confía en `token.actions.githubusercontent.com` con `aud` igual a `sts.amazonaws.com` y `sub` acotado a `repo:tds-g3-2s2026@315118458/*`, lleva la permissions boundary `tds-group-boundary`, y su acceso al cluster sale de un Access Entry con `AmazonEKSEditPolicy` de alcance `tds-group-3`. |
 | `AWS_REGION` | Región donde opera el despliegue: `us-east-2`. | La fija la cátedra y está registrada en ADR-008. |
 | `EKS_CLUSTER_NAME` | Nombre del cluster que usa el pipeline al preparar kubeconfig: `tds-cluster`. | Cluster compartido de la cátedra; se confirma en EKS > Clusters y en ADR-008. |
 | `S3_BUCKET` | Nombre del bucket de los archivos del backoffice, sin `s3://` ni una URL. | Bucket propio del grupo, con los cuatro bloqueos de acceso público activos: quien lo sirve es CloudFront por OAC, no el bucket. |
+| `CLOUDFRONT_DISTRIBUTION_ID` | ID de la distribución `tds-group-3-frontend`, que usa el deploy del backoffice para invalidar la caché después de publicar. | Distribución propia del grupo, creada en la Parte 4 de la guía. La policy `tds-group-3-deploy-policy` permite invalidar solo esa distribución. |
 | `ECR_URI_PREFIX` | Prefijo de URI de las imágenes, con la forma `<account-id>.dkr.ecr.us-east-2.amazonaws.com/tds-group-3`; sin `https://` ni tag. **Ya incluye el prefijo del grupo**, así que la referencia se arma como `${ECR_URI_PREFIX}/<servicio>:<tag>` y no repite `tds-group-3`. | Tres repositorios propios del grupo, uno por servicio con código: `tds-group-3/api-gateway`, `tds-group-3/users-api` y `tds-group-3/posts-api`, los tres con tags mutables. |
 
 El pipeline arma **`ECR_IMAGE`** como `${ECR_URI_PREFIX}/<servicio>@sha256:<digest>`: la
@@ -269,12 +270,17 @@ hace inmutable aunque los repositorios de ECR acepten retaggear. Los tres Deploy
 únicamente `${ECR_IMAGE}` como marcador. Kubernetes no lo expande: el pipeline lo sustituye
 y corta el despliegue si queda cualquier otro `${...}` sin resolver.
 
-**Falta un valor y está anotado.** Invalidar la caché de CloudFront necesita el Distribution
-ID, y la distribución se crea en la Parte 4
-([backoffice#23](https://github.com/tds-g3-2s2026/udesa-x-backoffice/issues/23)). Hasta
-entonces `tds-group-3-deploy-policy` lo cubre con `*`, lo que habilita a invalidar la caché de
-cualquier distribución de la cuenta. Al crear la distribución hay que volver a esa policy,
-reemplazar el comodín por el ID real y sumar `CLOUDFRONT_DISTRIBUTION_ID` a la tabla.
+**El `sub` lleva el ID de la organización.** Los repositorios de `tds-g3-2s2026` emiten el
+token con el formato de sujeto inmutable de GitHub: `repo:tds-g3-2s2026@315118458/<repo>@<id>:...`.
+Una condición con el nombre solo, `repo:tds-g3-2s2026/*`, no coincide y AWS rechaza el
+`AssumeRoleWithWebIdentity`. El ID además es más seguro que el nombre: si la organización se
+borrara, quien creara otra con el mismo nombre no heredaría el acceso al rol.
+
+**Un solo dominio para todo.** `tds-group-3.tds-linar.udesa.edu.ar` apunta, con un registro A
+con Alias en Route 53, a la distribución de CloudFront. La distribución manda `/api/*` al ALB,
+sin caché y reenviando todos los headers (el ALB elige el namespace por el `Host`), y el resto
+al bucket, que solo ella puede leer a través de su OAC. El backoffice y la API comparten
+origen, así que no hace falta CORS.
 
 Las claves personales de AWS no se usan como credenciales del pipeline.
 Nunca commitear credenciales, tokens ni `k8s/secret.yaml` con valores reales:
