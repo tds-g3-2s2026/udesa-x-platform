@@ -14,8 +14,9 @@
 #       secretos: DATABASE_URL REDIS_URL JWT_PRIVATE_KEY
 #       migracion: alembic upgrade head
 #
-# It applies exactly four things: k8s/configmap.yaml, the Secret built from
-# GitHub Secrets, k8s/service.yaml and k8s/deployment.yaml. Never
+# It applies exactly these things: k8s/configmap.yaml, the Secret built from
+# GitHub Secrets, k8s/service.yaml, k8s/deployment.yaml and, only if the
+# service has one, k8s/networkpolicy.yaml. Never
 # namespace.yaml nor ingress.yaml, which the docente applies and the CI role
 # cannot touch, and never secret.template.yaml, whose empty values would
 # overwrite the real ones.
@@ -173,7 +174,9 @@ jobs:
             exit 1
           fi
           faltan=()
-          for recurso in configmaps secrets services deployments jobs; do
+          recursos=(configmaps secrets services deployments jobs)
+          [ -f k8s/networkpolicy.yaml ] && recursos+=(networkpolicies)
+          for recurso in "${recursos[@]}"; do
             kubectl auth can-i create "$recurso" -n "$NAMESPACE" >/dev/null || faltan+=("$recurso")
           done
           if [ ${#faltan[@]} -gt 0 ]; then
@@ -297,6 +300,11 @@ jobs:
       - name: Actualizar el Service y el Deployment
         run: |
           ANTERIOR=$(kubectl get deployment "$SERVICIO" -n "$NAMESPACE" -o name 2>/dev/null || true)
+          # Before the Deployment, so the new pods start already reachable.
+          # Optional: the gateway needs one to accept the ALB traffic.
+          if [ -f k8s/networkpolicy.yaml ]; then
+            kubectl apply -n "$NAMESPACE" -f k8s/networkpolicy.yaml
+          fi
           kubectl apply -n "$NAMESPACE" -f k8s/service.yaml -f "$RENDER/deployment.yaml"
           if kubectl rollout status "deployment/$SERVICIO" -n "$NAMESPACE" --timeout="${TIMEOUT}s"; then
             exit 0
