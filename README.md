@@ -353,36 +353,32 @@ los defaults locales antiguos no son configuración de producción. Si el backof
 sirve desde otro origen, configurar `CORS_ALLOWED_ORIGINS` en users con ese origen real.
 No se inventan esos valores ni se promete una validación en AWS antes de disponer de ellos.
 
-### Estado del despliegue
+### Cómo verificar qué está desplegado
 
-Verificado el 2026-09-28 en [#59](https://github.com/tds-g3-2s2026/udesa-x-platform/issues/59).
-Corre una réplica de cada componente en `tds-group-3`:
-
-| Componente | Commit | Imagen |
-|---|---|---|
-| `users-api` | [`c645faa`](https://github.com/tds-g3-2s2026/udesa-x-users-api/commit/c645faa61e4418cf098e30a2a1f9332216ba82ff) | `users-api@sha256:9cecfc24815ee4757864c668bbb5ae4f2302e28566ada285957eb1541afaf986` |
-| `posts-api` | [`a7e07d5`](https://github.com/tds-g3-2s2026/udesa-x-posts-api/commit/a7e07d593c5e63cc62282fb377e8200035f0afdd) | `posts-api@sha256:d6aa05e847dca4bd730ebf91d2d2e5de39a64c82f494469ae74c0727826b5a2c` |
-| `api-gateway` | [`4342976`](https://github.com/tds-g3-2s2026/udesa-x-api-gateway/commit/4342976a9d147a310ef7c738b6a0fadc1d324dd0) | `api-gateway@sha256:78e2b5adf0b6def3d733a5a818fced1a3a700a01dee6d7712dc087b744a9a4de` |
-| `redis` | [`k8s/redis.yaml`](./k8s/redis.yaml) | `redis:8-alpine` |
-
-Los cuatro pods están `Running`, `1/1` y sin reinicios, y los Jobs de migración terminaron en
-`Completed`. El `/healthcheck` de las APIs no se expone por el Ingress: es su readiness probe,
-así que `1/1` significa que responde bien con PostgreSQL y Redis.
-
-Por el host público y sin token, `/api/me` llega a `users-api` y `/api/follow-requests` y
-`/api/feed` llegan a `posts-api`: los tres responden `401` del servicio. Un prefijo que no está
-en la tabla, como `/api/nada`, responde el `404` del gateway.
-
-Para repetirlo, con el acceso personal descrito abajo:
+Cada push a `main` de un servicio lo vuelve a desplegar, así que la versión que corre no se
+anota acá: se consulta. Con el acceso personal descrito abajo:
 
 ```bash
 kubectl --context tds-group-3 -n tds-group-3 get pods,deploy,svc,ingress -o wide
-curl -i https://tds-group-3.tds-linar.udesa.edu.ar/api/me
-curl -i https://tds-group-3.tds-linar.udesa.edu.ar/api/feed
 ```
 
-El commit de cada digest figura en el log del job `deploy` del run de CI en `main`: la imagen se
-publica con el commit como tag y se despliega por digest.
+Los pods tienen que estar `Running` y `1/1`. El `/healthcheck` de las APIs no se expone por el
+Ingress: es su readiness probe, así que `1/1` significa que responde bien con PostgreSQL y Redis.
+
+La columna de imágenes muestra el digest de cada servicio. Para saber a qué commit corresponde,
+buscar ese digest en el log del job `deploy` del run de CI en `main`: la imagen se publica con el
+commit como tag y se despliega por digest.
+
+El ruteo se prueba por el host público y sin token:
+
+```bash
+curl -i https://tds-group-3.tds-linar.udesa.edu.ar/api/me    # 401 de users-api
+curl -i https://tds-group-3.tds-linar.udesa.edu.ar/api/feed  # 401 de posts-api
+curl -i https://tds-group-3.tds-linar.udesa.edu.ar/api/nada  # 404 del gateway
+```
+
+Un `404 no route configured` en un prefijo que debería existir significa que falta en la tabla
+del gateway. Un `503` en todo `/api` significa que el gateway no está listo.
 
 ### Acceso personal de cada integrante
 
