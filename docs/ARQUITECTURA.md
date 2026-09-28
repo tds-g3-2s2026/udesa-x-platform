@@ -241,9 +241,10 @@ una SPA que se compila a estático y se publica en S3 detrás de CloudFront; lo 
 `Ingress` es el tráfico que el JavaScript ya cargado en el navegador del administrador le hace a
 la API. `mobile`, al no tener un paso de "servido", habla directo con el `Ingress`. Las bases
 persistentes están fuera del cluster, mientras que Redis corre adentro porque sus datos son
-efímeros y perderlos no cuesta nada. Hoy no hay ninguna llamada síncrona entre `users-api` y
-`posts-api`: cada uno verifica el JWT por su cuenta contra la clave pública de `users-api`, sin
-pedirle nada por REST. Todo lo demás entre servicios cruza por la cola, y **los dos servicios de
+efímeros y perderlos no cuesta nada. Entre `users-api` y `posts-api` hay una sola llamada
+síncrona, la que pone una cuenta en revisión por denuncias (ADR-011). Para todo lo demás cada
+uno verifica el JWT por su cuenta contra la clave pública de `users-api`, sin pedirle nada por
+REST. El resto entre servicios cruza por la cola, y **los dos servicios de
 Python escriben al mismo bucket de S3 con prefijos distintos** (`avatars/` y `posts/`), cada uno
 dueño de lo suyo.
 
@@ -384,6 +385,7 @@ REST sobre HTTP con JSON, solo cuando la respuesta se necesita dentro del reques
 
 - El Gateway a cualquier servicio.
 - `posts-api` a `users-api` para hidratar datos de autor.
+- `posts-api` a `users-api` para poner una cuenta en revisión cuando junta denuncias de 6 cuentas distintas (`E3-H5`). Va a una ruta interna fuera de `/api` con el header `X-Internal-Token`; ver el ADR-011.
 - `backoffice` a los healthchecks de los tres servicios, para E5-H11.
 
 Toda llamada sincrónica lleva timeout, reintento con backoff y comportamiento definido ante fallo del destino. En Kubernetes esto se apoya en los probes: un servicio sin `readinessProbe` en verde no recibe tráfico.

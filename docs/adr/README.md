@@ -15,6 +15,7 @@ escribe una nueva que reemplaza a la anterior y se anota acá.
 | [ADR-008](./ADR-008-plataforma-de-despliegue.md) | Plataforma de despliegue sobre el cluster de la cátedra | 2026-09-14 | Aceptada |
 | [ADR-009](./ADR-009-bases-gestionadas-y-migraciones.md) | Bases gestionadas en Neon, un Redis en el cluster y migraciones obligatorias | 2026-09-20 | Aceptada |
 | [ADR-010](./ADR-010-proveedor-de-correo.md) | Proveedor de correo: Resend con dominio propio | 2026-09-23 | Aceptada |
+| [ADR-011](./ADR-011-denuncias-y-cuenta-en-revision.md) | Denuncias en `posts-api` y aviso de cuenta en revisión a `users-api` | 2026-09-28 | Aceptada |
 
 Solo se registran decisiones ya tomadas y que el equipo pueda justificar, numeradas en el
 orden en que se toman. Lo que todavía está por definirse vive como decisión abierta `Dxx` en
@@ -29,3 +30,7 @@ registro de `ARQUITECTURA.md` y termina con la política de crear las tablas des
 
 El proveedor de correo quedó registrado en el ADR-010. Cierra `A14` del registro de
 `ARQUITECTURA.md` y el riesgo `R3` de `PLANIFICACION.md`.
+
+Las denuncias y el paso a revisión quedaron registrados en el ADR-011. Cierra `D1` de
+`PLANIFICACION.md` y suma una llamada síncrona a "Comunicación entre servicios" de
+`ARQUITECTURA.md`.

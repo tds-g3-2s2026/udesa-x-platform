@@ -807,7 +807,7 @@ Cada una necesita dueño y fecha de resolución. Se cargan como issues con la la
 
 | # | Tema | Detalle |
 |---|---|---|
-| D1 | Umbral de reportes | E.3 H5 CA.2 dice "más de 5" y CA.4 dice "si se cumple la condición". Definir si el umbral es 5 o 6. |
+| D1 | Umbral de reportes | **Cerrada el 28-09 por el ADR-011.** "Más de 5" se lee literal: la cuenta pasa a revisión con el sexto denunciante distinto. |
 | D2 | Políticas de lockout | E.1 H2 bloquea a los 5 intentos por 15 minutos, E.1 H13 a los 3 por 15, E.5 H2 a los 3 por 30. Confirmar que son tres políticas distintas y documentar por qué. |
 | D3 | Eliminación de cuenta | E.1 H4 dice "permanentemente" pero CA.1 exige soft-delete. Se implementa soft-delete y se documenta que "permanente" significa irreversible para el usuario. |
 | D4 | Integridad de follows al eliminar cuenta | E.1 H4 CA.1 exige integridad referencial y CA.2 exige eliminar relaciones de seguimiento. Definir si los follows se borran físicamente o se marcan. |
