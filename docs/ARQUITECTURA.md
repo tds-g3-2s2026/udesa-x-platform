@@ -386,7 +386,7 @@ REST sobre HTTP con JSON, solo cuando la respuesta se necesita dentro del reques
 - El Gateway a cualquier servicio.
 - `posts-api` a `users-api` para hidratar datos de autor.
 - `posts-api` a `users-api` para poner una cuenta en revisión cuando junta denuncias de 6 cuentas distintas (`E3-H5`). Va a una ruta interna fuera de `/api` con el header `X-Internal-Token`; ver el ADR-011.
-- `backoffice` a los healthchecks de los tres servicios, para E5-H11.
+- `backoffice` a los healthchecks de los tres servicios, para E5-H11. Pasa por el Gateway: `/api/health/<servicio>` se traduce al `/healthcheck` de cada uno, que vive fuera de `/api` y no se alcanza desde afuera del cluster.
 
 Toda llamada sincrónica lleva timeout, reintento con backoff y comportamiento definido ante fallo del destino. En Kubernetes esto se apoya en los probes: un servicio sin `readinessProbe` en verde no recibe tráfico.
 
@@ -423,7 +423,9 @@ detalle real va al log con el mismo `traceId`.
 
 - **`/healthcheck` no usa este formato.** Su `503` lo consume el `readinessProbe` de
   Kubernetes y el backoffice para `E5-H11`, no un usuario. Devuelve el estado de cada
-  dependencia, que es lo que sirve para diagnosticar.
+  dependencia, que es lo que sirve para diagnosticar. Hacia el backoffice, el Gateway deja
+  pasar solo el estado y la versión: el detalle puede traer el texto de un error de conexión
+  y no sale del cluster.
 - **Las respuestas exitosas tampoco.** Problem Details describe errores; un `200` devuelve el
   recurso y nada más.
 
