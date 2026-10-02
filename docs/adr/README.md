@@ -16,7 +16,8 @@ escribe una nueva que reemplaza a la anterior y se anota acá.
 | [ADR-009](./ADR-009-bases-gestionadas-y-migraciones.md) | Bases gestionadas en Neon, un Redis en el cluster y migraciones obligatorias | 2026-09-20 | Aceptada |
 | [ADR-010](./ADR-010-proveedor-de-correo.md) | Proveedor de correo: Resend con dominio propio | 2026-09-23 | Aceptada |
 | [ADR-011](./ADR-011-denuncias-y-cuenta-en-revision.md) | Denuncias en `posts-api` y aviso de cuenta en revisión a `users-api` | 2026-09-28 | Aceptada |
-| [ADR-012](./ADR-012-monitoreo-de-servicios-y-alerta-de-caida.md) | Monitoreo de los servicios y alerta de caída con Grafana Cloud | 2026-10-01 | Propuesta |
+| [ADR-012](./ADR-012-monitoreo-de-servicios-y-alerta-de-caida.md) | Monitoreo de los servicios y alerta de caída con Grafana Cloud | 2026-10-01 | Aceptada |
+| [ADR-013](./ADR-013-trazas-y-logs-con-opentelemetry.md) | Trazas y logs con OpenTelemetry, enviados directo a Grafana Cloud | 2026-10-01 | Aceptada |
 
 Solo se registran decisiones ya tomadas y que el equipo pueda justificar, numeradas en el
 orden en que se toman. Lo que todavía está por definirse vive como decisión abierta `Dxx` en
@@ -38,3 +39,6 @@ Las denuncias y el paso a revisión quedaron registrados en el ADR-011. Cierra `
 
 El monitoreo de los servicios quedó registrado en el ADR-012. Cubre `E5-H11 CA.4` y el
 dashboard de healthchecks de `T-21`.
+
+Las trazas y los logs quedaron registrados en el ADR-013. Precisa `A13` de `ARQUITECTURA.md`:
+cómo llegan los datos a Grafana Cloud y qué identifica a un request.

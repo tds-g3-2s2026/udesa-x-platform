@@ -1,6 +1,6 @@
 # ADR-012: Monitoreo de los servicios y alerta de caída con Grafana Cloud
 
-**Fecha:** 2026-10-01 · **Estado:** propuesta · **Decide:** el equipo
+**Fecha:** 2026-10-01 · **Estado:** aceptada · **Decide:** el equipo
 
 ## Contexto
 
