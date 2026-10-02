@@ -52,12 +52,6 @@ servicios en el header `traceparent` de W3C.**
 
 ## Alternativas descartadas
 
-- **Un colector en el cluster (Grafana Alloy o ADOT).** Es lo habitual y saca la configuración
-  de los servicios, pero es un pod más y la cuota no lo tiene.
-- **Logs en JSON a la salida estándar, recolectados por la plataforma.** No suma dependencias,
-  pero hoy nada recolecta la salida de los pods, e instalar el recolector depende de la cátedra.
-- **Un header propio, `X-Request-Id`.** Resuelve la correlación con menos código, pero en S10
-  llegan las trazas, que traen su propio identificador, y habría dos para el mismo request.
 - **CloudWatch y X-Ray.** Están en la misma cuenta que el cluster y el tutor ya tiene acceso,
   pero escribir ahí exige un rol de IAM para cada pod, que crea la cátedra, y firmar cada pedido
   con SigV4, que en la práctica pide un colector.
