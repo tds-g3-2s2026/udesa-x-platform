@@ -244,7 +244,7 @@ persistentes están fuera del cluster, mientras que Redis corre adentro porque s
 efímeros y perderlos no cuesta nada. Entre `users-api` y `posts-api` hay una sola llamada
 síncrona, la que pone una cuenta en revisión por denuncias (ADR-011). Para todo lo demás cada
 uno verifica el JWT por su cuenta contra la clave pública de `users-api`, sin pedirle nada por
-REST. El resto entre servicios cruza por la cola, y **los dos servicios de
+REST; `posts-api` además lee del Redis de `users-api` las marcas de revocación (ADR-014). El resto entre servicios cruza por la cola, y **los dos servicios de
 Python escriben al mismo bucket de S3 con prefijos distintos** (`avatars/` y `posts/`), cada uno
 dueño de lo suyo.
 
@@ -608,7 +608,7 @@ El riesgo real de copiar no es duplicar, es **divergir en silencio**. Se mitiga 
 
 Cada servicio es dueño exclusivo de su esquema y **ningún servicio consulta la base de otro**. Esto no es purismo: es lo que hace que el desacoplamiento sea real y no solo estructura de carpetas.
 
-Las bases persistentes corren **fuera del cluster**, como servicios gestionados: un proyecto de Neon por servicio, según el ADR-009. Operar PostgreSQL con estado dentro de Kubernetes agrega volúmenes persistentes, backups y failover, que es una materia entera y no aporta nada a la nota. **Redis es la excepción y corre adentro**, uno solo para los dos servicios, con la base lógica `/0` para users y `/1` para posts: guarda revocación de JWT, contadores de rate limit y caché, todo efímero y con TTL, así que perderlo ante un reinicio no rompe nada y no justifica pagar un servicio gestionado. La correspondencia concreta con los servicios de AWS está en la tabla de la sección "Vista general".
+Las bases persistentes corren **fuera del cluster**, como servicios gestionados: un proyecto de Neon por servicio, según el ADR-009. Operar PostgreSQL con estado dentro de Kubernetes agrega volúmenes persistentes, backups y failover, que es una materia entera y no aporta nada a la nota. **Redis es la excepción y corre adentro**, uno solo para los dos servicios, con la base lógica `/0` para users y `/1` para posts (con una sola excepción, de solo lectura: `posts-api` consulta en `/0` las marcas de revocación, ADR-014): guarda revocación de JWT, contadores de rate limit y caché, todo efímero y con TTL, así que perderlo ante un reinicio no rompe nada y no justifica pagar un servicio gestionado. La correspondencia concreta con los servicios de AWS está en la tabla de la sección "Vista general".
 
 Migraciones versionadas y ejecutadas como Job de Kubernetes antes del rollout: **Alembic en los dos servicios de Python**. `notifications-api` usa MongoDB y no lleva migraciones de esquema. Una sola herramienta de migraciones en todo el proyecto es una consecuencia directa de haber concentrado el backend relacional en Python, y ahorra mantener dos flujos distintos.
 
@@ -893,6 +893,7 @@ El nivel L1 de OWASP ASVS 5.0 se usa como checklist manual antes de cada entrega
 - Refresh token de 7 días, en `expo-secure-store` en mobile, **con rotación en cada uso y detección de reuso**: si aparece un refresh token ya usado, se asume comprometido y se revoca la familia entera de sesiones del usuario.
 - Revocación por `jti` en Redis, guardando el hash SHA-256 del token y no el token crudo, con TTL igual a la vida restante.
 - Cambio de contraseña, bloqueo por admin y cuenta en revisión revocan todas las sesiones.
+- `posts-api` no tiene su propia lista: en cada request autenticado lee en una sola consulta las marcas `revoked:jti:<jti>` y `revoked:user:<id>` que `users-api` escribe en su base `/0` (token revocado si existe la marca del `jti`, o si `iat <=` corte de la cuenta). Si ese Redis no responde, rechaza el request. Ver el ADR-014.
 
 **Cerrada el 2026-08-30 al implementar E1-H2.** La discusión era JWT con lista de revocación contra token opaco con la sesión en Redis: las dos hacen round-trip a Redis, así que el argumento clásico a favor del JWT se caía. La resuelve la consigna, no el equipo: `E1-H2 CA.1` exige literalmente *"un token JWT con un tiempo de expiración definido"*, y el token opaco reprobaría el criterio.
 

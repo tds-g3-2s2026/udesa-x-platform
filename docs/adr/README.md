@@ -18,6 +18,7 @@ escribe una nueva que reemplaza a la anterior y se anota acá.
 | [ADR-011](./ADR-011-denuncias-y-cuenta-en-revision.md) | Denuncias en `posts-api` y aviso de cuenta en revisión a `users-api` | 2026-09-28 | Aceptada |
 | [ADR-012](./ADR-012-monitoreo-de-servicios-y-alerta-de-caida.md) | Monitoreo de los servicios y alerta de caída con Grafana Cloud | 2026-10-01 | Aceptada |
 | [ADR-013](./ADR-013-trazas-y-logs-con-opentelemetry.md) | Trazas y logs con OpenTelemetry, enviados directo a Grafana Cloud | 2026-10-01 | Aceptada |
+| [ADR-014](./ADR-014-revocacion-de-sesiones-en-posts-api.md) | `posts-api` lee las revocaciones de sesión desde el Redis de `users-api` | 2026-10-03 | Aceptada |
 
 Solo se registran decisiones ya tomadas y que el equipo pueda justificar, numeradas en el
 orden en que se toman. Lo que todavía está por definirse vive como decisión abierta `Dxx` en
@@ -42,3 +43,7 @@ dashboard de healthchecks de `T-21`.
 
 Las trazas y los logs quedaron registrados en el ADR-013. Precisa `A13` de `ARQUITECTURA.md`:
 cómo llegan los datos a Grafana Cloud y qué identifica a un request.
+
+La revocación de sesiones en `posts-api` quedó registrada en el ADR-014. Cierra el hueco de
+`udesa-x-posts-api#58` y deja una excepción de solo lectura a la separación por base lógica del
+ADR-009.
