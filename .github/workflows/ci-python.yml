@@ -89,6 +89,11 @@ jobs:
       # They live on the runner's localhost, which is why the steps use --network host.
       DATABASE_URL: postgresql+asyncpg://users:users@localhost:5432/users
       REDIS_URL: redis://localhost:6379/0
+      # ADR-014: posts-api reads the revocation marks that users-api writes. In
+      # production that is /0; here it is a database of its own, so a flush of
+      # REDIS_URL by the tests does not wipe the marks a test just wrote.
+      # Services that do not read it ignore it.
+      AUTH_REDIS_URL: redis://localhost:6379/2
       # Throwaway Ed25519 public key. A service that verifies tokens refuses to
       # start without one, and the CI never checks a real signature: the tests
       # mint their own pair. Services that do not read it ignore it.
@@ -126,7 +131,7 @@ jobs:
             COMANDO="uv run --no-sync pytest tests/unit --cov=src --cov-report=xml --cov-report=term"
           fi
           docker run --name suite --network host \
-            -e DATABASE_URL -e REDIS_URL -e JWT_PUBLIC_KEY -e INTERNAL_API_TOKEN \
+            -e DATABASE_URL -e REDIS_URL -e AUTH_REDIS_URL -e JWT_PUBLIC_KEY -e INTERNAL_API_TOKEN \
             servicio:test $COMANDO
 
       - name: Sacar los reportes del contenedor
@@ -206,7 +211,7 @@ jobs:
       - name: Verificar que la imagen de produccion levanta
         run: |
           docker run -d --name servicio --network host \
-            -e DATABASE_URL -e REDIS_URL -e JWT_PUBLIC_KEY -e INTERNAL_API_TOKEN servicio:produccion
+            -e DATABASE_URL -e REDIS_URL -e AUTH_REDIS_URL -e JWT_PUBLIC_KEY -e INTERNAL_API_TOKEN servicio:produccion
           for _ in $(seq 1 30); do
             if [ "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/healthcheck)" = "200" ]; then
               echo "El healthcheck responde 200 desde la imagen construida."
