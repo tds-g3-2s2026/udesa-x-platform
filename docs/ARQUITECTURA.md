@@ -13,7 +13,7 @@ El resto sigue sujeto a validación en S1. Cada decisión relevante debe quedar 
 
 **Decisiones del equipo del 2026-08-20**, incorporadas a todo el documento:
 
-1. **Python es el stack principal del backend.** `users-api` y `posts-api` van en Python con FastAPI, y `notifications-api` en TypeScript con NestJS. La consigna pide que el backend no esté en una única tecnología y no dice cuál lleva más peso: conviene que el servicio más grande quede en el stack que el equipo maneja mejor.
+1. **Python es el stack principal del backend.** `users-api` y `posts-api` van en Python con FastAPI, y `notifications-api` en TypeScript, sobre Bun y Hono desde el [ADR-015](./adr/ADR-015-notifications-api-en-bun-y-hono.md). La consigna pide que el backend no esté en una única tecnología y no dice cuál lleva más peso: conviene que el servicio más grande quede en el stack que el equipo maneja mejor.
 2. **No hay `media-api`.** La subida de archivos se resuelve dentro de `users-api` y `posts-api`, con el módulo de streaming escrito una vez y copiado. **Son siete repositorios desde el 17 de septiembre**, cuando se sumó `udesa-x-api-gateway` para el ruteo interno que mostró la clase de Cloud Computing I.
 
 **Revisión del stack del 2026-08-20** (superada por el ADR-008 del 14 de septiembre). En ese
@@ -33,7 +33,7 @@ El criterio que gobierna el documento: **elegir lo más simple que cumpla el req
 | Backoffice como aplicación web              | React + Vite, SPA                                                         |
 | Arquitectura de microservicios              | 4 servicios backend, un repositorio cada uno, despliegue independiente    |
 | Al menos dos tipos de base de datos         | PostgreSQL (relacional), MongoDB (documental), Redis (clave-valor)      |
-| Backend en más de una tecnología            | Python con FastAPI en `users` y `posts`; TypeScript en `api-gateway` (Bun/Hono) y, más adelante, en `notifications` (NestJS) |
+| Backend en más de una tecnología            | Python con FastAPI en `users` y `posts`; TypeScript con Bun y Hono en `api-gateway` y `notifications` |
 | Desplegada en entorno productivo en la nube | Kubernetes gestionado                                                     |
 | Cada microservicio contenedorizado          | Dockerfile en cada repo, imágenes versionadas en el registry              |
 | Buenas prácticas de seguridad, OWASP Top 10 | Sección "Seguridad"                                                       |
@@ -56,11 +56,11 @@ Seis repositorios en `tds-g3-2s2026`, todos creados y **públicos** desde el 202
 | `udesa-x-backoffice`        | existe    | Backoffice web                                     | React + Vite               |
 | `udesa-x-users-api`         | existe    | Identidad, perfiles, administradores, avatares     | FastAPI + Python           |
 | `udesa-x-posts-api`         | existe    | Contenido, grafo social, feed, búsqueda, imágenes  | FastAPI + Python           |
-| `udesa-x-notifications-api` | existe    | Push, centro in-app, emails, triage de IA          | NestJS + TypeScript        |
-| `udesa-x-api-gateway`       | existe    | Ruteo interno de `/api` hacia `users-api` y `posts-api` | A definir en `D27`         |
+| `udesa-x-notifications-api` | existe    | Push, centro in-app, emails, triage de IA          | Hono + Bun + TypeScript    |
+| `udesa-x-api-gateway`       | existe    | Ruteo interno de `/api` hacia `users-api` y `posts-api` | Hono + Bun + TypeScript    |
 | `udesa-x-platform`          | existe    | Gestión, documentación, infraestructura compartida | Kustomize, Terraform, docs |
 
-**Por qué dos servicios en Python y uno en TypeScript.** La consigna exige que el backend no esté en una única tecnología y no dice más que eso. Dado el margen, conviene que el peso caiga donde el equipo es más rápido: `posts-api` concentra casi la mitad de los puntos del sistema y ponerlo en el stack menos conocido era pagar ese costo en la parte más grande. `notifications-api` es el candidato natural para el segundo lenguaje porque es el más acotado: consume la cola, habla con FCM y con el proveedor de email, y no tiene lógica de dominio propia. Además Node tiene el mejor soporte de clientes de FCM. Y como mobile y backoffice son React, el equipo toca TypeScript igual todos los días.
+**Por qué dos servicios en Python y el resto en TypeScript.** La consigna exige que el backend no esté en una única tecnología y no dice más que eso. Dado el margen, conviene que el peso caiga donde el equipo es más rápido: `posts-api` concentra casi la mitad de los puntos del sistema y ponerlo en el stack menos conocido era pagar ese costo en la parte más grande. `notifications-api` es el candidato natural para el segundo lenguaje porque es el más acotado: consume la cola, habla con FCM y con el proveedor de email, y no tiene lógica de dominio propia. Va en el mismo stack que el gateway, Bun y Hono, para que el backend tenga dos stacks y no tres ([ADR-015](./adr/ADR-015-notifications-api-en-bun-y-hono.md)). Y como mobile y backoffice son React, el equipo toca TypeScript igual todos los días.
 
 **Por qué desapareció `media-api`.** Era el servicio más flojo del mapa: sin base de datos propia, era glue de I/O hacia S3, y arrastraba un repositorio entero con su CI, su gate de cobertura del 85%, sus manifiestos y su Dockerfile. Llegar al 85% en un servicio de streaming obliga a mockear S3 pesadamente, que es trabajo real a cambio de una separación que el proyecto no necesita.
 
@@ -191,7 +191,7 @@ flowchart TB
         GW["api-gateway<br/>Bun + Hono<br/>ruteo interno hacia /api/*"]
         USR["users-api<br/>FastAPI"]
         PST["posts-api<br/>FastAPI"]
-        NTF["notifications-api<br/>NestJS"]
+        NTF["notifications-api<br/>Bun + Hono"]
         MQ{{"RabbitMQ · exchange topic"}}
         RED[("Redis<br/>compartido")]
     end
@@ -275,9 +275,9 @@ Versiones fijadas en la revisión del 2026-08-20. Se fijan una vez y no se persi
 | Stack | Elección | Nota |
 | ----- | -------- | ---- |
 | Python, dos servicios | Python 3.13, FastAPI, SQLAlchemy 2 async con asyncpg, Alembic, uv, Ruff y pytest | Es el stack principal del backend: `users-api` y `posts-api`. **No** usar 3.14 con free-threading: el ecosistema todavía no tiene wheels estables y un servicio web es I/O-bound, así que no hay nada que ganar |
-| TypeScript, un servicio | Node 24 LTS, NestJS 11 con adaptador Fastify, Vitest | Solo `notifications-api`. Node 24 tiene soporte hasta abril de 2028 y el cliente de FCM es el más maduro del ecosistema. Sin ORM: MongoDB con el driver oficial, que alcanza para documentos de forma variable |
+| TypeScript, dos servicios | Bun 1.4, Hono, Vitest | `api-gateway` y `notifications-api`, con la misma versión de Bun que mobile y backoffice. En `notifications-api`, sin ORM: MongoDB con el driver oficial, que alcanza para documentos de forma variable. Ver el [ADR-015](./adr/ADR-015-notifications-api-en-bun-y-hono.md) |
 | Servidor ASGI | Uvicorn con **un worker por pod** | La escala la da el HPA, no `--workers`. Con varios workers adentro del pod, uno colgado no lo detecta ningún probe |
-| Imágenes | `python:3.13-slim` y `node:24-slim`, multi-stage, arm64 | Distroless recién en S13, cuando el pipeline esté aburrido: sin shell, depurar un pod cuesta el doble |
+| Imágenes | `python:3.13-slim` y `oven/bun`, multi-stage, arm64 | Distroless recién en S13, cuando el pipeline esté aburrido: sin shell, depurar un pod cuesta el doble |
 | Subida de archivos | `python-multipart` con streaming a S3 vía `aioboto3`, validación por magic numbers, miniaturas con Pillow | Escrito una vez en `users-api`, copiado a `posts-api` |
 
 ### `users-api`
@@ -330,7 +330,7 @@ Cubre E2-H1 a H14 y E3-H1 a H10 salvo mensajes directos.
 
 ### `notifications-api`
 
-**NestJS sobre TypeScript. MongoDB.** Es el único servicio en TypeScript y es deliberado: acotado, sin lógica de dominio propia, y con el cliente de FCM más maduro del ecosistema.
+**Bun y Hono sobre TypeScript. MongoDB.** Mismo stack que el gateway ([ADR-015](./adr/ADR-015-notifications-api-en-bun-y-hono.md)). Es deliberado que este servicio aporte el segundo lenguaje junto al gateway: es acotado, no tiene lógica de dominio propia, y el cliente oficial de FCM, `firebase-admin`, funciona sobre Bun.
 
 Es el consumidor principal de la cola y el que justifica la segunda base de datos.
 
@@ -430,7 +430,7 @@ detalle real va al log con el mismo `traceId`.
   recurso y nada más.
 
 Se implementa una vez como manejador de excepciones y se copia entre `users-api` y `posts-api`,
-igual que el módulo de subida. En `notifications-api` es un filtro de NestJS equivalente.
+igual que el módulo de subida. En `notifications-api` es el `onError` de Hono, equivalente.
 
 ### Paginación por cursor
 
@@ -1019,7 +1019,7 @@ Pendientes de definir en S1:
 | #   | Decisión                         | Propuesta                                                                              |
 | --- | -------------------------------- | -------------------------------------------------------------------------------------- |
 | A4b | Cantidad de servicios backend    | **3: users, posts, notifications.** `media` se descartó y su función vive como módulo copiado en los dos servicios de Python |
-| A5  | Lenguajes backend                | Exactamente dos. **Python con FastAPI en `users` y `posts`, TypeScript con NestJS en `notifications`** |
+| A5  | Lenguajes backend                | Exactamente dos. **Python con FastAPI en `users` y `posts`, TypeScript en `notifications`**. **Actualizada por el ADR-015**: Bun con Hono en vez de Node con NestJS, igual que `api-gateway` |
 | A6  | Framework mobile                 | React Native con Expo                                                                  |
 | A7  | Feed dentro de posts-api         | Sí, para evitar mantener una proyección del grafo sincronizada por eventos             |
 | A8  | Motor de búsqueda                | PostgreSQL con `pg_trgm`, sin Elasticsearch                                            |
@@ -1049,7 +1049,7 @@ Pendientes de definir en S1:
 
 | #   | Decisión                    | Estado                                                                                                                    |
 | --- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| A25 | Reparto de lenguajes        | **Cerrada: Python es el stack principal del backend.** `users-api` y `posts-api` en FastAPI, `notifications-api` en NestJS. La consigna solo exige más de una tecnología, no fija el peso de cada una |
+| A25 | Reparto de lenguajes        | **Cerrada: Python es el stack principal del backend.** `users-api` y `posts-api` en FastAPI, `notifications-api` en TypeScript (Bun y Hono desde el ADR-015). La consigna solo exige más de una tecnología, no fija el peso de cada una |
 | A26 | `media-api` como servicio   | **Cerrada: se descarta.** La subida vive en el servicio dueño del dato, con el módulo copiado entre `users-api` y `posts-api`. Seis repositorios en vez de siete |
 | A27 | Ubicación de las issues     | **Cerrada por el tutor: una issue por repo, junto a su código.** `udesa-x-platform` solo lleva las transversales. Ver `CONVENCIONES.md` |
 | A28 | Activación del gate de cobertura | **Cerrada: escalonado.** 85% desde S3 en los tres servicios backend, desde S5 en mobile y backoffice |
