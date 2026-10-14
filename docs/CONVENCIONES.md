@@ -63,9 +63,10 @@ chore-sync-agents-md
 push, sin borrado, y con una aprobación de otra persona. Alcanza también a los admins.
 
 El CI corre en cada Pull Request desde dos workflows reusables que cada repo consume con tres
-líneas: [`ci-python.yml`](../.github/workflows/ci-python.yml) para los servicios backend y
-[`ci-node.yml`](../.github/workflows/ci-node.yml) para `mobile` y `backoffice`. Los dos
-verifican lint, formato y tests, y publican el porcentaje de cobertura en el resumen del run.
+líneas: [`ci-python.yml`](../.github/workflows/ci-python.yml) para `users-api` y `posts-api`, y
+[`ci-node.yml`](../.github/workflows/ci-node.yml) para los repos en TypeScript sobre Bun:
+`mobile`, `backoffice`, `api-gateway` y `notifications-api`. Los dos verifican lint, formato y
+tests, y publican el porcentaje de cobertura en el resumen del run.
 
 **Los tests corren dentro de la imagen Docker del repositorio, no sobre el runner.** El
 `Dockerfile` tiene un stage `test` que suma las dependencias de desarrollo y la carpeta de

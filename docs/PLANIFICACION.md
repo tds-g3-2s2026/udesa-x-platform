@@ -236,7 +236,7 @@ Los 17 requisitos de `CONSIGNA.md`, con el sprint donde quedan demostrables. Nin
 | Backoffice como aplicación web | React con Vite | S2 |
 | Arquitectura de microservicios | 3 servicios, un repositorio cada uno, despliegue independiente | S1 a S4 |
 | Al menos dos tipos de base de datos | PostgreSQL, MongoDB y Redis | S2 |
-| Backend en más de una tecnología | FastAPI con Python en `users` y `posts`, NestJS con TypeScript en `notifications` | S1 y S4 |
+| Backend en más de una tecnología | FastAPI con Python en `users` y `posts`, TypeScript con Bun y Hono en `api-gateway` y `notifications` | S1 y S4 |
 | Desplegada en entorno productivo en la nube | EKS en AWS | S5 cluster, S6 productivo |
 | Cada microservicio contenedorizado con Docker | Dockerfile por repo, imágenes versionadas por SHA | S1 a S4 |
 | Buenas prácticas de seguridad, OWASP Top 10 | Threat model y primera revisión en S7, segunda en S13 | S7 y S13 |
@@ -299,7 +299,7 @@ Recortar tarde es lo que hace fracasar los proyectos de cursada. Los checkpoints
 
 La consigna exige que cada estudiante pueda explicar y justificar lo que hizo. Un reparto que encierre a alguien en una capa lo perjudica en la defensa, y un reparto que cargue a uno con el 40% de los puntos de un sprint hace que el resto no tenga qué contar. Tres reglas resuelven esto sin pelearse con la especialización:
 
-**1. Propiedad vertical, no por capa.** El dueño de una historia la lleva de punta a punta: migración, endpoint, tests unitarios y de integración, pantalla en mobile o en backoffice, y la demo del lunes. No existe "el del backend" y "el del front". Esto garantiza que los tres toquen FastAPI, NestJS, React y Expo a lo largo del semestre.
+**1. Propiedad vertical, no por capa.** El dueño de una historia la lleva de punta a punta: migración, endpoint, tests unitarios y de integración, pantalla en mobile o en backoffice, y la demo del lunes. No existe "el del backend" y "el del front". Esto garantiza que los tres toquen FastAPI, Hono, React y Expo a lo largo del semestre.
 
 **2. La especialización vive en las optativas y en los roles, no en las obligatorias.** Cada bloque de optativas se mantiene junto, que es donde se concentra su área y donde se paga una sola vez el costo de contexto. Las obligatorias se reparten en el planning de cada lunes con dos objetivos: nivelar los puntos de la semana y cubrir el hueco de stack de quien lo tenga.
 

@@ -19,6 +19,7 @@ escribe una nueva que reemplaza a la anterior y se anota acá.
 | [ADR-012](./ADR-012-monitoreo-de-servicios-y-alerta-de-caida.md) | Monitoreo de los servicios y alerta de caída con Grafana Cloud | 2026-10-01 | Aceptada |
 | [ADR-013](./ADR-013-trazas-y-logs-con-opentelemetry.md) | Trazas y logs con OpenTelemetry, enviados directo a Grafana Cloud | 2026-10-01 | Aceptada |
 | [ADR-014](./ADR-014-revocacion-de-sesiones-en-posts-api.md) | `posts-api` lee las revocaciones de sesión desde el Redis de `users-api` | 2026-10-03 | Aceptada |
+| [ADR-015](./ADR-015-notifications-api-en-bun-y-hono.md) | `notifications-api` en Bun y Hono, igual que el gateway | 2026-10-14 | Aceptada |
 
 Solo se registran decisiones ya tomadas y que el equipo pueda justificar, numeradas en el
 orden en que se toman. Lo que todavía está por definirse vive como decisión abierta `Dxx` en
@@ -47,3 +48,6 @@ cómo llegan los datos a Grafana Cloud y qué identifica a un request.
 La revocación de sesiones en `posts-api` quedó registrada en el ADR-014. Cierra el hueco de
 `udesa-x-posts-api#58` y deja una excepción de solo lectura a la separación por base lógica del
 ADR-009.
+
+El stack de `notifications-api` quedó registrado en el ADR-015. Actualiza `A5` y `A25` de
+`ARQUITECTURA.md`: Bun y Hono en vez de Node y NestJS, y `ci-node.yml` sin cambios.

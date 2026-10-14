@@ -53,11 +53,11 @@ La solución se estructura en seis repositorios bajo la organización `tds-g3-2s
 | `udesa-x-backoffice` | Panel web de administración y moderación | React 19 + Vite 8 + Mantine |
 | `udesa-x-users-api` | Identidad, autenticación, perfiles, administradores y avatares | FastAPI + Python 3.13, PostgreSQL 18, Redis, S3 |
 | `udesa-x-posts-api` | Contenido, grafo social, feed cronológico, búsqueda e imágenes de post | FastAPI + Python 3.13, PostgreSQL 18, Redis, S3 |
-| `udesa-x-notifications-api` | Notificaciones push (FCM), historial in-app, emails y triage IA | NestJS 11 + TypeScript, MongoDB Atlas |
+| `udesa-x-notifications-api` | Notificaciones push (FCM), historial in-app, emails y triage IA | Hono + Bun + TypeScript, MongoDB Atlas |
 
 Dos decisiones del 2026-08-20 explican este mapa y están justificadas en [`ARQUITECTURA.md`](./docs/ARQUITECTURA.md):
 
-- **Python es el stack principal del backend** (A25). `users-api` y `posts-api` van en FastAPI, y `notifications-api` es el único servicio en TypeScript. La consigna exige más de una tecnología, no fija el peso de cada una.
+- **Python es el stack principal del backend** (A25). `users-api` y `posts-api` van en FastAPI, y `notifications-api` va en TypeScript sobre Bun y Hono, como el gateway ([ADR-015](./docs/adr/ADR-015-notifications-api-en-bun-y-hono.md)). La consigna exige más de una tecnología, no fija el peso de cada una.
 - **No hay `media-api`** (A26). La subida de archivos vive en el servicio dueño del dato, con el módulo de streaming escrito una vez en `users-api` y copiado a `posts-api`.
 
 ## Archivos comunes
