@@ -42,11 +42,11 @@ TABLE_KEYS = {
 
 @dataclass(frozen=True)
 class Volumes:
-    users: int = 10_000
-    follows: int = 500_000
-    posts: int = 200_000
-    replies: int = 200_000
-    likes: int = 700_000
+    users: int = 100
+    follows: int = 5_000
+    posts: int = 2_000
+    replies: int = 2_000
+    likes: int = 7_000
 
     def validate(self):
         """Reject impossible volumes before opening either database."""

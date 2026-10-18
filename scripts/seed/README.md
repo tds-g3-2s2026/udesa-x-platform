@@ -8,17 +8,20 @@ Definir `SEED_USERS_DATABASE_URL` y `SEED_POSTS_DATABASE_URL` con conexiones dir
 `postgresql://usuario:clave@host:puerto/base`, sin el prefijo `postgresql+asyncpg://`.
 Para TLS, usar `sslmode=verify-full` y `PGSSLROOTCERT`.
 
-Desde la raíz de platform, esta corrida muestra todos los valores predeterminados:
+Por defecto se carga el 1% del volumen objetivo. Desde la raíz de platform:
 
 ```bash
 uv run scripts/seed/seed.py \
   --seed 42 --batch-size 5000 \
-  --users 10000 --follows 500000 --posts 200000 --replies 200000 --likes 700000
+  --users 100 --follows 5000 --posts 2000 --replies 2000 --likes 7000
 ```
 
-Los volúmenes son independientes. `--posts` cuenta originales: 200.000 originales
-más 200.000 respuestas producen 400.000 filas en `posts`. Las interacciones suman
-likes y respuestas: 900.000 por defecto. Retweets, borrado lógico y notificaciones
+Para el volumen completo, pasar `--users 10000 --follows 500000 --posts 200000
+--replies 200000 --likes 700000`.
+
+Los volúmenes son independientes. `--posts` cuenta originales: 2.000 originales
+más 2.000 respuestas producen 4.000 filas en `posts`. Las interacciones suman
+likes y respuestas: 9.000 por defecto. Retweets, borrado lógico y notificaciones
 quedan fuera. Se rechazan cantidades negativas y relaciones imposibles; cero es
 válido si no deja entidades sin sus referencias.
 
