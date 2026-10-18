@@ -328,6 +328,31 @@ Cubre E2-H1 a H14 y E3-H1 a H10 salvo mensajes directos.
 
 **Trending:** consulta de agregación sobre hashtags de las últimas 24 horas, cacheada en Redis con TTL de 15 minutos, que es exactamente lo que exige E2-H11 CA.3.
 
+### Borrado de publicaciones y retención
+
+El autor puede eliminar sus publicaciones y respuestas, con confirmación y sin restauración.
+El borrado lógico registra `deleted_at` una sola vez y conserva el texto en almacenamiento;
+ninguna lectura pública devuelve ese texto. El contenido deja de aparecer en el feed y en
+los listados de publicaciones. El detalle y las respuestas de un hilo conservan un marcador
+con `deleted: true` y `content: null`, tenga o no respuestas el post eliminado. Las reglas de
+privacidad y bloqueos siguen aplicándose al marcador y a cada respuesta.
+
+Las respuestas existentes mantienen su contenido, sus vínculos y su posición. Borrar una
+respuesta no la descuenta del contador del padre porque conserva su marcador. Se puede
+recorrer el hilo y responder a publicaciones activas, pero no responder directamente al
+marcador ni darle like, retweetearlo o generar una denuncia nueva sobre él.
+
+El borrado elimina las relaciones de likes y retweets y pone ambos contadores en cero dentro
+de la misma transacción. Las denuncias existentes y sus referencias se conservan; esta política
+no agrega una copia del texto como evidencia. Las publicaciones creadas siguen contando en
+las métricas históricas. La limpieza por moderación es una operación distinta del borrado por
+el autor y no concede a administradores permisos adicionales sobre este último.
+
+El plazo de conservación del texto, la purga física, los backups y el borrado de cuentas
+permanecen pendientes de definición con el grupo y el tutor. No hay purga automática ni un
+compromiso de eliminación a los treinta días. El comportamiento de publicaciones aquí definido
+no implica aprobación del tutor ni resuelve la política general de privacidad.
+
 ### `notifications-api`
 
 **Bun y Hono sobre TypeScript. MongoDB.** Mismo stack que el gateway ([ADR-015](./adr/ADR-015-notifications-api-en-bun-y-hono.md)). Es deliberado que este servicio aporte el segundo lenguaje junto al gateway: es acotado, no tiene lógica de dominio propia, y el cliente oficial de FCM, `firebase-admin`, funciona sobre Bun.
