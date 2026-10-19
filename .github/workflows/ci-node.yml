@@ -7,6 +7,10 @@
 # Same shape as ci-python.yml: tests run inside the image, not on the runner.
 # The consumer needs a `test` stage in its docker/Dockerfile that writes
 # coverage/cobertura-coverage.xml and coverage/junit.xml.
+#
+# A service with a database and a queue sets `mongodb-y-rabbitmq: true`: both
+# start next to the job, and the tests and the production image reach them the
+# same way ci-python.yml's do with PostgreSQL and Redis.
 
 name: CI Node
 
@@ -39,6 +43,13 @@ on:
         description: "Ruta que tiene que responder 200 en la imagen de produccion."
         type: string
         default: "/"
+      mongodb-y-rabbitmq:
+        description: >
+          Levantar MongoDB y RabbitMQ al lado de los tests y de la imagen de produccion,
+          con MONGODB_URL y RABBITMQ_URL apuntando a ellos. Para notifications-api, el
+          unico repo en TypeScript con base y cola.
+        type: boolean
+        default: false
 
 jobs:
   calidad:
@@ -67,6 +78,40 @@ jobs:
     name: Tests y cobertura
     runs-on: ubuntu-latest
 
+    # An empty image skips the service, so a repo that does not ask for them
+    # starts nothing.
+    services:
+      mongodb:
+        image: ${{ inputs.mongodb-y-rabbitmq && 'mongo:8' || '' }}
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.runCommand({ping:1}).ok'"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+      rabbitmq:
+        image: ${{ inputs.mongodb-y-rabbitmq && 'rabbitmq:4-alpine' || '' }}
+        # Not guest: RabbitMQ only lets guest in over loopback, and through the
+        # published port the broker sees the Docker bridge address instead.
+        env:
+          RABBITMQ_DEFAULT_USER: notifications
+          RABBITMQ_DEFAULT_PASS: notifications
+        ports:
+          - 5672:5672
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    # They live on the runner's localhost, which is why the containers below use
+    # --network host. Set for every repo, but passed in only when asked for.
+    env:
+      MONGODB_URL: mongodb://localhost:27017/notifications
+      RABBITMQ_URL: amqp://notifications:notifications@localhost:5672
+
     steps:
       - uses: actions/checkout@v5
 
@@ -86,7 +131,12 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Correr la suite dentro de la imagen
-        run: docker run --name suite cliente:test
+        run: |
+          if [ "${{ inputs.mongodb-y-rabbitmq }}" = "true" ]; then
+            docker run --name suite --network host -e MONGODB_URL -e RABBITMQ_URL cliente:test
+          else
+            docker run --name suite cliente:test
+          fi
 
       - name: Sacar los reportes del contenedor
         if: always()
@@ -166,9 +216,17 @@ jobs:
       - name: Verificar que la imagen de produccion levanta
         if: inputs.verificar-imagen
         run: |
-          docker run -d --name servicio -p 8080:${{ inputs.puerto-imagen }} cliente:produccion
+          # On the host network the published port does not apply: the service
+          # answers on its own port.
+          if [ "${{ inputs.mongodb-y-rabbitmq }}" = "true" ]; then
+            docker run -d --name servicio --network host -e MONGODB_URL -e RABBITMQ_URL cliente:produccion
+            URL="http://localhost:${{ inputs.puerto-imagen }}${{ inputs.ruta-verificacion }}"
+          else
+            docker run -d --name servicio -p 8080:${{ inputs.puerto-imagen }} cliente:produccion
+            URL="http://localhost:8080${{ inputs.ruta-verificacion }}"
+          fi
           for _ in $(seq 1 30); do
-            if [ "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080${{ inputs.ruta-verificacion }})" = "200" ]; then
+            if [ "$(curl -s -o /dev/null -w '%{http_code}' "$URL")" = "200" ]; then
               echo "La imagen responde 200 en ${{ inputs.ruta-verificacion }}."
               exit 0
             fi

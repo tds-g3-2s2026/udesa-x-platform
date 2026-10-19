@@ -2,6 +2,11 @@
 
 **Fecha:** 2026-10-14 · **Estado:** aceptada · **Decide:** el equipo
 
+> `ci-node.yml` sumó después una opción, `mongodb-y-rabbitmq`, apagada por defecto, para que los
+> tests y la imagen de este servicio corran contra MongoDB y RabbitMQ reales
+> (`udesa-x-notifications-api#4`). El resto de la decisión sigue igual: mismo gestor de
+> paquetes, mismos pasos y ningún workflow propio.
+
 ## Contexto
 
 La decisión del 2026-08-20 (`A5` y `A25` de `ARQUITECTURA.md`) puso a `notifications-api` en

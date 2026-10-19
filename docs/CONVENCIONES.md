@@ -75,6 +75,12 @@ ejecuta la suite ahí adentro. Donde hay imagen de producción, después la cons
 que levante: `200` en `/healthcheck` para los servicios backend, `200` en `/` para el
 backoffice.
 
+Donde los tests y la imagen necesitan base y cola, el workflow las levanta al lado del job. En
+`ci-python.yml` siempre: PostgreSQL y Redis. En `ci-node.yml`, solo si el repo lo pide con
+`mongodb-y-rabbitmq: true`, que hoy usa `notifications-api`: MongoDB y RabbitMQ, con
+`MONGODB_URL` y `RABBITMQ_URL` apuntando a ellos dentro de la suite y de la imagen de
+producción. Así su `/healthcheck` se verifica contra dependencias reales y no contra un doble.
+
 `mobile` es la excepción parcial. Se distribuye por Expo y no despliega ningún contenedor, así
 que su `Dockerfile` existe **solo** para fijar el entorno de los tests y no tiene stage de
 producción. La regla que cumple es la misma —que el resultado no dependa de la máquina— y lo

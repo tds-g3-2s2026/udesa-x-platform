@@ -50,4 +50,5 @@ La revocación de sesiones en `posts-api` quedó registrada en el ADR-014. Cierr
 ADR-009.
 
 El stack de `notifications-api` quedó registrado en el ADR-015. Actualiza `A5` y `A25` de
-`ARQUITECTURA.md`: Bun y Hono en vez de Node y NestJS, y `ci-node.yml` sin cambios.
+`ARQUITECTURA.md`: Bun y Hono en vez de Node y NestJS, y `ci-node.yml` como CI, sin un workflow
+propio.
