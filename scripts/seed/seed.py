@@ -37,6 +37,7 @@ TABLE_KEYS = {
     "follows": "follower_id, followee_id",
     "posts": "id",
     "likes": "user_id, post_id",
+    "retweets": "user_id, post_id",
 }
 
 
@@ -47,6 +48,8 @@ class Volumes:
     posts: int = 2_000
     replies: int = 2_000
     likes: int = 7_000
+    retweets: int = 1_000
+    deleted_posts: int = 100
 
     def validate(self):
         """Reject impossible volumes before opening either database."""
@@ -60,8 +63,13 @@ class Volumes:
             raise ValueError("Los posts requieren usuarios.")
         if self.replies and not self.posts:
             raise ValueError("Las respuestas requieren posts originales.")
-        if self.likes > self.users * (self.posts + self.replies):
-            raise ValueError("No hay suficientes pares usuario/publicación para esos likes.")
+        if self.deleted_posts > self.posts:
+            raise ValueError("No se pueden eliminar más originales de los que se generan.")
+        capacity = self.users * (self.posts + self.replies - self.deleted_posts)
+        if self.likes > capacity or self.retweets > capacity:
+            raise ValueError(
+                "No hay suficientes pares usuario/publicación activa para las reacciones."
+            )
 
 
 def unique_pairs(count, left, right, rng, choose, initial=()):
@@ -154,9 +162,10 @@ def generate_follows(users, count, seed, followers):
         )
 
 
-def generate_posts(users, count, seed, publications, topics):
-    """Record publication references and topics for subsequent replies and likes."""
+def generate_posts(users, count, seed, publications, topics, deleted_count):
+    """Record publication references and topics for subsequent replies and reactions."""
     rng = random.Random(f"{seed}:posts")
+    deleted = set(random.Random(f"{seed}:deleted").sample(range(count), deleted_count))
     for i in range(count):
         author = i if i < len(users) else int(rng.random() ** 2 * len(users))
         topic = rng.randrange(len(TOPICS))
@@ -165,11 +174,13 @@ def generate_posts(users, count, seed, publications, topics):
         at = START + timedelta(days=1, seconds=rng.randrange(60 * 86400))
         identifier = post_id(seed, i, at)
         topics.append((topic, subject))
-        publications.append((identifier, author, at))
+        deleted_at = at + timedelta(days=15) if i in deleted else None
+        publications.append((identifier, author, at, deleted_at))
         yield dict(
             id=identifier,
             author_id=users[author],
             parent_id=None,
+            deleted_at=deleted_at,
             content=content,
             created_at=at,
         )
@@ -183,22 +194,23 @@ def choose_participant(author, followers, user_count, rng):
 
 
 def generate_replies(users, count, seed, followers, publications, topics):
-    """Append reply references after the originals so likes can target either."""
+    """Append reply references after the originals so reactions can target either."""
     rng = random.Random(f"{seed}:replies")
     original_count = len(publications)
     for i in range(count):
         parent = int(rng.random() ** 2 * original_count)
-        parent_id, parent_author, parent_at = publications[parent]
+        parent_id, parent_author, parent_at, _ = publications[parent]
         author = choose_participant(parent_author, followers, len(users), rng)
         topic, subject = topics[parent]
         content = generate_reply_text(rng, topic, subject)
         at = parent_at + timedelta(seconds=1 + rng.randrange(7 * 86400))
         identifier = post_id(seed, original_count + i, at)
-        publications.append((identifier, author, at))
+        publications.append((identifier, author, at, None))
         yield dict(
             id=identifier,
             author_id=users[author],
             parent_id=parent_id,
+            deleted_at=None,
             content=content,
             created_at=at,
         )
@@ -206,6 +218,7 @@ def generate_replies(users, count, seed, followers, publications, topics):
 
 def generate_reactions(users, count, seed, followers, publications, kind):
     rng = random.Random(f"{seed}:{kind}")
+    publications = [post for post in publications if post[3] is None]
 
     def choose_pair():
         post = int(rng.random() ** 2 * len(publications))
@@ -213,7 +226,7 @@ def generate_reactions(users, count, seed, followers, publications, kind):
         return choose_participant(author, followers, len(users), rng), post
 
     for user, post in unique_pairs(count, len(users), len(publications), rng, choose_pair):
-        identifier, _, at = publications[post]
+        identifier, _, at, _ = publications[post]
         yield dict(
             user_id=users[user],
             post_id=identifier,
@@ -234,9 +247,16 @@ def generate_data(volumes, seed, password_hash):
     yield "users", generate_users(users, password_hash)
     yield "user_profiles", generate_profiles(users)
     yield "follows", generate_follows(users, volumes.follows, seed, followers)
-    yield "posts", generate_posts(users, volumes.posts, seed, publications, topics)
+    yield (
+        "posts",
+        generate_posts(users, volumes.posts, seed, publications, topics, volumes.deleted_posts),
+    )
     yield "posts", generate_replies(users, volumes.replies, seed, followers, publications, topics)
     yield "likes", generate_reactions(users, volumes.likes, seed, followers, publications, "likes")
+    yield (
+        "retweets",
+        generate_reactions(users, volumes.retweets, seed, followers, publications, "retweets"),
+    )
 
 
 async def prepare(connection, tables):
@@ -256,6 +276,7 @@ async def update_counters(connection):
         ("user_profiles", "followers_count", "follows", "followee_id"),
         ("user_profiles", "following_count", "follows", "follower_id"),
         ("posts", "likes_count", "likes", "post_id"),
+        ("posts", "retweets_count", "retweets", "post_id"),
         ("posts", "replies_count", "posts", "parent_id"),
     ):
         await connection.execute(f"""
@@ -277,10 +298,13 @@ async def report(users, posts, volumes):
         digest.update(json.dumps([dict(row) for row in rows], default=str, sort_keys=True).encode())
     counts["originals"] = await posts.fetchval("SELECT count(*) FROM posts WHERE parent_id IS NULL")
     counts["replies"] = counts["posts"] - counts["originals"]
-    counts["interactions"] = counts["likes"] + counts["replies"]
+    counts["deleted_posts"] = await posts.fetchval(
+        "SELECT count(*) FROM posts WHERE deleted_at IS NOT NULL"
+    )
+    counts["interactions"] = counts["likes"] + counts["replies"] + counts["retweets"]
     expected = dict(asdict(volumes), user_profiles=volumes.users, originals=volumes.posts)
     expected["posts"] += volumes.replies
-    expected["interactions"] = volumes.likes + volumes.replies
+    expected["interactions"] = volumes.likes + volumes.replies + volumes.retweets
     if counts != expected:
         raise ValueError(f"Conteos inesperados: {counts}")
     return {"counts": counts, "sample_sha256": digest.hexdigest()}
@@ -305,6 +329,7 @@ async def seed_databases(volumes, seed, batch_size, users_url, posts_url):
     password_hash = PasswordHasher().hash(
         PASSWORD, salt=hashlib.sha256(f"campus-seed:{seed}:password".encode()).digest()[:16]
     )
+    post_tables = tuple(table for table in TABLE_KEYS if table != "users")
     async with AsyncExitStack() as connections:
         users = await asyncpg.connect(users_url)
         connections.push_async_callback(users.close)
@@ -313,7 +338,7 @@ async def seed_databases(volumes, seed, batch_size, users_url, posts_url):
 
         async with users.transaction(), posts.transaction():
             await prepare(users, ("users",))
-            await prepare(posts, ("user_profiles", "follows", "posts", "likes"))
+            await prepare(posts, post_tables)
             for table, records in generate_data(volumes, seed, password_hash):
                 connection = users if table == "users" else posts
                 await insert_batches(connection, table, records, batch_size)
@@ -321,7 +346,7 @@ async def seed_databases(volumes, seed, batch_size, users_url, posts_url):
             result = await report(users, posts, volumes)
 
         await users.execute("ANALYZE users")
-        for table in ("user_profiles", "follows", "posts", "likes"):
+        for table in post_tables:
             await posts.execute(f'ANALYZE "{table}"')
 
     return {"seed": seed, "volumes": asdict(volumes), **result}
@@ -330,7 +355,7 @@ async def seed_databases(volumes, seed, batch_size, users_url, posts_url):
 def parse_arguments():
     parser = argparse.ArgumentParser(description=__doc__)
     for name, default in asdict(Volumes()).items():
-        parser.add_argument(f"--{name}", type=int, default=default)
+        parser.add_argument(f"--{name.replace('_', '-')}", type=int, default=default)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--batch-size", type=int, default=5000)
     return parser.parse_args()
@@ -344,6 +369,8 @@ def main():
         posts=args.posts,
         replies=args.replies,
         likes=args.likes,
+        retweets=args.retweets,
+        deleted_posts=args.deleted_posts,
     )
     try:
         result = asyncio.run(
