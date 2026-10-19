@@ -204,8 +204,8 @@ def generate_replies(users, count, seed, followers, publications, topics):
         )
 
 
-def generate_likes(users, count, seed, followers, publications):
-    rng = random.Random(f"{seed}:likes")
+def generate_reactions(users, count, seed, followers, publications, kind):
+    rng = random.Random(f"{seed}:{kind}")
 
     def choose_pair():
         post = int(rng.random() ** 2 * len(publications))
@@ -236,7 +236,7 @@ def generate_data(volumes, seed, password_hash):
     yield "follows", generate_follows(users, volumes.follows, seed, followers)
     yield "posts", generate_posts(users, volumes.posts, seed, publications, topics)
     yield "posts", generate_replies(users, volumes.replies, seed, followers, publications, topics)
-    yield "likes", generate_likes(users, volumes.likes, seed, followers, publications)
+    yield "likes", generate_reactions(users, volumes.likes, seed, followers, publications, "likes")
 
 
 async def prepare(connection, tables):
