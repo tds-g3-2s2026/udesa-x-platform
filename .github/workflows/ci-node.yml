@@ -82,7 +82,10 @@ jobs:
     # starts nothing.
     services:
       mongodb:
-        image: ${{ inputs.mongodb-y-rabbitmq && 'mongo:8' || '' }}
+        # 7, not 8: MongoDB 8 refuses to start on the runner's kernel (6.19+),
+        # even where it carries the fix, because its check misreads Ubuntu's
+        # version string (SERVER-136848). Back to 8 once that is fixed.
+        image: ${{ inputs.mongodb-y-rabbitmq && 'mongo:7' || '' }}
         ports:
           - 27017:27017
         options: >-
