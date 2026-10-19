@@ -463,5 +463,6 @@ de los tres integrantes se sigue en [la issue #47](https://github.com/tds-g3-2s2
 El [generador de datos](scripts/seed/README.md) carga usuarios, seguimientos,
 posts originales, respuestas, likes y retweets con volúmenes configurables y
 semilla fija. Incluye originales eliminados con sus respuestas conservadas.
-Requiere las bases de ambos servicios vacías y migradas; verifica conteos y
-produce un hash de una muestra ordenada para comparar corridas.
+Requiere las bases de ambos servicios migradas y convive con sus datos existentes.
+Puede repetirse sin duplicar filas: informa los conteos de la carga, las inserciones
+nuevas y los totales, además de un hash de muestra.

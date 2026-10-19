@@ -55,8 +55,6 @@ class Volumes:
         """Reject impossible volumes before opening either database."""
         if any(value < 0 for value in asdict(self).values()):
             raise ValueError("Los volúmenes no pueden ser negativos.")
-        if self.users > 10**10:
-            raise ValueError("El volumen de usuarios excede el formato de los handles.")
         if self.follows > self.users * (self.users - 1):
             raise ValueError("No hay suficientes pares de usuarios para esos seguimientos.")
         if self.posts and not self.users:
@@ -111,12 +109,12 @@ def post_id(seed, index, at):
     )
 
 
-def generate_users(users, password_hash):
+def generate_users(users, password_hash, seed):
     for i, user in enumerate(users):
         yield dict(
             id=user,
-            email=f"seed{i:010d}@example.com",
-            handle=f"@seed{i:010d}",
+            email=f"seed.{seed}.{i:010d}@example.com",
+            handle=f"@s{user.hex[:14]}",
             password_hash=password_hash,
             must_change_password=False,
             is_email_verified=True,
@@ -129,8 +127,8 @@ def generate_users(users, password_hash):
 
 
 def generate_profiles(users):
-    for i, user in enumerate(users):
-        yield dict(id=user, handle=f"@seed{i:010d}")
+    for user in users:
+        yield dict(id=user, handle=f"@s{user.hex[:14]}")
 
 
 def generate_follows(users, count, seed, followers):
@@ -244,7 +242,7 @@ def generate_data(volumes, seed, password_hash):
     publications = []
     topics = []
 
-    yield "users", generate_users(users, password_hash)
+    yield "users", generate_users(users, password_hash, seed)
     yield "user_profiles", generate_profiles(users)
     yield "follows", generate_follows(users, volumes.follows, seed, followers)
     yield (
@@ -260,15 +258,18 @@ def generate_data(volumes, seed, password_hash):
 
 
 async def prepare(connection, tables):
-    """Lock existing tables and refuse nonempty or unmigrated databases."""
+    """Stage generated rows and serialize concurrent seed executions."""
     if not await connection.fetchval("SELECT to_regclass('alembic_version')"):
         raise ValueError("Aplicá las migraciones antes de ejecutar el seed.")
     if not await connection.fetchval("SELECT count(*) FROM alembic_version"):
         raise ValueError("La base no tiene una revisión de Alembic aplicada.")
+    await connection.execute("SELECT pg_advisory_xact_lock(hashtextextended('seed-data', 0))")
     for table in tables:
-        await connection.execute(f'LOCK TABLE "{table}" IN EXCLUSIVE MODE')
-        if await connection.fetchval(f'SELECT EXISTS (SELECT 1 FROM "{table}" LIMIT 1)'):
-            raise ValueError(f"La tabla {table} no está vacía; el seed no borra datos.")
+        for prefix in ("seed", "seed_new"):
+            await connection.execute(
+                f'CREATE TEMP TABLE {prefix}_{table} (LIKE "{table}" INCLUDING DEFAULTS) '
+                "ON COMMIT DROP"
+            )
 
 
 async def update_counters(connection):
@@ -280,44 +281,64 @@ async def update_counters(connection):
         ("posts", "replies_count", "posts", "parent_id"),
     ):
         await connection.execute(f"""
-            UPDATE {target} p SET {counter} = c.total
-            FROM (SELECT {foreign_key} AS id, count(*) AS total FROM {source}
+            UPDATE {target} p SET {counter} = p.{counter} + c.total
+            FROM (SELECT {foreign_key} AS id, count(*) AS total FROM seed_new_{source}
                   WHERE {foreign_key} IS NOT NULL GROUP BY {foreign_key}) c
             WHERE p.id = c.id
         """)
 
 
-async def report(users, posts, volumes):
-    counts = {}
+async def report(users, posts):
+    counts, inserted, totals = {}, {}, {}
     digest = hashlib.sha256()
-    for table, order in TABLE_KEYS.items():
+    for table, keys in TABLE_KEYS.items():
         connection = users if table == "users" else posts
-        counts[table] = await connection.fetchval(f'SELECT count(*) FROM "{table}"')
-        rows = await connection.fetch(f'SELECT * FROM "{table}" ORDER BY {order} LIMIT 100')
+        relation = f'"{table}" t JOIN seed_{table} s USING ({keys})'
+        order = ", ".join(f"t.{key}" for key in keys.split(", "))
+        counts[table] = await connection.fetchval(f"SELECT count(*) FROM {relation}")
+        inserted[table] = await connection.fetchval(f"SELECT count(*) FROM seed_new_{table}")
+        totals[table] = await connection.fetchval(f'SELECT count(*) FROM "{table}"')
+        rows = await connection.fetch(f"SELECT t.* FROM {relation} ORDER BY {order} LIMIT 100")
         digest.update(table.encode())
         digest.update(json.dumps([dict(row) for row in rows], default=str, sort_keys=True).encode())
-    counts["originals"] = await posts.fetchval("SELECT count(*) FROM posts WHERE parent_id IS NULL")
-    counts["replies"] = counts["posts"] - counts["originals"]
-    counts["deleted_posts"] = await posts.fetchval(
-        "SELECT count(*) FROM posts WHERE deleted_at IS NOT NULL"
-    )
+    summary = await posts.fetchrow("""
+        SELECT count(*) FILTER (WHERE t.parent_id IS NULL) AS originals,
+               count(*) FILTER (WHERE t.parent_id IS NOT NULL) AS replies,
+               count(*) FILTER (WHERE t.deleted_at IS NOT NULL) AS deleted_posts
+        FROM posts t JOIN seed_posts s USING (id)
+    """)
+    counts.update(dict(summary))
     counts["interactions"] = counts["likes"] + counts["replies"] + counts["retweets"]
-    expected = dict(asdict(volumes), user_profiles=volumes.users, originals=volumes.posts)
-    expected["posts"] += volumes.replies
-    expected["interactions"] = volumes.likes + volumes.replies + volumes.retweets
-    if counts != expected:
-        raise ValueError(f"Conteos inesperados: {counts}")
-    return {"counts": counts, "sample_sha256": digest.hexdigest()}
+    return dict(counts=counts, inserted=inserted, totals=totals, sample_sha256=digest.hexdigest())
 
 
 async def insert_batches(connection, table, records, batch_size):
     while batch := list(islice(records, batch_size)):
         columns = tuple(batch[0])
         await connection.copy_records_to_table(
-            table,
+            f"seed_{table}",
             columns=columns,
             records=[tuple(row[column] for column in columns) for row in batch],
         )
+    condition = "TRUE"
+    if table in ("likes", "retweets"):
+        condition = "EXISTS (SELECT 1 FROM posts p WHERE p.id=s.post_id AND p.deleted_at IS NULL)"
+    elif table == "posts":
+        condition = (
+            "s.parent_id IS NULL OR EXISTS (SELECT 1 FROM posts p WHERE p.id=s.parent_id "
+            "AND (p.deleted_at IS NULL OR s.created_at < p.deleted_at))"
+        )
+    await connection.execute(f"""
+        WITH inserted AS (
+            INSERT INTO "{table}" SELECT s.* FROM seed_{table} s WHERE {condition}
+            ON CONFLICT ({TABLE_KEYS[table]}) DO NOTHING RETURNING *
+        ) INSERT INTO seed_new_{table} SELECT * FROM inserted
+    """)
+    if table == "posts":
+        await connection.execute("""
+            SELECT p.id FROM posts p JOIN seed_posts s USING (id)
+            ORDER BY p.id FOR NO KEY UPDATE OF p
+        """)
 
 
 async def seed_databases(volumes, seed, batch_size, users_url, posts_url):
@@ -343,7 +364,7 @@ async def seed_databases(volumes, seed, batch_size, users_url, posts_url):
                 connection = users if table == "users" else posts
                 await insert_batches(connection, table, records, batch_size)
             await update_counters(posts)
-            result = await report(users, posts, volumes)
+            result = await report(users, posts)
 
         await users.execute("ANALYZE users")
         for table in post_tables:

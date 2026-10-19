@@ -29,6 +29,14 @@ class GenerationTests(unittest.TestCase):
         self.assertEqual(collect(), collect())
         self.assertNotEqual(collect(), collect(seed=43))
 
+    def test_distinct_seeds_have_disjoint_usernames_and_emails(self):
+        first, second = collect(), collect(seed=43)
+        for field in ("id", "email", "handle"):
+            self.assertTrue(
+                {u[field] for u in first["users"]}.isdisjoint({u[field] for u in second["users"]})
+            )
+        self.assertTrue(all(len(u["handle"]) <= 16 for u in first["users"]))
+
     def test_every_reference_resolves_and_events_follow_their_targets(self):
         tables = collect()
         users = {u["id"] for u in tables["users"]}
@@ -288,25 +296,148 @@ class DatabaseTests(unittest.IsolatedAsyncioTestCase):
                 0,
             )
 
-    async def test_nonempty_database_is_rejected_without_changing_existing_data(self):
+    async def test_rerun_does_not_duplicate_rows_or_counters(self):
+        first = await self.seed()
+        before = await self.snapshot()
+        second = await self.seed(batch_size=23)
+        self.assertEqual(before, await self.snapshot())
+        self.assertEqual(first["counts"], second["counts"])
+        self.assertEqual(first["sample_sha256"], second["sample_sha256"])
+        self.assertTrue(all(count == 0 for count in second["inserted"].values()))
+
+    async def existing_data(self):
+        await seed_databases(Volumes(2, 1, 1, 1, 1, 1, 0), 99, 5, self.users_url, self.posts_url)
+        user = (await self.users.fetch("SELECT id FROM users ORDER BY id"))[0]["id"]
+        await self.users.execute(
+            "UPDATE users SET email='admin@example.com', handle='@admin', role='superadmin', "
+            "password_hash='existing-hash' WHERE id=$1",
+            user,
+        )
+        await self.posts.execute("UPDATE user_profiles SET handle='@admin' WHERE id=$1", user)
+        return user
+
+    async def test_existing_admins_users_and_content_are_preserved(self):
+        await self.existing_data()
+        before = json.loads(await self.snapshot())
+        result = await self.seed()
+        after = json.loads(await self.snapshot())
+        for table, rows in before.items():
+            for row in rows:
+                self.assertIn(row, after[table])
+        self.assertEqual(result["counts"]["users"], SMALL.users)
+        self.assertEqual(result["totals"]["users"], SMALL.users + 2)
+        self.assertEqual(result["counts"]["posts"], SMALL.posts + SMALL.replies)
+        self.assertEqual(result["totals"]["posts"], SMALL.posts + SMALL.replies + 2)
+        self.assertEqual(result["inserted"]["users"], SMALL.users)
+        await self.seed()
+        self.assertEqual(after, json.loads(await self.snapshot()))
+
+    async def test_different_seeds_coexist_without_changing_each_other(self):
+        first = await self.seed()
+        second = await self.seed(seed=43)
+        self.assertEqual(second["totals"]["users"], SMALL.users * 2)
+        self.assertEqual(second["totals"]["posts"], (SMALL.posts + SMALL.replies) * 2)
+        before = await self.snapshot()
+        again = await self.seed()
+        self.assertEqual(again["sample_sha256"], first["sample_sha256"])
+        self.assertEqual(before, await self.snapshot())
+
+    async def test_real_interactions_and_edits_survive_rerun(self):
+        real_user = await self.existing_data()
+        await self.seed()
+        post = await self.posts.fetchrow(
+            "SELECT * FROM posts WHERE parent_id IS NULL AND deleted_at IS NULL "
+            "AND likes_count > 1 ORDER BY likes_count DESC LIMIT 1"
+        )
+        await self.posts.execute(
+            "INSERT INTO follows (follower_id, followee_id) VALUES ($1, $2)",
+            real_user,
+            post["author_id"],
+        )
+        await self.posts.execute(
+            "UPDATE user_profiles SET following_count=following_count+1 WHERE id=$1", real_user
+        )
+        await self.posts.execute(
+            "UPDATE user_profiles SET followers_count=followers_count+1 WHERE id=$1",
+            post["author_id"],
+        )
+        await self.posts.execute(
+            "INSERT INTO likes (user_id, post_id) VALUES ($1, $2)", real_user, post["id"]
+        )
+        await self.posts.execute(
+            "UPDATE posts SET likes_count=likes_count+1 WHERE id=$1", post["id"]
+        )
+        await self.users.execute(
+            "UPDATE users SET password_hash='changed-password', display_name='Edited' WHERE id=$1",
+            post["author_id"],
+        )
+        await self.posts.execute("UPDATE posts SET content='Edited' WHERE id=$1", post["id"])
+        before = await self.snapshot()
+        result = await self.seed()
+        self.assertEqual(before, await self.snapshot())
+        self.assertTrue(all(count == 0 for count in result["inserted"].values()))
+
+    async def test_deleted_seed_posts_are_not_resurrected_or_given_reactions(self):
+        await self.seed()
+        post = await self.posts.fetchrow(
+            "SELECT id FROM posts WHERE deleted_at IS NULL AND likes_count > 0 LIMIT 1"
+        )
+        for table in ("likes", "retweets"):
+            await self.posts.execute(f"DELETE FROM {table} WHERE post_id=$1", post["id"])
+        await self.posts.execute(
+            "UPDATE posts SET deleted_at=now(), likes_count=0, retweets_count=0 WHERE id=$1",
+            post["id"],
+        )
+        before = await self.snapshot()
+        result = await self.seed()
+        self.assertEqual(before, await self.snapshot())
+        self.assertTrue(all(count == 0 for count in result["inserted"].values()))
+        self.assertLess(result["counts"]["likes"], SMALL.likes)
+
+    async def test_retry_repairs_partial_cross_database_commits_without_double_counters(self):
         await self.seed()
         before = await self.snapshot()
-        with self.assertRaises(ValueError):
+        await self.users.execute("TRUNCATE users CASCADE")
+        result = await self.seed()
+        self.assertEqual(result["inserted"]["users"], SMALL.users)
+        self.assertEqual(result["inserted"]["follows"], 0)
+        self.assertEqual(before, await self.snapshot())
+        await self.posts.execute("TRUNCATE user_profiles CASCADE")
+        result = await self.seed()
+        self.assertEqual(result["inserted"]["users"], 0)
+        self.assertEqual(result["inserted"]["follows"], SMALL.follows)
+        self.assertEqual(before, await self.snapshot())
+
+    async def test_concurrent_reruns_insert_each_relation_once(self):
+        first, second = await asyncio.gather(self.seed(), self.seed(batch_size=23))
+        for table in first["inserted"]:
+            self.assertEqual(
+                first["inserted"][table] + second["inserted"][table], first["counts"][table]
+            )
+        before = await self.snapshot()
+        await self.seed()
+        self.assertEqual(before, await self.snapshot())
+
+    async def test_username_collision_rolls_back_without_adopting_existing_account(self):
+        user = await self.existing_data()
+        expected = collect()["users"][0]
+        await self.users.execute("UPDATE users SET email=$1 WHERE id=$2", expected["email"], user)
+        before = await self.snapshot()
+        with self.assertRaises(asyncpg.UniqueViolationError):
             await self.seed()
         self.assertEqual(before, await self.snapshot())
-        await self.users.execute("TRUNCATE users CASCADE")
-        with self.assertRaises(ValueError):
-            await self.seed()
-        self.assertEqual(await self.users.fetchval("SELECT count(*) FROM users"), 0)
 
     async def test_insert_failure_rolls_back_both_databases(self):
-        with (
-            patch("seed.update_counters", side_effect=ValueError("forced failure")),
-            self.assertRaises(ValueError),
-        ):
-            await self.seed()
-        self.assertEqual(await self.users.fetchval("SELECT count(*) FROM users"), 0)
-        self.assertEqual(await self.posts.fetchval("SELECT count(*) FROM posts"), 0)
+        for populated in (False, True):
+            if populated:
+                await self.existing_data()
+            before = await self.snapshot()
+            with (
+                patch("seed.update_counters", side_effect=ValueError("forced failure")),
+                self.assertRaises(ValueError),
+            ):
+                await self.seed()
+            self.assertEqual(before, await self.snapshot())
 
 
 if __name__ == "__main__":
