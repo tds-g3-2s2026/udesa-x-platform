@@ -1,0 +1,421 @@
+# /// script
+# requires-python = ">=3.13"
+# dependencies = ["asyncpg==0.30.0", "argon2-cffi==25.1.0"]
+# ///
+"""Generate deterministic, related load-test data in migrated PostgreSQL databases."""
+
+import argparse
+import asyncio
+import hashlib
+import json
+import os
+import random
+import sys
+import uuid
+from collections import defaultdict
+from contextlib import AsyncExitStack
+from dataclasses import asdict, dataclass
+from datetime import UTC, datetime, timedelta
+from itertools import islice
+
+import asyncpg
+from argon2 import PasswordHasher
+from content import (
+    BIO,
+    DISPLAY_NAME,
+    SUBJECTS,
+    TOPICS,
+    generate_post_text,
+    generate_reply_text,
+)
+
+START = datetime(2026, 1, 1, tzinfo=UTC)
+PASSWORD = "CampusSeed42!"
+TABLE_KEYS = {
+    "users": "id",
+    "user_profiles": "id",
+    "follows": "follower_id, followee_id",
+    "posts": "id",
+    "likes": "user_id, post_id",
+    "retweets": "user_id, post_id",
+}
+
+
+@dataclass(frozen=True)
+class Volumes:
+    users: int = 100
+    follows: int = 5_000
+    posts: int = 2_000
+    replies: int = 2_000
+    likes: int = 7_000
+    retweets: int = 1_000
+    deleted_posts: int = 100
+
+    def validate(self):
+        """Reject impossible volumes before opening either database."""
+        if any(value < 0 for value in asdict(self).values()):
+            raise ValueError("Los volúmenes no pueden ser negativos.")
+        if self.follows > self.users * (self.users - 1):
+            raise ValueError("No hay suficientes pares de usuarios para esos seguimientos.")
+        if self.posts and not self.users:
+            raise ValueError("Los posts requieren usuarios.")
+        if self.replies and not self.posts:
+            raise ValueError("Las respuestas requieren posts originales.")
+        if self.deleted_posts > self.posts:
+            raise ValueError("No se pueden eliminar más originales de los que se generan.")
+        capacity = self.users * (self.posts + self.replies - self.deleted_posts)
+        if self.likes > capacity or self.retweets > capacity:
+            raise ValueError(
+                "No hay suficientes pares usuario/publicación activa para las reacciones."
+            )
+
+
+def unique_pairs(count, left, right, rng, choose, initial=()):
+    """Yield unique pairs with bounded rejection, including dense datasets."""
+    seen = set()
+    for a, b in initial:
+        if len(seen) == count:
+            return
+        seen.add(a * right + b)
+        yield a, b
+    for _ in range(count * 10):
+        if len(seen) == count:
+            return
+        a, b = choose()
+        key = a * right + b
+        if key not in seen:
+            seen.add(key)
+            yield a, b
+    offset = rng.randrange(left * right) if left * right else 0
+    for i in range(left * right):
+        if len(seen) == count:
+            return
+        key = (i + offset) % (left * right)
+        if key not in seen:
+            seen.add(key)
+            yield divmod(key, right)
+
+
+def post_id(seed, index, at):
+    """Keep deterministic UUIDv7 identifiers ordered by publication time."""
+    milliseconds = int(at.timestamp() * 1000)
+    tail = int.from_bytes(hashlib.sha256(f"{seed}:post:{index}".encode()).digest()[:10])
+    return uuid.UUID(
+        int=(milliseconds << 80)
+        | (7 << 76)
+        | (((tail >> 62) & 0xFFF) << 64)
+        | (2 << 62)
+        | (tail & ((1 << 62) - 1))
+    )
+
+
+def generate_users(users, password_hash, seed):
+    for i, user in enumerate(users):
+        yield dict(
+            id=user,
+            email=f"seed.{seed}.{i:010d}@example.com",
+            handle=f"@s{user.hex[:14]}",
+            password_hash=password_hash,
+            must_change_password=False,
+            is_email_verified=True,
+            terms_accepted=True,
+            terms_accepted_at=START,
+            display_name=DISPLAY_NAME.format(number=i + 1),
+            bio=BIO.format(topic=TOPICS[i % len(TOPICS)][0]),
+            created_at=START,
+        )
+
+
+def generate_profiles(users):
+    for user in users:
+        yield dict(id=user, handle=f"@s{user.hex[:14]}")
+
+
+def generate_follows(users, count, seed, followers):
+    """Record follower indices for subsequent interactions as rows are consumed."""
+    rng = random.Random(f"{seed}:follows")
+
+    def choose_pair():
+        follower = int(rng.random() ** 2 * len(users))
+        followee = int(rng.random() ** 2 * (len(users) - 1))
+        if followee >= follower:
+            followee += 1
+        return follower, (followee - follower - 1) % len(users)
+
+    backbone = ((i, 0) for i in range(len(users)))
+    for follower, offset in unique_pairs(
+        count,
+        len(users),
+        max(0, len(users) - 1),
+        rng,
+        choose_pair,
+        backbone if len(users) > 1 else (),
+    ):
+        followee = (follower + offset + 1) % len(users)
+        followers[followee].append(follower)
+        yield dict(
+            follower_id=users[follower],
+            followee_id=users[followee],
+            created_at=START + timedelta(seconds=rng.randrange(86400)),
+        )
+
+
+def generate_posts(users, count, seed, publications, topics, deleted_count):
+    """Record publication references and topics for subsequent replies and reactions."""
+    rng = random.Random(f"{seed}:posts")
+    deleted = set(random.Random(f"{seed}:deleted").sample(range(count), deleted_count))
+    for i in range(count):
+        author = i if i < len(users) else int(rng.random() ** 2 * len(users))
+        topic = rng.randrange(len(TOPICS))
+        subject = rng.choice(SUBJECTS[topic])
+        content = generate_post_text(rng, topic, subject, i)
+        at = START + timedelta(days=1, seconds=rng.randrange(60 * 86400))
+        identifier = post_id(seed, i, at)
+        topics.append((topic, subject))
+        deleted_at = at + timedelta(days=15) if i in deleted else None
+        publications.append((identifier, author, at, deleted_at))
+        yield dict(
+            id=identifier,
+            author_id=users[author],
+            parent_id=None,
+            deleted_at=deleted_at,
+            content=content,
+            created_at=at,
+        )
+
+
+def choose_participant(author, followers, user_count, rng):
+    candidates = followers[author]
+    if candidates and rng.random() < 0.8:
+        return rng.choice(candidates)
+    return rng.randrange(user_count)
+
+
+def generate_replies(users, count, seed, followers, publications, topics):
+    """Append reply references after the originals so reactions can target either."""
+    rng = random.Random(f"{seed}:replies")
+    original_count = len(publications)
+    for i in range(count):
+        parent = int(rng.random() ** 2 * original_count)
+        parent_id, parent_author, parent_at, _ = publications[parent]
+        author = choose_participant(parent_author, followers, len(users), rng)
+        topic, subject = topics[parent]
+        content = generate_reply_text(rng, topic, subject)
+        at = parent_at + timedelta(seconds=1 + rng.randrange(7 * 86400))
+        identifier = post_id(seed, original_count + i, at)
+        publications.append((identifier, author, at, None))
+        yield dict(
+            id=identifier,
+            author_id=users[author],
+            parent_id=parent_id,
+            deleted_at=None,
+            content=content,
+            created_at=at,
+        )
+
+
+def generate_reactions(users, count, seed, followers, publications, kind):
+    rng = random.Random(f"{seed}:{kind}")
+    publications = [post for post in publications if post[3] is None]
+
+    def choose_pair():
+        post = int(rng.random() ** 2 * len(publications))
+        author = publications[post][1]
+        return choose_participant(author, followers, len(users), rng), post
+
+    for user, post in unique_pairs(count, len(users), len(publications), rng, choose_pair):
+        identifier, _, at, _ = publications[post]
+        yield dict(
+            user_id=users[user],
+            post_id=identifier,
+            created_at=at + timedelta(seconds=1 + rng.randrange(7 * 86400)),
+        )
+
+
+def generate_data(volumes, seed, password_hash):
+    """Consume each table fully before advancing to its dependents."""
+    volumes.validate()
+    users = [
+        uuid.uuid5(uuid.NAMESPACE_URL, f"campus-seed:{seed}:user:{i}") for i in range(volumes.users)
+    ]
+    followers = defaultdict(list)
+    publications = []
+    topics = []
+
+    yield "users", generate_users(users, password_hash, seed)
+    yield "user_profiles", generate_profiles(users)
+    yield "follows", generate_follows(users, volumes.follows, seed, followers)
+    yield (
+        "posts",
+        generate_posts(users, volumes.posts, seed, publications, topics, volumes.deleted_posts),
+    )
+    yield "posts", generate_replies(users, volumes.replies, seed, followers, publications, topics)
+    yield "likes", generate_reactions(users, volumes.likes, seed, followers, publications, "likes")
+    yield (
+        "retweets",
+        generate_reactions(users, volumes.retweets, seed, followers, publications, "retweets"),
+    )
+
+
+async def prepare(connection, tables):
+    """Stage generated rows and serialize concurrent seed executions."""
+    if not await connection.fetchval("SELECT to_regclass('alembic_version')"):
+        raise ValueError("Aplicá las migraciones antes de ejecutar el seed.")
+    if not await connection.fetchval("SELECT count(*) FROM alembic_version"):
+        raise ValueError("La base no tiene una revisión de Alembic aplicada.")
+    await connection.execute("SELECT pg_advisory_xact_lock(hashtextextended('seed-data', 0))")
+    for table in tables:
+        for prefix in ("seed", "seed_new"):
+            await connection.execute(
+                f'CREATE TEMP TABLE {prefix}_{table} (LIKE "{table}" INCLUDING DEFAULTS) '
+                "ON COMMIT DROP"
+            )
+
+
+async def update_counters(connection):
+    for target, counter, source, foreign_key in (
+        ("user_profiles", "followers_count", "follows", "followee_id"),
+        ("user_profiles", "following_count", "follows", "follower_id"),
+        ("posts", "likes_count", "likes", "post_id"),
+        ("posts", "retweets_count", "retweets", "post_id"),
+        ("posts", "replies_count", "posts", "parent_id"),
+    ):
+        await connection.execute(f"""
+            UPDATE {target} p SET {counter} = p.{counter} + c.total
+            FROM (SELECT {foreign_key} AS id, count(*) AS total FROM seed_new_{source}
+                  WHERE {foreign_key} IS NOT NULL GROUP BY {foreign_key}) c
+            WHERE p.id = c.id
+        """)
+
+
+async def report(users, posts):
+    counts, inserted, totals = {}, {}, {}
+    digest = hashlib.sha256()
+    for table, keys in TABLE_KEYS.items():
+        connection = users if table == "users" else posts
+        relation = f'"{table}" t JOIN seed_{table} s USING ({keys})'
+        order = ", ".join(f"t.{key}" for key in keys.split(", "))
+        counts[table] = await connection.fetchval(f"SELECT count(*) FROM {relation}")
+        inserted[table] = await connection.fetchval(f"SELECT count(*) FROM seed_new_{table}")
+        totals[table] = await connection.fetchval(f'SELECT count(*) FROM "{table}"')
+        rows = await connection.fetch(f"SELECT t.* FROM {relation} ORDER BY {order} LIMIT 100")
+        digest.update(table.encode())
+        digest.update(json.dumps([dict(row) for row in rows], default=str, sort_keys=True).encode())
+    summary = await posts.fetchrow("""
+        SELECT count(*) FILTER (WHERE t.parent_id IS NULL) AS originals,
+               count(*) FILTER (WHERE t.parent_id IS NOT NULL) AS replies,
+               count(*) FILTER (WHERE t.deleted_at IS NOT NULL) AS deleted_posts
+        FROM posts t JOIN seed_posts s USING (id)
+    """)
+    counts.update(dict(summary))
+    counts["interactions"] = counts["likes"] + counts["replies"] + counts["retweets"]
+    return dict(counts=counts, inserted=inserted, totals=totals, sample_sha256=digest.hexdigest())
+
+
+async def insert_batches(connection, table, records, batch_size):
+    while batch := list(islice(records, batch_size)):
+        columns = tuple(batch[0])
+        await connection.copy_records_to_table(
+            f"seed_{table}",
+            columns=columns,
+            records=[tuple(row[column] for column in columns) for row in batch],
+        )
+    condition = "TRUE"
+    if table in ("likes", "retweets"):
+        condition = "EXISTS (SELECT 1 FROM posts p WHERE p.id=s.post_id AND p.deleted_at IS NULL)"
+    elif table == "posts":
+        condition = (
+            "s.parent_id IS NULL OR EXISTS (SELECT 1 FROM posts p WHERE p.id=s.parent_id "
+            "AND (p.deleted_at IS NULL OR s.created_at < p.deleted_at))"
+        )
+    await connection.execute(f"""
+        WITH inserted AS (
+            INSERT INTO "{table}" SELECT s.* FROM seed_{table} s WHERE {condition}
+            ON CONFLICT ({TABLE_KEYS[table]}) DO NOTHING RETURNING *
+        ) INSERT INTO seed_new_{table} SELECT * FROM inserted
+    """)
+    if table == "posts":
+        await connection.execute("""
+            SELECT p.id FROM posts p JOIN seed_posts s USING (id)
+            ORDER BY p.id FOR NO KEY UPDATE OF p
+        """)
+
+
+async def seed_databases(volumes, seed, batch_size, users_url, posts_url):
+    volumes.validate()
+    if batch_size < 1:
+        raise ValueError("El tamaño de lote debe ser positivo.")
+    if not users_url or not posts_url:
+        raise ValueError("Definí SEED_USERS_DATABASE_URL y SEED_POSTS_DATABASE_URL.")
+    password_hash = PasswordHasher().hash(
+        PASSWORD, salt=hashlib.sha256(f"campus-seed:{seed}:password".encode()).digest()[:16]
+    )
+    post_tables = tuple(table for table in TABLE_KEYS if table != "users")
+    async with AsyncExitStack() as connections:
+        users = await asyncpg.connect(users_url)
+        connections.push_async_callback(users.close)
+        posts = await asyncpg.connect(posts_url)
+        connections.push_async_callback(posts.close)
+
+        async with users.transaction(), posts.transaction():
+            await prepare(users, ("users",))
+            await prepare(posts, post_tables)
+            for table, records in generate_data(volumes, seed, password_hash):
+                connection = users if table == "users" else posts
+                await insert_batches(connection, table, records, batch_size)
+            await update_counters(posts)
+            result = await report(users, posts)
+
+        await users.execute("ANALYZE users")
+        for table in post_tables:
+            await posts.execute(f'ANALYZE "{table}"')
+
+    return {"seed": seed, "volumes": asdict(volumes), **result}
+
+
+def parse_arguments():
+    parser = argparse.ArgumentParser(description=__doc__)
+    for name, default in asdict(Volumes()).items():
+        parser.add_argument(f"--{name.replace('_', '-')}", type=int, default=default)
+    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--batch-size", type=int, default=5000)
+    return parser.parse_args()
+
+
+def main():
+    args = parse_arguments()
+    volumes = Volumes(
+        users=args.users,
+        follows=args.follows,
+        posts=args.posts,
+        replies=args.replies,
+        likes=args.likes,
+        retweets=args.retweets,
+        deleted_posts=args.deleted_posts,
+    )
+    try:
+        result = asyncio.run(
+            seed_databases(
+                volumes,
+                args.seed,
+                args.batch_size,
+                os.getenv("SEED_USERS_DATABASE_URL"),
+                os.getenv("SEED_POSTS_DATABASE_URL"),
+            )
+        )
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    except (asyncpg.PostgresError, OSError) as exc:
+        print(
+            f"No se pudo completar el seed ({type(exc).__name__}). "
+            "Revisá las conexiones y las migraciones.",
+            file=sys.stderr,
+        )
+        return 1
+    print(json.dumps(result, indent=2, ensure_ascii=False))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
