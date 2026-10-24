@@ -1,0 +1,102 @@
+# The whole system on one machine (ARQUITECTURA.md, "Sistema completo local").
+# Today it carries the account emails traveling through the queue, end to end
+# (T-27, T-28): users-api writes the event to its outbox and publishes it to
+# RabbitMQ, and notifications-api consumes it and sends the mail. With the
+# console mailer the mail lands in the notifications-api log.
+#
+#   docker compose -f compose/docker-compose.full.yml up --build
+#
+# The services build from their sibling repos, next to this one. Other paths go
+# through USERS_API_DIR and NOTIFICATIONS_API_DIR.
+#
+# Every port is published on 127.0.0.1 only. RabbitMQ management, the screen
+# that shows the queue to the tutor: http://localhost:15672, user udesa/udesa.
+
+name: udesa-x-full
+
+services:
+  users-api:
+    build:
+      context: ${USERS_API_DIR:-../../udesa-x-users-api}
+      dockerfile: docker/Dockerfile
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://users:users@postgres:5432/users
+      REDIS_URL: redis://redis:6379/0
+      RABBITMQ_URL: amqp://udesa:udesa@rabbitmq:5672
+      PUBLIC_BASE_URL: http://localhost:8000
+      SUPERADMIN_EMAIL: admin@udesa.edu.ar
+      SUPERADMIN_PASSWORD: Admin1234
+      INTERNAL_API_TOKEN: dev-internal-token
+      # JWT_PRIVATE_KEY unset on purpose: development mints an ephemeral pair.
+    command: >-
+      sh -c "alembic upgrade head &&
+             python -m users_api.seed_superadmin &&
+             uvicorn users_api.main:app --host 0.0.0.0 --port 8000 --workers 1"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  notifications-api:
+    build:
+      context: ${NOTIFICATIONS_API_DIR:-../../udesa-x-notifications-api}
+      dockerfile: docker/Dockerfile
+      target: production
+    ports:
+      - "127.0.0.1:8003:8000"
+    environment:
+      MONGODB_URL: mongodb://mongodb:27017/notifications
+      RABBITMQ_URL: amqp://udesa:udesa@rabbitmq:5672
+      EMAIL_PROVIDER: console
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: users
+      POSTGRES_PASSWORD: users
+      POSTGRES_DB: users
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U users -d users"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:8-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  mongodb:
+    image: mongo:8
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.runCommand({ping:1}).ok"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  rabbitmq:
+    image: rabbitmq:4-management-alpine
+    environment:
+      # Not guest: RabbitMQ only lets guest in over loopback.
+      RABBITMQ_DEFAULT_USER: udesa
+      RABBITMQ_DEFAULT_PASS: udesa
+    ports:
+      - "127.0.0.1:15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20

@@ -9,6 +9,7 @@ Repositorio central de udesa-x: documentación, infraestructura compartida, cont
 ./scripts/sync-comunes.sh templates/repo-servicio   # Deja la plantilla al día con los comunes
 ./scripts/validar-esquemas.sh            # Valida los esquemas de docs/eventos/ y servicios.json
 ./scripts/sync-contracts.sh ../udesa-x-*   # Copia a cada servicio los contratos de eventos que usa
+docker compose -f compose/docker-compose.full.yml up --build   # Sistema local: users-api, notifications-api y RabbitMQ
 ```
 
 El CI de este repo verifica que `templates/repo-servicio/` no quede atrás de los archivos

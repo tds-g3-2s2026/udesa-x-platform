@@ -531,7 +531,7 @@ RabbitMQ 4.x desplegado en el cluster, con exchange de tipo topic. Elegido sobre
 
 **Las colas se declaran `quorum` explícitamente**, junto con la dead letter queue vía `x-dead-letter-exchange`. RabbitMQ 4.0 removió las classic mirrored queues: si nadie declara el tipo, se termina con colas sin replicación sin que nadie lo note.
 
-**Cuándo entra.** La cola se levanta en **S4**, no antes, porque hasta que existe `notifications-api` el único consumidor posible sería el propio publicador y no cumpliría el requisito de la consigna de comunicar dos microservicios. En S2 el email de verificación del registro se manda sincrónico desde `users-api`, detrás de una interfaz, y pasa a la cola en S4 sin tocar el caso de uso.
+**Cuándo entra.** La cola se levanta en **S4**, no antes, porque hasta que existe `notifications-api` el único consumidor posible sería el propio publicador y no cumpliría el requisito de la consigna de comunicar dos microservicios. En S2 los emails de cuenta se mandaban sincrónicos desde `users-api`, detrás de una interfaz. En S4 los casos de uso dejan de mandar emails y escriben su evento en el outbox; `notifications-api` es el único que habla con Resend.
 
 | Evento                         | Publica      | Consume                                    |
 | ------------------------------ | ------------ | ------------------------------------------ |
@@ -619,7 +619,7 @@ Tres detalles de implementación que no son opcionales:
 
 1. El publicador lee con `SELECT ... FOR UPDATE SKIP LOCKED`, para que dos réplicas no tomen el mismo evento.
 2. Un trigger con `pg_notify` despierta al publicador apenas se inserta la fila. El polling periódico queda como red de seguridad si se cae la conexión de `LISTEN`. Esto baja la latencia a casi cero sin agregar CDC ni Debezium, que exigirían Kafka Connect en el cluster.
-3. La deduplicación del consumidor es una tabla con el id del evento como clave primaria, y el insert va **dentro de la misma transacción** que el efecto de negocio. Así el at-least-once del broker se vuelve exactly-once desde la perspectiva del negocio, sin librerías.
+3. La deduplicación del consumidor usa el id del evento como clave primaria, y el registro va **en la misma operación atómica** que el efecto de negocio cuando el efecto vive en la misma base. Así el at-least-once del broker se vuelve exactly-once desde la perspectiva del negocio, sin librerías. Cuando el efecto es externo, como un email, no hay transacción que lo abarque: `notifications-api` guarda un documento por evento en estado `pending` antes de enviar y lo cierra en `sent` o `failed` después. Un repetido cerrado se descarta; uno `pending` se reenvía, porque perder el email es peor que mandarlo dos veces.
 
 ### Contratos de eventos: copiados, no empaquetados
 
