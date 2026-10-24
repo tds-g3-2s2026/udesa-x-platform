@@ -6,6 +6,10 @@
 #       secrets: inherit
 #
 # Tests run inside the image: the consumer needs a `test` stage in its Dockerfile.
+#
+# A service that publishes events sets `rabbitmq: true`: RabbitMQ starts next to
+# the job, and the tests and the production image reach it through RABBITMQ_URL,
+# the same way they reach PostgreSQL and Redis.
 
 name: CI Python
 
@@ -31,6 +35,12 @@ on:
         description: "Correr tests/integration contra PostgreSQL y Redis."
         type: boolean
         default: true
+      rabbitmq:
+        description: >
+          Levantar RabbitMQ al lado de los tests y de la imagen de produccion, con
+          RABBITMQ_URL apuntando a el. Para los servicios que publican eventos.
+        type: boolean
+        default: false
 
 jobs:
   calidad:
@@ -107,6 +117,23 @@ jobs:
           --health-timeout 3s
           --health-retries 10
 
+      rabbitmq:
+        # An empty image skips the service, so a repo that does not ask for it
+        # starts nothing.
+        image: ${{ inputs.rabbitmq && 'rabbitmq:4-alpine' || '' }}
+        # Not guest: RabbitMQ only lets guest in over loopback, and through the
+        # published port the broker sees the Docker bridge address instead.
+        env:
+          RABBITMQ_DEFAULT_USER: users
+          RABBITMQ_DEFAULT_PASS: users
+        ports:
+          - 5672:5672
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
     env:
       # They live on the runner's localhost, which is why the steps use --network host.
       DATABASE_URL: postgresql+asyncpg://users:users@localhost:5432/users
@@ -126,6 +153,9 @@ jobs:
       # Throwaway too. ADR-011: posts-api and users-api refuse to start without
       # the secret of their internal routes. Services that do not read it ignore it.
       INTERNAL_API_TOKEN: ci-internal-token
+      # Points at the rabbitmq service above, which only runs with `rabbitmq: true`.
+      # Services that do not read it ignore it.
+      RABBITMQ_URL: amqp://users:users@localhost:5672
 
     steps:
       - uses: actions/checkout@v5
@@ -153,7 +183,7 @@ jobs:
             COMANDO="uv run --no-sync pytest tests/unit --cov=src --cov-report=xml --cov-report=term"
           fi
           docker run --name suite --network host \
-            -e DATABASE_URL -e REDIS_URL -e AUTH_REDIS_URL -e JWT_PUBLIC_KEY -e INTERNAL_API_TOKEN \
+            -e DATABASE_URL -e REDIS_URL -e AUTH_REDIS_URL -e JWT_PUBLIC_KEY -e INTERNAL_API_TOKEN -e RABBITMQ_URL \
             servicio:test $COMANDO
 
       - name: Sacar los reportes del contenedor
@@ -233,7 +263,8 @@ jobs:
       - name: Verificar que la imagen de produccion levanta
         run: |
           docker run -d --name servicio --network host \
-            -e DATABASE_URL -e REDIS_URL -e AUTH_REDIS_URL -e JWT_PUBLIC_KEY -e INTERNAL_API_TOKEN servicio:produccion
+            -e DATABASE_URL -e REDIS_URL -e AUTH_REDIS_URL -e JWT_PUBLIC_KEY -e INTERNAL_API_TOKEN -e RABBITMQ_URL \
+            servicio:produccion
           for _ in $(seq 1 30); do
             if [ "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/healthcheck)" = "200" ]; then
               echo "El healthcheck responde 200 desde la imagen construida."
