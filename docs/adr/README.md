@@ -22,6 +22,7 @@ escribe una nueva que reemplaza a la anterior y se anota acá.
 | [ADR-015](./ADR-015-notifications-api-en-bun-y-hono.md) | `notifications-api` en Bun y Hono, igual que el gateway | 2026-10-14 | Aceptada |
 | [ADR-017](./ADR-017-forma-y-versionado-de-eventos.md) | Forma, versionado y verificación de los contratos de eventos | 2026-10-23 | Aceptada |
 | [ADR-018](./ADR-018-librerias-para-imagenes-en-publicaciones.md) | Librerías para imágenes en publicaciones: selector y visor en `mobile`, S3 y multipart en `posts-api` | 2026-10-23 | Aceptada |
+| [ADR-019](./ADR-019-aio-pika-para-eventos-en-python.md) | `aio-pika` para publicar y consumir eventos en los servicios de Python | 2026-10-24 | Aceptada |
 
 Solo se registran decisiones ya tomadas y que el equipo pueda justificar, numeradas en el
 orden en que se toman. Lo que todavía está por definirse vive como decisión abierta `Dxx` en
@@ -62,3 +63,8 @@ la copia por servicio y los checks de `T-16`.
 Las librerías de imágenes quedaron registradas en el ADR-018. Cubre `E2-H7` y la regla de los
 `AGENTS.md` que pide un ADR antes de sumar una librería: selector y visor en `mobile`, cliente de
 S3 y lector multipart en `posts-api`.
+
+El cliente de RabbitMQ para los servicios de Python quedó registrado en el ADR-019. Complementa
+al ADR-015 (`amqplib` en Bun) y cubre la regla de los `AGENTS.md` que pide un ADR antes de sumar
+una librería: `aio-pika` publica la `outbox` en `users-api` y consume `user.deleted.v1` en
+`posts-api`.
