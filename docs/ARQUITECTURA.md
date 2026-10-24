@@ -519,8 +519,11 @@ convivir las dos versiones un tiempo, no cortar.
 métricas no son contrato con el cliente y no versionan.
 
 **Los eventos de la cola versionan aparte**, con la versión adentro del propio evento y no en
-un path. Un evento incompatible es un evento nuevo, como está en
-[`docs/eventos/`](./eventos/README.md).
+un path: es parte del `type` del sobre de CloudEvents (`follow.created.v1`), que también es la
+routing key. Un cambio compatible mantiene el `type`; uno incompatible es un evento nuevo
+(`.v2`), y el publicador manda las dos versiones mientras haya consumidores de la anterior. La
+política completa está en [`docs/eventos/`](./eventos/README.md) y en el
+[ADR-017](./adr/ADR-017-forma-y-versionado-de-eventos.md).
 
 ### Asincrónica
 
@@ -530,18 +533,23 @@ RabbitMQ 4.x desplegado en el cluster, con exchange de tipo topic. Elegido sobre
 
 **Cuándo entra.** La cola se levanta en **S4**, no antes, porque hasta que existe `notifications-api` el único consumidor posible sería el propio publicador y no cumpliría el requisito de la consigna de comunicar dos microservicios. En S2 el email de verificación del registro se manda sincrónico desde `users-api`, detrás de una interfaz, y pasa a la cola en S4 sin tocar el caso de uso.
 
-| Evento                     | Publica      | Consume                               |
-| -------------------------- | ------------ | ------------------------------------- |
-| `user.registered`          | users        | notifications (email de verificación) |
-| `user.deleted`             | users        | posts, notifications                  |
-| `user.profile_updated`     | users        | posts                                 |
-| `password.reset_requested` | users        | notifications                         |
-| `password.changed`         | users        | notifications                         |
-| `feedback.submitted`       | users        | notifications                         |
-| `post.created`             | posts        | notifications (menciones)             |
-| `follow.created`           | posts        | notifications                         |
-| `interaction.created`      | posts        | notifications                         |
-| `report.created`           | posts        | notifications, triage de IA           |
+| Evento                         | Publica      | Consume                                    |
+| ------------------------------ | ------------ | ------------------------------------------ |
+| `user.registered`              | users        | notifications (email de verificación)      |
+| `email_verification.requested` | users        | notifications (reenvío de la verificación) |
+| `user.deleted`                 | users        | posts, notifications                       |
+| `user.profile_updated`         | users        | posts                                      |
+| `password.reset_requested`     | users        | notifications                              |
+| `password.changed`             | users        | notifications                              |
+| `feedback.submitted`           | users        | notifications                              |
+| `post.created`                 | posts        | notifications (menciones)                  |
+| `follow.created`               | posts        | notifications                              |
+| `interaction.created`          | posts        | notifications                              |
+| `report.created`               | posts        | notifications, triage de IA                |
+
+La tabla nombra los eventos sin versión. El contrato de cada uno, con su versión, vive en
+[`docs/eventos/`](./eventos/README.md) desde que tiene publicador; `servicios.json` declara qué
+publica y consume cada servicio, y es lo que se copia a cada repo.
 
 ```mermaid
 flowchart LR
@@ -558,7 +566,7 @@ flowchart LR
         P2["posts-api<br/>como consumidor"]
     end
 
-    U -->|"user.registered · user.deleted<br/>user.profile_updated<br/>password.reset_requested<br/>password.changed · feedback.submitted"| EX
+    U -->|"user.registered · email_verification.requested<br/>user.deleted · user.profile_updated<br/>password.reset_requested<br/>password.changed · feedback.submitted"| EX
     P -->|"post.created · follow.created<br/>interaction.created · report.created"| EX
     EX -->|"casi todos"| N
     EX -->|"report.created"| T

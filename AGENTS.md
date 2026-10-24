@@ -7,10 +7,16 @@ Repositorio central de udesa-x: documentación, infraestructura compartida, cont
 ```bash
 ./scripts/sync-comunes.sh ../udesa-x-*   # Sincroniza archivos y bloque común a los demás repositorios
 ./scripts/sync-comunes.sh templates/repo-servicio   # Deja la plantilla al día con los comunes
+./scripts/validar-esquemas.sh            # Valida los esquemas de docs/eventos/ y servicios.json
+./scripts/sync-contracts.sh ../udesa-x-*   # Copia a cada servicio los contratos de eventos que usa
 ```
 
 El CI de este repo verifica que `templates/repo-servicio/` no quede atrás de los archivos
 comunes de la raíz. Si el check `Verificar plantilla` falla, correr el segundo comando.
+
+Los contratos de eventos se editan en `docs/eventos/` y se propagan con `sync-contracts.sh`.
+El check `Contratos de eventos` valida los esquemas acá, y cada servicio verifica su copia en
+`ci-node.yml` o `ci-python.yml`. Ver `docs/eventos/README.md`.
 
 Los workflows reusables que consumen los repos de servicio viven en `.github/workflows/`.
 

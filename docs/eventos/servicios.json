@@ -1,0 +1,28 @@
+{
+  "users-api": {
+    "publica": [
+      "user.registered.v1",
+      "email_verification.requested.v1",
+      "password.reset_requested.v1",
+      "password.changed.v1",
+      "user.deleted.v1"
+    ],
+    "consume": []
+  },
+  "posts-api": {
+    "publica": ["follow.created.v1", "interaction.created.v1"],
+    "consume": ["user.deleted.v1"]
+  },
+  "notifications-api": {
+    "publica": [],
+    "consume": [
+      "user.registered.v1",
+      "email_verification.requested.v1",
+      "password.reset_requested.v1",
+      "password.changed.v1",
+      "user.deleted.v1",
+      "follow.created.v1",
+      "interaction.created.v1"
+    ]
+  }
+}
