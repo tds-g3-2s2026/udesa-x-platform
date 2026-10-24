@@ -21,6 +21,7 @@ escribe una nueva que reemplaza a la anterior y se anota acá.
 | [ADR-014](./ADR-014-revocacion-de-sesiones-en-posts-api.md) | `posts-api` lee las revocaciones de sesión desde el Redis de `users-api` | 2026-10-03 | Aceptada |
 | [ADR-015](./ADR-015-notifications-api-en-bun-y-hono.md) | `notifications-api` en Bun y Hono, igual que el gateway | 2026-10-14 | Aceptada |
 | [ADR-017](./ADR-017-forma-y-versionado-de-eventos.md) | Forma, versionado y verificación de los contratos de eventos | 2026-10-23 | Aceptada |
+| [ADR-018](./ADR-018-librerias-para-imagenes-en-publicaciones.md) | Librerías para imágenes en publicaciones: selector y visor en `mobile`, S3 y multipart en `posts-api` | 2026-10-23 | Aceptada |
 
 Solo se registran decisiones ya tomadas y que el equipo pueda justificar, numeradas en el
 orden en que se toman. Lo que todavía está por definirse vive como decisión abierta `Dxx` en
@@ -57,3 +58,7 @@ propio.
 La forma y el versionado de los eventos quedaron registrados en el ADR-017. Cierra `D22` de
 `PLANIFICACION.md` y completa el ADR-002 con el sobre de CloudEvents, la versión en el `type`,
 la copia por servicio y los checks de `T-16`.
+
+Las librerías de imágenes quedaron registradas en el ADR-018. Cubre `E2-H7` y la regla de los
+`AGENTS.md` que pide un ADR antes de sumar una librería: selector y visor en `mobile`, cliente de
+S3 y lector multipart en `posts-api`.
