@@ -533,18 +533,19 @@ RabbitMQ 4.x desplegado en el cluster, con exchange de tipo topic. Elegido sobre
 
 **Cuándo entra.** La cola se levanta en **S4**, no antes, porque hasta que existe `notifications-api` el único consumidor posible sería el propio publicador y no cumpliría el requisito de la consigna de comunicar dos microservicios. En S2 el email de verificación del registro se manda sincrónico desde `users-api`, detrás de una interfaz, y pasa a la cola en S4 sin tocar el caso de uso.
 
-| Evento                     | Publica      | Consume                               |
-| -------------------------- | ------------ | ------------------------------------- |
-| `user.registered`          | users        | notifications (email de verificación) |
-| `user.deleted`             | users        | posts, notifications                  |
-| `user.profile_updated`     | users        | posts                                 |
-| `password.reset_requested` | users        | notifications                         |
-| `password.changed`         | users        | notifications                         |
-| `feedback.submitted`       | users        | notifications                         |
-| `post.created`             | posts        | notifications (menciones)             |
-| `follow.created`           | posts        | notifications                         |
-| `interaction.created`      | posts        | notifications                         |
-| `report.created`           | posts        | notifications, triage de IA           |
+| Evento                         | Publica      | Consume                                    |
+| ------------------------------ | ------------ | ------------------------------------------ |
+| `user.registered`              | users        | notifications (email de verificación)      |
+| `email_verification.requested` | users        | notifications (reenvío de la verificación) |
+| `user.deleted`                 | users        | posts, notifications                       |
+| `user.profile_updated`         | users        | posts                                      |
+| `password.reset_requested`     | users        | notifications                              |
+| `password.changed`             | users        | notifications                              |
+| `feedback.submitted`           | users        | notifications                              |
+| `post.created`                 | posts        | notifications (menciones)                  |
+| `follow.created`               | posts        | notifications                              |
+| `interaction.created`          | posts        | notifications                              |
+| `report.created`               | posts        | notifications, triage de IA                |
 
 La tabla nombra los eventos sin versión. El contrato de cada uno, con su versión, vive en
 [`docs/eventos/`](./eventos/README.md) desde que tiene publicador; `servicios.json` declara qué
@@ -565,7 +566,7 @@ flowchart LR
         P2["posts-api<br/>como consumidor"]
     end
 
-    U -->|"user.registered · user.deleted<br/>user.profile_updated<br/>password.reset_requested<br/>password.changed · feedback.submitted"| EX
+    U -->|"user.registered · email_verification.requested<br/>user.deleted · user.profile_updated<br/>password.reset_requested<br/>password.changed · feedback.submitted"| EX
     P -->|"post.created · follow.created<br/>interaction.created · report.created"| EX
     EX -->|"casi todos"| N
     EX -->|"report.created"| T

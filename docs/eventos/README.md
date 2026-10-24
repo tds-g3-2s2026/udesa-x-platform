@@ -21,6 +21,9 @@ checks están en el [ADR-017](../adr/ADR-017-forma-y-versionado-de-eventos.md).
 | Evento | Publica | Consume |
 |---|---|---|
 | `user.registered.v1` | users-api | notifications-api |
+| `email_verification.requested.v1` | users-api | notifications-api |
+| `password.reset_requested.v1` | users-api | notifications-api |
+| `password.changed.v1` | users-api | notifications-api |
 | `user.deleted.v1` | users-api | posts-api, notifications-api |
 | `follow.created.v1` | posts-api | notifications-api |
 | `interaction.created.v1` | posts-api | notifications-api |

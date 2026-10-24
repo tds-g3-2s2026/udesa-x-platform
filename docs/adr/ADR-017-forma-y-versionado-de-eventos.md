@@ -77,10 +77,11 @@ no se verifican.
   `contracts/events/` se mergean antes que el de platform que agrega el job.
 - **Las colas se atan a `.v1`.** Los bindings de RabbitMQ usan el `type` completo, así que
   migrar de versión es cambiar un binding, no reinterpretar mensajes.
-- **El link de verificación viaja en claro.** `user.registered.v1` lleva la URL con el token
-  de un solo uso, que `users-api` guarda hasheado. La fila del outbox lo tiene en claro hasta
-  que se publica: `udesa-x-users-api#30` tiene que limpiar el payload de las filas ya
-  publicadas, y ningún servicio lo loguea.
+- **Hay eventos que llevan secretos en claro.** `user.registered.v1` y
+  `email_verification.requested.v1` llevan la URL con el token de verificación, y
+  `password.reset_requested.v1` el código de recuperación; `users-api` guarda los dos hasheados.
+  La fila del outbox los tiene en claro hasta que se publica: `udesa-x-users-api#30` borra las
+  filas ya publicadas, y ningún servicio loguea esos campos.
 - **Los repos sin eventos no cambian.** `gateway`, `backoffice` y `mobile` pasan el check
   mientras no tengan `contracts/events/`.
 - **Platform no suma dependencias.** `validar-esquemas.sh` corre `ajv-cli` con `npx`, con la
