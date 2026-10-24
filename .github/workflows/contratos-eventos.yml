@@ -1,0 +1,40 @@
+# Checks the event schemas before any service copies them. The other half, that
+# each service's copy did not fall behind these, runs in ci-node.yml and
+# ci-python.yml with scripts/verificar-contratos.sh.
+
+name: Contratos de eventos
+
+on:
+  pull_request:
+    paths:
+      - "docs/eventos/**"
+      - "scripts/validar-esquemas.sh"
+      - "scripts/sync-contracts.sh"
+      - "scripts/verificar-contratos.sh"
+      - ".github/workflows/contratos-eventos.yml"
+  push:
+    branches: [main]
+
+jobs:
+  esquemas:
+    name: Esquemas de eventos validos
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+
+      - name: Validar esquemas, ejemplos y servicios.json
+        run: ./scripts/validar-esquemas.sh
+
+      # The script every service's CI runs, against a copy synced right here:
+      # if it does not pass on a fresh sync, it would turn every service red.
+      - name: Sincronizar y verificar una copia por servicio
+        run: |
+          for SERVICIO in $(jq -r 'keys[]' docs/eventos/servicios.json); do
+            mkdir -p "$RUNNER_TEMP/udesa-x-$SERVICIO"
+            ./scripts/sync-contracts.sh "$RUNNER_TEMP/udesa-x-$SERVICIO"
+            ./scripts/verificar-contratos.sh "$SERVICIO" "$RUNNER_TEMP/udesa-x-$SERVICIO"
+          done

@@ -519,8 +519,11 @@ convivir las dos versiones un tiempo, no cortar.
 métricas no son contrato con el cliente y no versionan.
 
 **Los eventos de la cola versionan aparte**, con la versión adentro del propio evento y no en
-un path. Un evento incompatible es un evento nuevo, como está en
-[`docs/eventos/`](./eventos/README.md).
+un path: es parte del `type` del sobre de CloudEvents (`follow.created.v1`), que también es la
+routing key. Un cambio compatible mantiene el `type`; uno incompatible es un evento nuevo
+(`.v2`), y el publicador manda las dos versiones mientras haya consumidores de la anterior. La
+política completa está en [`docs/eventos/`](./eventos/README.md) y en el
+[ADR-017](./adr/ADR-017-forma-y-versionado-de-eventos.md).
 
 ### Asincrónica
 
@@ -542,6 +545,10 @@ RabbitMQ 4.x desplegado en el cluster, con exchange de tipo topic. Elegido sobre
 | `follow.created`           | posts        | notifications                         |
 | `interaction.created`      | posts        | notifications                         |
 | `report.created`           | posts        | notifications, triage de IA           |
+
+La tabla nombra los eventos sin versión. El contrato de cada uno, con su versión, vive en
+[`docs/eventos/`](./eventos/README.md) desde que tiene publicador; `servicios.json` declara qué
+publica y consume cada servicio, y es lo que se copia a cada repo.
 
 ```mermaid
 flowchart LR

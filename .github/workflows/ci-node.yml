@@ -74,6 +74,28 @@ jobs:
       - name: Tipos
         run: bun x tsc --noEmit
 
+  contratos:
+    name: Contratos de eventos al dia
+    runs-on: ubuntu-latest
+
+    # Against platform's main and not a pinned copy: a contract that changed
+    # there and was not synced here has to turn this repo red. A repo that uses
+    # no events passes as long as it has no contracts/events/.
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Traer udesa-x-platform
+        uses: actions/checkout@v5
+        with:
+          repository: tds-g3-2s2026/udesa-x-platform
+          ref: main
+          path: .udesa-x-platform
+
+      - name: Comparar contracts/events con docs/eventos
+        env:
+          REPO: ${{ github.event.repository.name }}
+        run: ./.udesa-x-platform/scripts/verificar-contratos.sh "${REPO#udesa-x-}" .
+
   tests:
     name: Tests y cobertura
     runs-on: ubuntu-latest
