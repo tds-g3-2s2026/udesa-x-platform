@@ -208,6 +208,8 @@ flowchart TB
     ING --> GW
     GW --> USR
     GW --> PST
+    USR -.->|"HTTP interno: bloqueos por lote"| PST
+    PST -.->|"HTTP interno: perfiles y revisión"| USR
     USR --> MQ
     PST --> MQ
     MQ --> NTF

@@ -48,15 +48,15 @@ servicio" en `ARQUITECTURA.md`.
 
 ### Contratos entre servicios
 
-**HTTP (síncrono).** Cada servicio expone su propia API versionada en el path (`/v1/...`), con
+**HTTP (síncrono).** Cada servicio expone su API pública bajo `/api/...` y sus rutas internas bajo `/internal/...`, con
 errores en formato Problem Details (RFC 9457) y un `/healthcheck` sin versionar. El detalle
 completo de formato de error y versionado está en "Comunicación entre servicios" de
 `ARQUITECTURA.md` y no se repite acá.
 
-Los clientes REST no se escriben a mano: los tres servicios exponen OpenAPI y cada repo cliente
-genera tipos, cliente y hooks contra ese esquema con Orval, commiteando lo generado. Un cambio
-de contrato aparece como diff en el PR, sin necesidad de publicar nada — ver
-`ARQUITECTURA.md`, sección "Aplicaciones cliente".
+OpenAPI es la fuente ejecutable de los contratos de cada servicio. La búsqueda mobile integra
+TanStack Query con los clientes Axios autenticados existentes. La generación de clientes con
+Orval es una capacidad prevista; las decisiones y el alcance de esta adopción están en
+[búsqueda literal y estado de consultas](./busqueda-literal-y-cache-mobile.md).
 
 Las llamadas síncronas entre servicios backend son `posts-api` → `users-api` para leer perfiles y revisar cuentas, y `users-api` → `posts-api` para excluir cuentas bloqueadas de una búsqueda. La consulta de bloqueos usa un lote acotado, autentica al servicio con el token interno y consulta exclusivamente su base local. Una falla al verificar bloqueos impide devolver resultados sin filtrar. El resto de la comunicación cruza por la cola.
 
