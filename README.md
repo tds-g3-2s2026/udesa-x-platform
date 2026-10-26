@@ -457,3 +457,12 @@ Si se acepta, avisar al docente; no probar un apply real.
 Si falla una lectura por credenciales vencidas, renovar MFA; si persiste un error de
 autorización o de conectividad, consultar al docente. La comprobación real de acceso
 de los tres integrantes se sigue en [la issue #47](https://github.com/tds-g3-2s2026/udesa-x-platform/issues/47).
+
+## Datos para pruebas de carga
+
+El [generador de datos](scripts/seed/README.md) carga usuarios, seguimientos,
+posts originales, respuestas, likes y retweets con volúmenes configurables y
+semilla fija. Incluye originales eliminados con sus respuestas conservadas.
+Requiere las bases de ambos servicios migradas y convive con sus datos existentes.
+Puede repetirse sin duplicar filas: informa los conteos de la carga, las inserciones
+nuevas y los totales, además de un hash de muestra.
