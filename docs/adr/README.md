@@ -13,7 +13,7 @@ escribe una nueva que reemplaza a la anterior y se anota acá.
 | [ADR-006](./ADR-006-inversion-de-dependencias.md) | Inversión de dependencias en los servicios backend | 2026-09-03 | Reemplazada por ADR-007 |
 | [ADR-007](./ADR-007-estructura-por-capas.md) | Estructura por capas en los servicios backend | 2026-09-04 | Aceptada |
 | [ADR-008](./ADR-008-plataforma-de-despliegue.md) | Plataforma de despliegue sobre el cluster de la cátedra | 2026-09-14 | Aceptada |
-| [ADR-009](./ADR-009-bases-gestionadas-y-migraciones.md) | Bases gestionadas en Neon, un Redis en el cluster y migraciones obligatorias | 2026-09-20 | Aceptada |
+| [ADR-009](./ADR-009-bases-gestionadas-y-migraciones.md) | Bases gestionadas en Neon, un Redis en el cluster y migraciones obligatorias | 2026-09-20 | Aceptada, PostgreSQL reemplazado por ADR-021 |
 | [ADR-010](./ADR-010-proveedor-de-correo.md) | Proveedor de correo: Resend con dominio propio | 2026-09-23 | Aceptada |
 | [ADR-011](./ADR-011-denuncias-y-cuenta-en-revision.md) | Denuncias en `posts-api` y aviso de cuenta en revisión a `users-api` | 2026-09-28 | Aceptada, ajustada por ADR-020 |
 | [ADR-012](./ADR-012-monitoreo-de-servicios-y-alerta-de-caida.md) | Monitoreo de los servicios y alerta de caída con Grafana Cloud | 2026-10-01 | Aceptada |
@@ -24,6 +24,7 @@ escribe una nueva que reemplaza a la anterior y se anota acá.
 | [ADR-018](./ADR-018-librerias-para-imagenes-en-publicaciones.md) | Librerías para imágenes en publicaciones: selector y visor en `mobile`, S3 y multipart en `posts-api` | 2026-10-23 | Aceptada |
 | [ADR-019](./ADR-019-aio-pika-para-eventos-en-python.md) | `aio-pika` para publicar y consumir eventos en los servicios de Python | 2026-10-24 | Aceptada |
 | [ADR-020](./ADR-020-cierre-de-casos-de-denuncias.md) | Cierre de casos de denuncias: el umbral cuenta lo pendiente y la revisión se levanta | 2026-10-25 | Aceptada |
+| [ADR-021](./ADR-021-postgresql-en-rds.md) | PostgreSQL en RDS, una base y un rol por servicio | 2026-10-26 | Aceptada |
 
 Solo se registran decisiones ya tomadas y que el equipo pueda justificar, numeradas en el
 orden en que se toman. Lo que todavía está por definirse vive como decisión abierta `Dxx` en
@@ -69,3 +70,7 @@ El cliente de RabbitMQ para los servicios de Python quedó registrado en el ADR-
 al ADR-015 (`amqplib` en Bun) y cubre la regla de los `AGENTS.md` que pide un ADR antes de sumar
 una librería: `aio-pika` publica la `outbox` en `users-api` y consume `user.deleted.v1` en
 `posts-api`.
+
+La base de PostgreSQL de producción quedó registrada en el ADR-021. Reemplaza la parte de
+PostgreSQL del ADR-009 (Neon pasa a RDS, una base y un rol por servicio) y deja vigentes Redis en
+el cluster y las migraciones obligatorias. Actualiza `A12` y `A19` de `ARQUITECTURA.md`.

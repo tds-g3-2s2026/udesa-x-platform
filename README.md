@@ -197,32 +197,34 @@ que exigir TLS en su URL de conexión, no solo permitirlo:
 
 | Destino | Qué usar |
 |---|---|
-| PostgreSQL | Validación de CA y hostname con el driver real. Estas APIs usan SQLAlchemy + asyncpg, así que va `?ssl=verify-full` en la URL y no el parámetro libpq `sslmode`, que asyncpg no acepta y hace fallar la conexión. No usar `require` como sustituto de validación del servidor. asyncpg no mira el almacén del sistema: hace falta además `PGSSLROOTCERT=/etc/ssl/certs/ca-certificates.crt`, que ya está en el ConfigMap de cada servicio |
+| PostgreSQL | Va cifrado con TLS exigido, no solo permitido. Estas APIs usan SQLAlchemy + asyncpg, así que va `?ssl=require` en la URL y no el parámetro libpq `sslmode`, que asyncpg no acepta y hace fallar la conexión. No va `verify-full`: la CA de RDS no está en el bundle del sistema al que apunta `PGSSLROOTCERT` y asyncpg no puede validar el certificado. `require` cifra pero no verifica el servidor; el riesgo es acotado porque la instancia es privada (ADR-021) |
 | Redis | Va dentro del cluster, no sale del namespace: `redis://`. Si alguna vez pasa a ser gestionado, `rediss://` |
 | RabbitMQ, si queda fuera del cluster | esquema `amqps://` |
 
 ### Bases de datos gestionadas
 
-Decidido en el [ADR-009](./docs/adr/ADR-009-bases-gestionadas-y-migraciones.md), issue
-[#46](https://github.com/tds-g3-2s2026/udesa-x-platform/issues/46). **Proveedor: Neon**, capa
-gratuita, sin tarjeta, PostgreSQL 18 y TLS obligatorio. Un proyecto por servicio, región
-`aws-us-east-2`, la del cluster.
+Decidido en el [ADR-021](./docs/adr/ADR-021-postgresql-en-rds.md), que reemplaza la parte de
+PostgreSQL del [ADR-009](./docs/adr/ADR-009-bases-gestionadas-y-migraciones.md); issue
+[#111](https://github.com/tds-g3-2s2026/udesa-x-platform/issues/111). **Proveedor: Amazon RDS**,
+instancia `tds-group-3-db` de la cátedra en `us-east-2`, PostgreSQL 18.3, sin acceso público. Una
+sola instancia, con una base y un rol por servicio.
 
 | Qué | Dónde vive | Quién lo consume | Dónde está la URL |
 |---|---|---|---|
-| Proyecto `users-api` (`mute-hat-57607938`), base `users` | Neon, `aws-us-east-2` | `users-api` | Secret `DATABASE_URL` del repo `udesa-x-users-api` |
-| Proyecto `posts-api` (`floral-haze-34260608`), base `posts` | Neon, `aws-us-east-2` | `posts-api` | Secret `DATABASE_URL` del repo `udesa-x-posts-api` |
+| Base `users`, rol `users` | RDS `tds-group-3-db`, `us-east-2` | `users-api` | Secret `DATABASE_URL` del repo `udesa-x-users-api` |
+| Base `posts`, rol `posts` | RDS `tds-group-3-db`, `us-east-2` | `posts-api` | Secret `DATABASE_URL` del repo `udesa-x-posts-api` |
 | Redis compartido | Pod del namespace `tds-group-3`, manifiesto `k8s/redis.yaml` de este repo | `users-api` con `/0`, `posts-api` con `/1` | Secret `REDIS_URL` de cada repo de servicio |
 
-Estado al 2026-09-20: los dos proyectos existen con PostgreSQL 18.6, su `0001` aplicada y los
-cuatro secrets cargados. El manifiesto del Redis está en `k8s/redis.yaml` y lo aplica
-`deploy-redis.yml`.
+La instancia solo acepta el 5432 desde los pods del cluster. Las bases y los roles los crea el
+workflow manual `crear-bases-postgres.yml`, y cada base tiene `CONNECT` revocado a `PUBLIC`. Se
+arrancó con las bases vacías: los datos de Neon no se migraron y sus proyectos no se borraron. El
+manifiesto del Redis está en `k8s/redis.yaml` y lo aplica `deploy-redis.yml`.
 
 Ninguna URL se escribe en un archivo del repositorio: van como GitHub Secret del repositorio
-que las usa, y `k8s/secret.yaml` sigue en `.gitignore`. La URL que da la consola de Neon se
-carga **corrigiendo los parámetros**: `postgresql+asyncpg://<rol>:<clave>@<host>/<base>?ssl=verify-full`,
-con el endpoint directo y no el `-pooler`, que es PgBouncer en modo transacción y choca con el
-caché de prepared statements de asyncpg.
+que las usa, y `k8s/secret.yaml` sigue en `.gitignore`. El `DATABASE_URL` de cada servicio es
+`postgresql+asyncpg://<rol>:<clave>@tds-group-3-db.cze2woweg3po.us-east-2.rds.amazonaws.com:5432/<base>?ssl=require`.
+Las claves de los roles viven en los secrets `USERS_DB_PASSWORD` y `POSTS_DB_PASSWORD` de este
+repositorio; para rotarlas, ver el ADR-021.
 
 El Redis compartido lo aplica el CD de este repositorio, no una persona: el permiso del equipo
 sobre el cluster es de solo lectura. Un reinicio de ese pod pierde la denylist de JWT y los
@@ -240,7 +242,7 @@ Detalles del manifiesto que conviene saber explicar:
 - **Sin `--protected-mode`.** La imagen oficial lo apaga sola cuando arranca sin archivo de
   configuración, que es lo que permite que las APIs se conecten desde otros pods.
 
-**Desde la primera migración aplicada contra Neon, el esquema solo cambia con Alembic.** La
+**Desde la primera migración aplicada contra RDS, el esquema solo cambia con Alembic.** La
 `0001` de cada servicio queda congelada: nada de editarla ni de `alembic stamp` contra una base
 con datos.
 

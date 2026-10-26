@@ -1,6 +1,6 @@
 # ADR-009: Bases gestionadas en Neon, un Redis en el cluster y migraciones obligatorias
 
-**Fecha:** 2026-09-20 · **Estado:** aceptada · **Decide:** el equipo
+**Fecha:** 2026-09-20 · **Estado:** aceptada, la parte de PostgreSQL reemplazada por el ADR-021 · **Decide:** el equipo
 
 Cierra la parte de decisión de la issue [`udesa-x-platform#46`](https://github.com/tds-g3-2s2026/udesa-x-platform/issues/46).
 **Actualiza `A12`** del registro de `ARQUITECTURA.md` y la fila de PostgreSQL de la tabla de
