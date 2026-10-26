@@ -68,3 +68,5 @@ El cliente de RabbitMQ para los servicios de Python quedó registrado en el ADR-
 al ADR-015 (`amqplib` en Bun) y cubre la regla de los `AGENTS.md` que pide un ADR antes de sumar
 una librería: `aio-pika` publica la `outbox` en `users-api` y consume `user.deleted.v1` en
 `posts-api`.
+
+La [búsqueda literal y el estado de consultas en mobile](./busqueda-literal-y-cache-mobile.md) fijan la coincidencia, los límites de cada servicio y la gestión de caché por sesión.

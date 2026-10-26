@@ -241,10 +241,10 @@ una SPA que se compila a estático y se publica en S3 detrás de CloudFront; lo 
 `Ingress` es el tráfico que el JavaScript ya cargado en el navegador del administrador le hace a
 la API. `mobile`, al no tener un paso de "servido", habla directo con el `Ingress`. Las bases
 persistentes están fuera del cluster, mientras que Redis corre adentro porque sus datos son
-efímeros y perderlos no cuesta nada. Entre `users-api` y `posts-api` hay una sola llamada
-síncrona, la que pone una cuenta en revisión por denuncias (ADR-011). Para todo lo demás cada
-uno verifica el JWT por su cuenta contra la clave pública de `users-api`, sin pedirle nada por
-REST; `posts-api` además lee del Redis de `users-api` las marcas de revocación (ADR-014). El resto entre servicios cruza por la cola, y **los dos servicios de
+efímeros y perderlos no cuesta nada. Las llamadas HTTP internas permiten leer perfiles y poner cuentas en revisión desde
+`posts-api`, y consultar bloqueos por lote desde `users-api`. La consulta de bloqueos se
+resuelve únicamente con el grafo local, para evitar una cadena circular de llamadas. Cada
+servicio verifica el JWT contra la clave pública de `users-api`; `posts-api` además lee del Redis de `users-api` las marcas de revocación (ADR-014). El resto entre servicios cruza por la cola, y **los dos servicios de
 Python escriben al mismo bucket de S3 con prefijos distintos** (`avatars/` y `posts/`), cada uno
 dueño de lo suyo.
 
@@ -324,7 +324,7 @@ Cubre E2-H1 a H14 y E3-H1 a H10 salvo mensajes directos.
 
 **Por qué el feed también:** un feed cronológico se arma de posts y follows, que ya están acá. Separarlo obligaría a mantener una proyección del grafo sincronizada por eventos, que es trabajo real y una fuente de inconsistencias, a cambio de una separación que el volumen del proyecto no necesita.
 
-**Búsqueda:** PostgreSQL con `pg_trgm` y `tsvector`. Cubre coincidencias parciales y case-insensitive, que es lo que pide E2-H10 CA.1, sin agregar Elasticsearch al cluster.
+**Búsqueda:** coincidencia literal con `ILIKE` e índices GIN `pg_trgm`. `posts-api` busca publicaciones y respuestas; `users-api` busca nombre visible o handle en su propia base y consulta bloqueos por lote en `posts-api`. Se requieren tres caracteres, el orden es por fecha de creación e id descendentes y cada página contiene hasta veinte resultados autorizados. Un `@` inicial restringe la búsqueda de cuentas al handle. Los snippets son texto segmentado con resaltado y hasta 160 caracteres visibles. La búsqueda no aplica stemming, similitud ni normalización de acentos.
 
 **Trending:** consulta de agregación sobre hashtags de las últimas 24 horas, cacheada en Redis con TTL de 15 minutos, que es exactamente lo que exige E2-H11 CA.3.
 
@@ -689,7 +689,9 @@ Expo resuelve tres cosas que el proyecto necesita y que en React Native puro cue
 
 Mantine sobre shadcn porque trae formularios y gráficos en el mismo monorepo con versionado en lockstep, y con quince semanas el pegamento entre librerías es justamente lo que consume sprints. El React Compiler es estable desde octubre de 2025 y elimina una clase entera de bug para quien está aprendiendo React: `useMemo` y `useCallback` mal puestos.
 
-**Los clientes REST se generan, no se escriben a mano.** Los tres servicios ya exponen OpenAPI, y con Orval cada repo cliente genera tipos, cliente y hooks de TanStack Query contra ese esquema, y commitea lo generado. Un cambio de contrato aparece como diff en el PR. Es el mismo criterio que la decisión A3 del tutor para los eventos: nada que publicar, la divergencia se ve en la revisión.
+**La búsqueda mobile integra TanStack Query v5 con los clientes Axios autenticados existentes.** Las consultas se separan por cuenta, tipo y texto, se cancelan al cambiar de sesión y se revalidan al recuperar foco. No persisten resultados en el dispositivo.
+
+**La generación de clientes REST con Orval es una capacidad prevista.** Los tres servicios ya exponen OpenAPI, y con Orval cada repo cliente genera tipos, cliente y hooks de TanStack Query contra ese esquema, y commitea lo generado. Un cambio de contrato aparece como diff en el PR. Es el mismo criterio que la decisión A3 del tutor para los eventos: nada que publicar, la divergencia se ve en la revisión.
 
 ## Infraestructura y despliegue
 

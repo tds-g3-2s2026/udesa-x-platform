@@ -27,8 +27,8 @@ cada servicio hacia los demás y de qué depende en infraestructura, que hoy est
 
 El sistema se divide en tres servicios backend:
 
-- **`users-api`**: identidad, autenticación, perfiles, administradores y avatares.
-- **`posts-api`**: contenido, grafo social, feed cronológico, búsqueda e imágenes de post.
+- **`users-api`**: identidad, autenticación, perfiles, búsqueda de cuentas, administradores y avatares.
+- **`posts-api`**: contenido, grafo social, feed cronológico, búsqueda de publicaciones e imágenes de post.
 - **`notifications-api`**: notificaciones push, historial in-app, emails y triage de denuncias
   con IA.
 
@@ -58,8 +58,7 @@ genera tipos, cliente y hooks contra ese esquema con Orval, commiteando lo gener
 de contrato aparece como diff en el PR, sin necesidad de publicar nada — ver
 `ARQUITECTURA.md`, sección "Aplicaciones cliente".
 
-La única llamada síncrona entre servicios backend es `posts-api` → `users-api`, para hidratar
-datos de autor. El resto de la comunicación entre servicios cruza por la cola.
+Las llamadas síncronas entre servicios backend son `posts-api` → `users-api` para leer perfiles y revisar cuentas, y `users-api` → `posts-api` para excluir cuentas bloqueadas de una búsqueda. La consulta de bloqueos usa un lote acotado, autentica al servicio con el token interno y consulta exclusivamente su base local. Una falla al verificar bloqueos impide devolver resultados sin filtrar. El resto de la comunicación cruza por la cola.
 
 **Eventos (asíncrono).** Los contratos de eventos se copian entre repositorios, no se
 empaquetan — decisión ya registrada en [ADR-002](./ADR-002-contratos-de-eventos-copiados.md), que
