@@ -1,0 +1,115 @@
+# Applies the namespace's RabbitMQ (k8s/rabbitmq.yaml). It lives in this repo,
+# like Redis, so that no service depends on another one's pipeline to start.
+# Runs when the manifest changes on main, or by hand from Actions.
+#
+# Needs the namespace quota raised in k8s/namespace.yaml: with 4 Services the
+# rabbitmq Service does not fit.
+
+name: Deploy RabbitMQ
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - k8s/rabbitmq.yaml
+      - .github/workflows/deploy-rabbitmq.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-rabbitmq
+  cancel-in-progress: false
+
+jobs:
+  rabbitmq:
+    name: Desplegar RabbitMQ
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NAMESPACE: tds-group-3
+      RABBITMQ_USER: udesa
+      AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      EKS_CLUSTER_NAME: ${{ secrets.EKS_CLUSTER_NAME }}
+      RABBITMQ_PASSWORD: ${{ secrets.RABBITMQ_PASSWORD }}
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Verificar el entorno
+        run: |
+          faltan=()
+          for nombre in AWS_ROLE_ARN AWS_REGION EKS_CLUSTER_NAME; do
+            [ -n "${!nombre}" ] || faltan+=("secret de organizacion $nombre")
+          done
+          [ -n "$RABBITMQ_PASSWORD" ] || faltan+=("secret RABBITMQ_PASSWORD del repositorio")
+          [ -f k8s/rabbitmq.yaml ] || faltan+=("archivo k8s/rabbitmq.yaml")
+          if [ ${#faltan[@]} -gt 0 ]; then
+            for falta in "${faltan[@]}"; do echo "::error::Falta $falta."; done
+            exit 1
+          fi
+
+      - name: Asumir el rol de AWS por OIDC
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          role-session-name: deploy-rabbitmq-${{ github.run_id }}
+
+      - name: Conectar con el cluster
+        run: |
+          aws eks update-kubeconfig --name "$EKS_CLUSTER_NAME" --region "$AWS_REGION"
+          if ! kubectl get resourcequota -n "$NAMESPACE" -o name | grep -q .; then
+            echo "::error::El namespace $NAMESPACE no existe todavia o no tiene su ResourceQuota. Lo aplica el docente con k8s/namespace.yaml."
+            exit 1
+          fi
+          # Checked before touching anything: with the old quota the Secret would
+          # fit and the Service would not, leaving the last free Secret taken by
+          # a broker that never starts.
+          cuota() {
+            kubectl get resourcequota -n "$NAMESPACE" -o jsonpath="{.items[0].status.$1.$2}"
+          }
+          for par in services:service/rabbitmq secrets:secret/rabbitmq-secret; do
+            recurso=${par%%:*}
+            objeto=${par#*:}
+            kubectl get "$objeto" -n "$NAMESPACE" >/dev/null 2>&1 && continue
+            usados=$(cuota used "$recurso")
+            limite=$(cuota hard "$recurso")
+            if [ "$usados" -ge "$limite" ]; then
+              echo "::error::La cuota de $recurso esta llena ($usados/$limite). Falta que el docente aplique k8s/namespace.yaml con la cuota nueva."
+              exit 1
+            fi
+          done
+
+      # From files and with server-side apply, like deploy.yml: the values never
+      # reach the process list nor the last-applied-configuration annotation.
+      - name: Aplicar el Secret
+        run: |
+          VALORES=$(mktemp -d)
+          trap 'rm -rf "$VALORES"' EXIT
+          printf '%s' "$RABBITMQ_USER" > "$VALORES/RABBITMQ_DEFAULT_USER"
+          printf '%s' "$RABBITMQ_PASSWORD" > "$VALORES/RABBITMQ_DEFAULT_PASS"
+          kubectl create secret generic rabbitmq-secret -n "$NAMESPACE" \
+            --from-file="$VALORES/RABBITMQ_DEFAULT_USER" \
+            --from-file="$VALORES/RABBITMQ_DEFAULT_PASS" \
+            --dry-run=client -o yaml \
+            | kubectl apply --server-side --field-manager=udesa-x-deploy -f -
+
+      # Recreate strategy: the old broker stops before the new one starts, and
+      # the messages still queued in it are lost (see k8s/rabbitmq.yaml). The
+      # password in the Secret only takes effect on a fresh node, which with an
+      # emptyDir is every new pod: a rotation needs a restart.
+      - name: Aplicar RabbitMQ
+        run: |
+          kubectl apply -f k8s/rabbitmq.yaml
+          if kubectl rollout status deployment/rabbitmq -n "$NAMESPACE" --timeout=180s; then
+            exit 0
+          fi
+          kubectl describe deployment/rabbitmq -n "$NAMESPACE" || true
+          kubectl get pods -n "$NAMESPACE" -l app=rabbitmq -o wide || true
+          kubectl logs -n "$NAMESPACE" -l app=rabbitmq --tail=50 || true
+          echo "::error::RabbitMQ no quedo listo en 180s."
+          exit 1

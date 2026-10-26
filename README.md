@@ -86,15 +86,19 @@ Los manifiestos son planos, sin Kustomize ni overlays.
 | [`k8s/networkpolicy.yaml`](./k8s/networkpolicy.yaml): los pods del namespace solo aceptan tráfico entre ellos | El docente, después de revisar y aprobar el PR |
 | Deployment, Service, ConfigMap, Secret y Job de migración de cada servicio | [`deploy.yml`](./.github/workflows/deploy.yml), en cada push a `main` del servicio |
 | [`k8s/redis.yaml`](./k8s/redis.yaml): Deployment y Service del Redis compartido | [`deploy-redis.yml`](./.github/workflows/deploy-redis.yml), cuando cambia el manifiesto o a mano desde Actions |
+| [`k8s/rabbitmq.yaml`](./k8s/rabbitmq.yaml): Deployment y Service del RabbitMQ del namespace | [`deploy-rabbitmq.yml`](./.github/workflows/deploy-rabbitmq.yml), cuando cambia el manifiesto o a mano desde Actions |
 
 Los valores de cuota, el grupo de ALB y el host salen de la clase 6, Cloud Computing I del
 14 de septiembre, la misma que cierra el [ADR-008](./docs/adr/ADR-008-plataforma-de-despliegue.md).
 Los fija la cátedra: no son decisiones del equipo y no se cambian por cuenta propia.
 
 La cuota del equipo es de `2` CPU y `2Gi` de memoria en requests, `4` CPU y `4Gi`
-en limits, hasta `8` pods, `4` Services, `4` ConfigMaps y `4` Secrets.
-**Uno de los cuatro ConfigMaps ya está ocupado** por `kube-root-ca.crt`, que Kubernetes
-crea solo en cada namespace: quedan tres, uno por servicio con código.
+en limits, hasta `10` pods, `6` Services, `5` ConfigMaps y `6` Secrets. Los pods, Services,
+ConfigMaps y Secrets eran `8`, `4`, `4` y `4`, y se pidió ampliarlos el 2026-10-26 para sumar
+RabbitMQ y `notifications-api` ([#111](https://github.com/tds-g3-2s2026/udesa-x-platform/issues/111));
+el detalle de cada número está comentado en `k8s/namespace.yaml`.
+**Uno de los cinco ConfigMaps ya está ocupado** por `kube-root-ca.crt`, que Kubernetes
+crea solo en cada namespace: quedan cuatro, uno por servicio con código.
 Por contenedor, el mínimo es `100m` / `128Mi` y el máximo `500m` / `512Mi`.
 Los valores predeterminados son request `100m` / `128Mi` y limit `500m` / `512Mi`.
 Igualmente, cada Deployment debe declarar sus requests y limits explícitamente.
@@ -243,6 +247,30 @@ Detalles del manifiesto que conviene saber explicar:
 **Desde la primera migración aplicada contra Neon, el esquema solo cambia con Alembic.** La
 `0001` de cada servicio queda congelada: nada de editarla ni de `alembic stamp` contra una base
 con datos.
+
+### RabbitMQ
+
+Corre dentro del cluster, como dice `ARQUITECTURA.md` ("Asincrónica"), con el manifiesto
+`k8s/rabbitmq.yaml` y el workflow `deploy-rabbitmq.yml` de este repositorio. Hay un solo usuario,
+`udesa`, cuya clave es el secret `RABBITMQ_PASSWORD` de este repositorio. Cada servicio lo
+recibe en su GitHub Secret `RABBITMQ_URL`: `amqp://udesa:<clave>@rabbitmq:5672`. Sin TLS, como
+Redis: es tráfico dentro del namespace.
+
+- **Sin volumen persistente.** Los datos van en un `emptyDir`: sobreviven a un reinicio del
+  contenedor, pero no a un pod nuevo. Lo que quede encolado sin consumir al reemplazar el pod
+  se pierde. Los publicadores no pierden nada sin confirmar: su outbox borra una fila recién
+  cuando el broker la confirma.
+- **Memoria fijada a mano.** RabbitMQ no lee el límite del cgroup: sin
+  `total_memory_available_override_value` calcula su alarma sobre la RAM del nodo y el kernel
+  mata el pod antes de que el broker frene a los publicadores. Va como argumento de Erlang
+  porque no queda ConfigMap libre para un `rabbitmq.conf`.
+- **Corre como el usuario `rabbitmq` (100:101).** Como root, el broker no puede leer su propia
+  cookie de Erlang y no arranca.
+- **Rotar la clave** es cambiar `RABBITMQ_PASSWORD` y el `RABBITMQ_URL` de cada servicio,
+  correr el workflow y redesplegar los servicios. El usuario se crea solo en un nodo nuevo, y
+  con `emptyDir` cada pod nuevo lo es: si el manifiesto no cambió, hay que reiniciar el pod.
+- **El workflow revisa la cuota antes de tocar nada.** Con la cuota vieja entraba el Secret
+  pero no el Service, y el último Secret libre quedaba tomado por un broker que no arranca.
 
 ### GitHub Secrets para el despliegue
 
