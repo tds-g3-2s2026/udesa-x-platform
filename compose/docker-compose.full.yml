@@ -53,6 +53,13 @@ services:
       MONGODB_URL: mongodb://mongodb:27017/notifications
       RABBITMQ_URL: amqp://udesa:udesa@rabbitmq:5672
       EMAIL_PROVIDER: console
+      # Throwaway, only so the service starts: users-api above mints its own
+      # pair on every start, so its tokens do not verify here and
+      # /api/notifications answers 401 in this compose.
+      JWT_PUBLIC_KEY: |
+        -----BEGIN PUBLIC KEY-----
+        MCowBQYDK2VwAyEAqImbSOwLY35gB4XytjbBlXzbZnrfT3XBY5ewbejR5nk=
+        -----END PUBLIC KEY-----
     depends_on:
       mongodb:
         condition: service_healthy

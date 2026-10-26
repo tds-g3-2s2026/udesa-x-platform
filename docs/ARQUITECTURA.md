@@ -57,7 +57,7 @@ Seis repositorios en `tds-g3-2s2026`, todos creados y **públicos** desde el 202
 | `udesa-x-users-api`         | existe    | Identidad, perfiles, administradores, avatares     | FastAPI + Python           |
 | `udesa-x-posts-api`         | existe    | Contenido, grafo social, feed, búsqueda, imágenes  | FastAPI + Python           |
 | `udesa-x-notifications-api` | existe    | Push, centro in-app, emails, triage de IA          | Hono + Bun + TypeScript    |
-| `udesa-x-api-gateway`       | existe    | Ruteo interno de `/api` hacia `users-api` y `posts-api` | Hono + Bun + TypeScript    |
+| `udesa-x-api-gateway`       | existe    | Ruteo interno de `/api` hacia `users-api`, `posts-api` y `notifications-api` | Hono + Bun + TypeScript    |
 | `udesa-x-platform`          | existe    | Gestión, documentación, infraestructura compartida | Kustomize, Terraform, docs |
 
 **Por qué dos servicios en Python y el resto en TypeScript.** La consigna exige que el backend no esté en una única tecnología y no dice más que eso. Dado el margen, conviene que el peso caiga donde el equipo es más rápido: `posts-api` concentra casi la mitad de los puntos del sistema y ponerlo en el stack menos conocido era pagar ese costo en la parte más grande. `notifications-api` es el candidato natural para el segundo lenguaje porque es el más acotado: consume la cola, habla con FCM y con el proveedor de email, y no tiene lógica de dominio propia. Va en el mismo stack que el gateway, Bun y Hono, para que el backend tenga dos stacks y no tres ([ADR-015](./adr/ADR-015-notifications-api-en-bun-y-hono.md)). Y como mobile y backoffice son React, el equipo toca TypeScript igual todos los días.
@@ -362,6 +362,7 @@ Es el consumidor principal de la cola y el que justifica la segunda base de dato
 - Consume eventos y decide qué notificar.
 - Consulta preferencias antes de enviar, como exige E4-H5 CA.2.
 - Envía push por FCM, gestiona y depura device tokens.
+- Expone `/api/notifications` detrás del gateway, para lo que la app le pide directo: hoy el registro del device token después de cada login (`POST /api/notifications/device-tokens`, E4-H1 CA.3), y más adelante el centro in-app. Valida el JWT de `users-api` con la clave pública (firma, vencimiento y emisor) y no lee las revocaciones: un token cerrado sirve hasta que vence. Es la decisión D1 de E4-H1; el ADR-014 sigue aplicando solo a `posts-api`.
 - Persiste el historial in-app, paginado y con borrado lógico.
 - Envía todos los emails salientes: verificación, recuperación, cambio de contraseña, feedback, alerta de servicio caído.
 
@@ -946,7 +947,7 @@ El access token se firma con **EdDSA sobre Ed25519**. La clave privada llega por
 | Feedback                   | users-api     | 2 por hora por usuario (E1-H11 CA.4)       |
 | Invitaciones               | posts-api     | 10 links por día por usuario (E3-H9 CA.3)  |
 
-El middleware se implementa una vez en Python con contadores en Redis, y se copia entre `users-api` y `posts-api` como el módulo de subida: `limits` sobre FastAPI, en vez de escribir scripts Lua a mano. `notifications-api` no expone endpoints públicos, así que no lo necesita.
+El middleware se implementa una vez en Python con contadores en Redis, y se copia entre `users-api` y `posts-api` como el módulo de subida: `limits` sobre FastAPI, en vez de escribir scripts Lua a mano. `notifications-api` expone `/api/notifications` desde E4-H1, pero por ahora solo recibe un device token por login, así que no tiene límite propio; se revisa cuando llegue el centro in-app.
 
 Un matiz que conviene documentar y que suma en la defensa: el rate limit del Gateway es local a cada pod de NGINX, así que con tres réplicas el límite efectivo se triplica. Se corre una sola réplica para la demo y se explica por qué. La alternativa realmente distribuida exige Redis más el servicio de rate limit de Envoy, que son más piezas de las que este proyecto necesita.
 
