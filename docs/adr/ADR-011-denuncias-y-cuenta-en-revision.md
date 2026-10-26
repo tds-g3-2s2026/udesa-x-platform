@@ -1,6 +1,6 @@
 # ADR-011: Denuncias en `posts-api` y aviso de cuenta en revisión a `users-api`
 
-**Fecha:** 2026-09-28 · **Estado:** aceptada · **Decide:** el equipo
+**Fecha:** 2026-09-28 · **Estado:** aceptada, el umbral y la salida de la revisión los ajusta el [ADR-020](./ADR-020-cierre-de-casos-de-denuncias.md) · **Decide:** el equipo
 
 ## Contexto
 
