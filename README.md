@@ -197,7 +197,7 @@ que exigir TLS en su URL de conexión, no solo permitirlo:
 
 | Destino | Qué usar |
 |---|---|
-| PostgreSQL | Va cifrado con TLS exigido, no solo permitido. Estas APIs usan SQLAlchemy + asyncpg, así que va `?ssl=require` en la URL y no el parámetro libpq `sslmode`, que asyncpg no acepta y hace fallar la conexión. No va `verify-full`: la CA de RDS no está en el bundle del sistema al que apunta `PGSSLROOTCERT` y asyncpg no puede validar el certificado. `require` cifra pero no verifica el servidor; el riesgo es acotado porque la instancia es privada (ADR-021) |
+| PostgreSQL | Va cifrado con TLS exigido, no solo permitido. Estas APIs usan SQLAlchemy + asyncpg, así que va `?ssl=require` en la URL y no el parámetro libpq `sslmode`, que asyncpg no acepta y hace fallar la conexión. `PGSSLROOTCERT` apunta a las raíces de RDS que trae cada imagen (`/etc/ssl/certs/rds-ca-us-east-2.pem`), y con eso asyncpg verifica que el certificado lo firmó RDS; no verifica el hostname (ADR-021). Apuntarlo al bundle del sistema hace fallar la conexión |
 | Redis | Va dentro del cluster, no sale del namespace: `redis://`. Si alguna vez pasa a ser gestionado, `rediss://` |
 | RabbitMQ, si queda fuera del cluster | esquema `amqps://` |
 
