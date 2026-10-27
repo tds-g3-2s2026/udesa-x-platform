@@ -1090,3 +1090,19 @@ Pendientes de definir en S1:
 | A28 | Activación del gate de cobertura | **Cerrada: escalonado.** 85% desde S3 en los tres servicios backend, desde S5 en mobile y backoffice |
 | A29 | AGENTS.md y skills          | **Cerrada: obligatorios desde S1.** Bloque común sincronizado desde platform, skills versionadas en el repo. Ver `CONVENCIONES.md` |
 | A30 | Sincronización de comunes   | **Cerrada:** `repo-file-sync-action` para archivos comunes, según recomendó el tutor, y reusable workflows para el CI. Plantear la diferencia en la reunión |
+
+## Auditoría administrativa
+
+El historial se conserva en users-api y lo consultan SuperAdmin y Moderador. Cada
+registro guarda la identidad y el email del actor al preparar la operación, la acción,
+la entidad y su fecha. No admite edición ni borrado desde la aplicación ni mediante
+UPDATE, DELETE o TRUNCATE ordinarios; las migraciones conservan control del esquema.
+
+Las acciones locales insertan el registro en la misma transacción. posts-api escribe
+`admin.action_recorded.v1` en su outbox junto con la decisión sobre las denuncias.
+RabbitMQ lo entrega a users-api, que confirma después de persistir y deduplica por
+ID del evento. La consulta refleja estas acciones con consistencia eventual. No se
+usa un endpoint HTTP para transportar auditorías. El email se obtiene antes de la
+acción mediante una ruta interna de identidad administrativa; no se expone en el
+perfil público ni se incorpora al JWT. Una falla de esa consulta impide confirmar
+la acción, y no se promete atomicidad con cambios concurrentes de email.
