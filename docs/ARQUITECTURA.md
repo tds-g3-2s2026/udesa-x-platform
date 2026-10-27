@@ -955,6 +955,8 @@ Cuatro consecuencias que hay que aceptar desde el primer día:
 
 ## Integración de Inteligencia Artificial
 
+**Decisión del 2026-10-26, acordada con el tutor:** la funcionalidad de IA es un asistente por voz que maneja la app mobile, con Claude en Amazon Bedrock y un relay en `notifications-api` ([PROPUESTAS-IA.md](./PROPUESTAS-IA.md)). Reemplaza al triage de denuncias descrito abajo, que queda como registro hasta que `AI-02` reescriba esta sección.
+
 El triage de denuncias vive como un consumidor de la cola dentro de `notifications-api`, que ya es el servicio consumidor por diseño. Crear un repositorio nuevo para una única llamada a una API externa sería complejidad sin beneficio, y con polirepo ese costo es aún mayor. Es el mismo criterio que llevó a descartar `media-api`.
 
 ```mermaid
