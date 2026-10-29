@@ -1,0 +1,125 @@
+# RabbitMQ of the namespace (ARQUITECTURA.md, "Asincrónica"): users-api and
+# posts-api publish through their outbox, posts-api and notifications-api
+# consume. Applied by deploy-rabbitmq.yml, never by hand: the team only has read
+# access to the cluster (ADR-008).
+#
+# One user, created on first boot from the Secret rabbitmq-secret, which the
+# workflow builds from the RABBITMQ_PASSWORD GitHub Secret. Every service reaches
+# it with RABBITMQ_URL=amqp://udesa:<clave>@rabbitmq:5672.
+#
+# No ConfigMap on purpose: the namespace quota has none to spare. The only
+# setting that needs one is the memory, and it goes as an Erlang argument.
+#
+# Ephemeral like Redis: an emptyDir, no PVC. It survives a container restart
+# but not a new pod, so messages still queued when the pod is replaced are
+# lost. Publishers lose nothing that was not confirmed: their outbox only
+# deletes a row once the broker confirms it.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rabbitmq
+  namespace: tds-group-3
+  labels:
+    app: rabbitmq
+spec:
+  replicas: 1
+  # Recreate, not RollingUpdate: two brokers behind the same Service would split
+  # the queues between two unrelated nodes.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: rabbitmq
+  template:
+    metadata:
+      labels:
+        app: rabbitmq
+    spec:
+      # The image starts as root and the broker then fails to read its own
+      # Erlang cookie. As the image's rabbitmq user (100:101) it starts clean,
+      # and fsGroup makes the emptyDir writable for it.
+      securityContext:
+        runAsUser: 100
+        runAsGroup: 101
+        fsGroup: 101
+        runAsNonRoot: true
+      containers:
+        - name: rabbitmq
+          image: rabbitmq:4-management-alpine
+          env:
+            - name: RABBITMQ_DEFAULT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: rabbitmq-secret
+                  key: RABBITMQ_DEFAULT_USER
+            - name: RABBITMQ_DEFAULT_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: rabbitmq-secret
+                  key: RABBITMQ_DEFAULT_PASS
+            # RabbitMQ does not read the cgroup limit: without this it computes
+            # its memory alarm from the node's RAM, and the kernel kills the pod
+            # before the broker starts pushing back on publishers. 512Mi, the
+            # container limit; the alarm fires at 0.6 of it.
+            - name: RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS
+              value: "-rabbit total_memory_available_override_value 536870912"
+          ports:
+            - name: amqp
+              containerPort: 5672
+            - name: management
+              containerPort: 15672
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/rabbitmq
+          # Erlang takes a while to boot; the startup probe gives it a minute
+          # before liveness starts counting.
+          startupProbe:
+            exec:
+              command: ["rabbitmq-diagnostics", "-q", "ping"]
+            periodSeconds: 5
+            timeoutSeconds: 10
+            failureThreshold: 12
+          livenessProbe:
+            exec:
+              command: ["rabbitmq-diagnostics", "-q", "ping"]
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command: ["rabbitmq-diagnostics", "-q", "check_port_connectivity"]
+            periodSeconds: 10
+            timeoutSeconds: 10
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rabbitmq
+  namespace: tds-group-3
+  labels:
+    app: rabbitmq
+spec:
+  type: ClusterIP
+  selector:
+    app: rabbitmq
+  ports:
+    - name: amqp
+      port: 5672
+      targetPort: amqp
+      protocol: TCP
+    # Inside the namespace only: the Ingress does not route here.
+    - name: management
+      port: 15672
+      targetPort: management
+      protocol: TCP
