@@ -62,6 +62,25 @@ chore-sync-agents-md
 `main` está protegida en los seis repos desde el 2026-08-21: sin push directo, sin force
 push, sin borrado, y con una aprobación de otra persona. Alcanza también a los admins.
 
+La excepción son los PRs autoaprobados del
+[ADR-022](./adr/ADR-022-autoaprobacion-de-fixes-y-chores.md): un PR de `fix-` o `chore-` se
+mergea sin aprobación si responde "no" a las cuatro preguntas:
+
+1. ¿Cierra una historia o cambia lo que pide un criterio de aceptación?
+2. ¿Toma una decisión que el resto tiene que conocer: un ADR, una dependencia, un contrato entre
+   piezas o algo que comparten todos los repos?
+3. ¿Hace falta algo más que un `git revert` para deshacerlo: una migración, datos, seguridad o
+   los controles del CI?
+4. ¿Tiene más de 100 líneas escritas a mano?
+
+Si hay duda, va con revisión. El PR autoaprobado lleva la etiqueta `autoaprobado`, el CI en
+verde y una frase en la descripción que diga por qué entra. El revisor primario los repasa en
+la review del lunes.
+
+Desde el 2026-10-27 la protección son dos rulesets por repo, en vez de la protección clásica:
+`main-ci` exige el PR y el CI sin excepciones, y `main-revision` exige la aprobación. Para
+autoaprobar, el autor mergea salteando solo `main-revision`.
+
 El CI corre en cada Pull Request desde dos workflows reusables que cada repo consume con tres
 líneas: [`ci-python.yml`](../.github/workflows/ci-python.yml) para `users-api` y `posts-api`, y
 [`ci-node.yml`](../.github/workflows/ci-node.yml) para los repos en TypeScript sobre Bun:
@@ -243,8 +262,31 @@ igual con las issues distribuidas.
 **(tutor)** Las descripciones van en español. Se logra con
 `.github/copilot-instructions.md`, sincronizado a todos los repos.
 
-Plantilla obligatoria en `.github/PULL_REQUEST_TEMPLATE.md`. La sección "Explicación de la
-implementación" es obligatoria: **sin ella el PR no se revisa.**
+Plantilla en `.github/PULL_REQUEST_TEMPLATE.md`. La descripción es el título y una explicación
+breve en texto corrido, como la que le darías en persona a un compañero que no estuvo en esa
+parte: qué problema había, cómo lo resolviste y por qué así, con qué te topaste y qué decisión
+conviene mirar con más atención. Sin secciones, checkboxes ni tablas, y con palabras simples:
+la tiene que entender alguien que no conoce la pieza. Si aparece un término propio del módulo,
+se explica en pocas palabras. **Sin explicación el PR no se revisa.**
+
+Las verificaciones que antes eran checkboxes siguen valiendo, pero no se tildan en el PR: lint,
+formato, tests y cobertura los exige el CI, y la trazabilidad de los criterios de aceptación y
+la documentación las mira quien revisa con la skill `revisar-pr`.
+
+Un ejemplo de descripción:
+
+> Hasta ahora un usuario podía darle me gusta dos veces al mismo post si tocaba el botón
+> rápido: llegaban dos requests casi juntos y los dos guardaban el like. El CA.3 pide uno solo.
+>
+> Lo resolví en la base: la tabla `post_likes` tiene como clave el par usuario y post, así que
+> el segundo insert falla y lo devolvemos como si ya existiera. Chequear antes de insertar no
+> alcanzaba, porque entre el chequeo y el insert puede entrar el otro request.
+>
+> Lo que conviene mirar es el contador de likes del post: es un dato copiado, que actualizo en
+> la misma transacción para que no se desfase. Lo elegí para que el feed no cuente likes en
+> cada lectura.
+>
+> Closes #42
 
 **Una issue se entrega en varios PR chicos**, uno por paso lógico. La issue es la unidad de
 propiedad y de puntos; el PR es la unidad de revisión.

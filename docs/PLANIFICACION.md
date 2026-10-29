@@ -309,7 +309,7 @@ La consigna exige que cada estudiante pueda explicar y justificar lo que hizo. U
 |---|---|
 | Facilitador y escriba | Modera el planning del lunes y el daily escrito. Mantiene el board limpio. Persigue bloqueos. Escribe el acta en `docs/actas/` y los ADR de las decisiones de la semana. |
 | Guardián de CI | El pipeline queda verde. Cobertura por encima del gate. Tests intermitentes arreglados o dados de baja con issue. |
-| Revisor primario | Primer revisor de todos los PR de la semana. Nadie mergea sin su aprobación o la de un suplente. |
+| Revisor primario | Primer revisor de todos los PR de la semana. Nadie mergea sin su aprobación o la de un suplente, salvo los PRs autoaprobados del ADR-022, que repasa en la review del lunes. |
 
 Facilitador y escriba se fusionaron al pasar el equipo a tres: son los dos roles de registro y
 coordinación, y separarlos con tres personas dejaba a alguien haciendo dos.
@@ -902,16 +902,16 @@ Esto no es una recomendación: es parte del proceso desde S1, con issues propias
 
 **`AGENTS.md` en cada repositorio.** Corto, tipo índice: mapa del repo, reglas del equipo y qué checks correr. El bloque común se sincroniza desde `udesa-x-platform`; el bloque propio lo escribe quien crea el repo. Ahí viven las guidelines del tutor, así que el agente las tiene siempre en contexto y no hay que recordárselas.
 
-**Tres pasos, siempre en este orden.** Planear: se parte de la historia y su issue, el agente arma un plan y una persona lo corrige antes de que se escriba código. Ejecutar y verificar: se corre el plan y se corren los checks del repo. Mergear: PR con la explicación, revisión de otra persona, merge.
+**Tres pasos, siempre en este orden.** Planear: se parte de la historia y su issue, el agente arma un plan y una persona lo corrige antes de que se escriba código. Ejecutar y verificar: se corre el plan y se corren los checks del repo. Mergear: PR con la explicación, revisión de otra persona, merge. Los fixes y chores chicos que no deciden nada se mergean sin revisión, según el ADR-022.
 
 **Skills versionadas en el repositorio, no en la máquina de cada uno.** Viven en `.agents/skills/` y se sincronizan a los seis repos. Así los tres usan el mismo procedimiento y la mejora que hace uno la heredan los otros dos.
 
 | Skill | Cuándo se usa |
 |---|---|
-| `explicar-implementacion` | Antes de cada merge. Produce qué cambió, por qué, ventajas y desventajas, y mejoras posibles, explicado como a alguien que recién aprende. También sirve para preparar la defensa de una historia. |
+| `explicar-implementacion` | Antes de cada merge. Redacta la descripción del PR: una explicación breve en texto corrido de qué problema había, cómo se resolvió y por qué, con qué se topó el autor y qué conviene mirar, para que la entienda alguien sin el contexto de la pieza. También sirve para preparar la defensa de una historia. |
 | `revisar-pr` | Al revisar un PR. Chequea criterios de aceptación cubiertos, tests con su identificador, cobertura, seguridad y reglas del repo. Produce el informe; **no aprueba**: la aprobación la da una persona. |
 
-**Regla del equipo: nadie sube algo que no puede explicar.** El PR sin la sección de explicación no se revisa. No es una formalidad de proceso: es el único mecanismo que detecta a tiempo que alguien está mergeando código que no entiende.
+**Regla del equipo: nadie sube algo que no puede explicar.** El PR sin explicación no se revisa. No es una formalidad de proceso: es el único mecanismo que detecta a tiempo que alguien está mergeando código que no entiende.
 
 **El agente no commitea, no pushea y no abre ni mergea PRs.** Puede escribir el código, correr los checks y redactar el mensaje de commit y el cuerpo del PR; ejecutar esas cuatro acciones es siempre de una persona, desde su cuenta. Es lo que hace que la autoría del historial signifique algo: el tutor puede pedir el `git log` de cualquier semana y lo que figura ahí es lo que cada uno se comprometió a defender. La regla completa, con lo que sí puede hacer, está en [`CONVENCIONES.md`](./CONVENCIONES.md).
 
@@ -921,14 +921,14 @@ Esto no es una recomendación: es parte del proceso desde S1, con issues propias
 
 Las reglas completas están en [`CONVENCIONES.md`](./CONVENCIONES.md). Lo esencial:
 
-- Rama base `main`, protegida: sin push directo, CI verde obligatorio, al menos una aprobación.
+- Rama base `main`, protegida: sin push directo, CI verde obligatorio, al menos una aprobación salvo los PRs autoaprobados del ADR-022.
 - Funcionalidad: `feature-<nombre>`. Fix sin funcionalidad: `fix-<nombre>`. Es la convención del tutor.
 - Mantenimiento y tooling (etiqueta `tech debt`): `chore-<nombre>`, agregado por el equipo.
 - Toda rama tiene su issue asociada, en el mismo repositorio.
 - Un PR por historia, o por criterio de aceptación si la historia es grande.
-- Descripción del PR en español, con la plantilla del repo. La sección "Explicación de la implementación" es obligatoria: **sin ella el PR no se revisa.**
+- Descripción del PR en español: el título y una explicación breve en texto corrido, con palabras simples, como se la contarías en persona a un compañero. **Sin explicación el PR no se revisa.**
 - Commits en formato Conventional Commits.
-- Ningún integrante aprueba su propio PR. El revisor primario de la semana es el primer revisor de todo.
+- Ningún integrante aprueba su propio PR. El revisor primario de la semana es el primer revisor de todo, y en la review del lunes repasa los PRs autoaprobados.
 - **Ningún PR queda abierto de un lunes al siguiente.** Si no se puede cerrar, se parte.
 
 ## Gestión en GitHub
@@ -1022,8 +1022,8 @@ Una issue solo puede pasar a `Done` cuando:
 - Todos los criterios de aceptación están verificados, cada uno con su test referenciado.
 - Hay tests unitarios y la cobertura del servicio se mantiene por encima del 85%.
 - Hay tests de integración si la historia cruza componentes o toca persistencia.
-- El PR incluye la sección "Explicación de la implementación" completa, y el dueño de la historia puede defender cada decisión sin ayuda.
-- Otro integrante revisó y aprobó el código. La skill `revisar-pr` produce el informe; la aprobación la da la persona.
+- El PR explica el cambio en texto corrido, y el dueño de la historia puede defender cada decisión sin ayuda.
+- Otro integrante revisó y aprobó el código. La skill `revisar-pr` produce el informe; la aprobación la da la persona. Los fixes y chores autoaprobados según el ADR-022 son la única excepción, y nunca cierran una historia.
 - El pipeline de CI está verde.
 - La funcionalidad fue validada en staging, no solo en local.
 - Se revisaron los aspectos de seguridad aplicables del checklist OWASP.
