@@ -56,7 +56,7 @@ Seis repositorios en `tds-g3-2s2026`, todos creados y **públicos** desde el 202
 | `udesa-x-backoffice`        | existe    | Backoffice web                                     | React + Vite               |
 | `udesa-x-users-api`         | existe    | Identidad, perfiles, administradores, avatares     | FastAPI + Python           |
 | `udesa-x-posts-api`         | existe    | Contenido, grafo social, feed, búsqueda, imágenes  | FastAPI + Python           |
-| `udesa-x-notifications-api` | existe    | Push, centro in-app, emails, triage de IA          | Hono + Bun + TypeScript    |
+| `udesa-x-notifications-api` | existe    | Push, centro in-app, emails, asistente de IA       | Hono + Bun + TypeScript    |
 | `udesa-x-api-gateway`       | existe    | Ruteo interno de `/api` hacia `users-api`, `posts-api` y `notifications-api` | Hono + Bun + TypeScript    |
 | `udesa-x-platform`          | existe    | Gestión, documentación, infraestructura compartida | Kustomize, Terraform, docs |
 
@@ -251,7 +251,7 @@ dueño de lo suyo.
 Lo que deliberadamente **no** dibuja, para que se entienda: los eventos concretos que viajan por
 la cola están en el diagrama de "Comunicación entre servicios", la telemetría en el de
 "Observabilidad", y los proveedores externos que consume `notifications-api` son FCM para push,
-el proveedor de email y la Claude API para el triage de denuncias.
+el proveedor de email y Amazon Bedrock para el asistente de IA.
 
 ### Correspondencia con la nube
 
@@ -262,6 +262,7 @@ el proveedor de email y la Claude API para el triage de denuncias.
 | MongoDB                     | MongoDB Atlas en capa gratuita                  | DocumentDB solo si hay créditos: cuesta varias veces más                                                                 |
 | Redis                       | Dentro del cluster, uno solo                    | Cerrado en el ADR-009. Datos efímeros, separación por base lógica: `/0` para users, `/1` para posts                     |
 | Almacenamiento de media     | S3 con bucket privado y URLs firmadas           | Cerrado                                                                                                                  |
+| Modelo de IA                | Amazon Bedrock, inferencia dentro de EE. UU.    | Cerrado en el ADR-023. El modelo sale de la comparación de `AI-03` entre los candidatos de `ESTIMACION-COSTOS-IA.md`      |
 | Registry de imágenes        | Amazon ECR                                      | Sin ADR propio todavía. Los manifiestos en revisión (`platform#51`, `users-api#42`, `posts-api#37`, `api-gateway#3`) usan `${ECR_IMAGE}` y probaron imágenes reales contra ECR |
 | DNS y certificados          | Los resuelve la cátedra sobre el ingress        | Cerrado en el ADR-008. El equipo no administra la entrada del cluster                                                    |
 | Región                      | `us-east-2`                                     | Cerrado en el ADR-008 (Ohio)                                                                                             |
@@ -547,7 +548,7 @@ RabbitMQ 4.x desplegado en el cluster, con exchange de tipo topic. Elegido sobre
 | `post.created`                 | posts        | notifications (menciones)                  |
 | `follow.created`               | posts        | notifications                              |
 | `interaction.created`          | posts        | notifications                              |
-| `report.created`               | posts        | notifications, triage de IA                |
+| `report.created`               | posts        | notifications                              |
 
 La tabla nombra los eventos sin versión. El contrato de cada uno, con su versión, vive en
 [`docs/eventos/`](./eventos/README.md) desde que tiene publicador; `servicios.json` declara qué
@@ -564,22 +565,18 @@ flowchart LR
     subgraph con["Consumen"]
         direction TB
         N["notifications-api"]
-        T["Consumidor de triage<br/>dentro de notifications-api"]
         P2["posts-api<br/>como consumidor"]
     end
 
     U -->|"user.registered · email_verification.requested<br/>user.deleted · user.profile_updated<br/>password.reset_requested<br/>password.changed · feedback.submitted"| EX
     P -->|"post.created · follow.created<br/>interaction.created · report.created"| EX
     EX -->|"casi todos"| N
-    EX -->|"report.created"| T
     EX -->|"user.deleted<br/>user.profile_updated"| P2
 
     classDef svc fill:#dcfce7,stroke:#16a34a,stroke-width:1.5px,color:#0f172a
     classDef bus fill:#f5d0fe,stroke:#a21caf,stroke-width:1.5px,color:#0f172a
-    classDef ai fill:#ffe4e6,stroke:#e11d48,stroke-width:1.5px,color:#0f172a
     class U,P,N,P2 svc
     class EX bus
-    class T ai
 ```
 
 `posts-api` aparece dos veces a propósito: publica y consume. Necesita reaccionar a `user.deleted` y `user.profile_updated` para mantener consistente el autor denormalizado en cada post.
@@ -990,55 +987,60 @@ Cuatro consecuencias que hay que aceptar desde el primer día:
 
 ## Integración de Inteligencia Artificial
 
-**Decisión del 2026-10-26, acordada con el tutor:** la funcionalidad de IA es un asistente por voz que maneja la app mobile, con Claude en Amazon Bedrock y un relay en `notifications-api` ([PROPUESTAS-IA.md](./PROPUESTAS-IA.md)). Reemplaza al triage de denuncias descrito abajo, que queda como registro hasta que `AI-02` reescriba esta sección.
+**Decisión del 2026-10-26, acordada con el tutor:** la funcionalidad de IA es controlar el feed
+con la voz ([PROPUESTAS-IA.md](./PROPUESTAS-IA.md)). El proveedor, el modelo, las credenciales
+y los datos enviados están en el [ADR-023](./adr/ADR-023-bedrock-para-el-asistente-por-voz.md),
+y el costo en [ESTIMACION-COSTOS-IA.md](./ESTIMACION-COSTOS-IA.md). Reemplaza al triage de
+denuncias que describía esta sección.
 
-El triage de denuncias vive como un consumidor de la cola dentro de `notifications-api`, que ya es el servicio consumidor por diseño. Crear un repositorio nuevo para una única llamada a una API externa sería complejidad sin beneficio, y con polirepo ese costo es aún mayor. Es el mismo criterio que llevó a descartar `media-api`.
+El asistente vive como un módulo `assistant` dentro de `notifications-api`, el servicio
+designado para la IA desde el principio: usa TypeScript como la app y no suma un `Service` a la
+cuota del namespace. Es un relay sin estado. Guarda las credenciales, arma cada llamada al
+modelo, valida lo que el modelo devuelve y aplica los topes. El modelo nunca llama a la API:
+elige una acción de un catálogo y la app la ejecuta en la pantalla, con los mismos permisos del
+usuario.
 
 ```mermaid
 sequenceDiagram
     autonumber
     actor USR as Usuario
-    participant PST as posts-api
-    participant MQ as RabbitMQ
-    participant TRI as Triage de IA
-    participant LLM as Claude API
-    participant BO as Backoffice
-    actor MOD as Moderador
+    participant APP as App mobile
+    participant AST as notifications-api<br/>/api/assistant
+    participant LLM as Modelo en Bedrock
 
-    USR->>PST: denuncia un post, E3-H5
-    PST->>PST: persiste denuncia + outbox
-    PST-->>USR: 201, sin esperar a la IA
-    PST->>MQ: report.created
-    MQ->>TRI: entrega
-
-    alt el modelo responde dentro de 10 s
-        TRI->>LLM: texto reportado y motivo<br/>sin email, handle ni identificadores
-        LLM-->>TRI: categoría, severidad,<br/>justificación, confianza
-        TRI->>PST: persiste la sugerencia
-    else timeout, error o baja confianza
-        TRI->>TRI: un reintento
-        TRI->>PST: la denuncia entra sin sugerencia
-        Note over TRI,PST: el backoffice nunca se bloquea por la IA
+    USR->>APP: mantiene el micrófono y habla
+    APP->>APP: voz a texto en el teléfono
+    APP->>AST: texto + posts visibles como p1, p2...
+    loop hasta terminar, con tope de pasos
+        AST->>LLM: pedido + catálogo de acciones
+        LLM-->>AST: próxima acción
+        AST->>AST: valida la acción contra el catálogo
+        AST-->>APP: acción
+        APP->>APP: la ejecuta en la UI<br/>y confirma si la ven otros
+        APP->>AST: resultado y pantalla nueva
     end
-
-    MOD->>BO: abre la bandeja, E5-H7
-    BO->>PST: denuncias ordenadas por severidad
-    MOD->>BO: confirma o corrige
-    BO->>PST: registra la decisión humana<br/>y si coincidió con la sugerencia
-    Note over MOD,PST: la IA nunca sanciona.<br/>La acción disciplinaria siempre la ejecuta una persona
+    APP-->>USR: respuesta breve en voz y texto
 ```
 
-| Aspecto             | Decisión                                                                                            |
-| ------------------- | --------------------------------------------------------------------------------------------------- |
-| Modelo              | `claude-haiku-4-5`, 1 USD por millón de tokens de entrada y 5 por millón de salida                  |
-| Salida              | Esquema JSON forzado con salida estructurada, para que siempre parsee                               |
-| Datos enviados      | Solo el texto reportado y el motivo. Nunca email, handle ni identificadores                         |
-| Timeout             | 10 segundos. Si vence, la denuncia entra sin sugerencia                                             |
-| Fallo del proveedor | Se registra, se reintenta una vez, la denuncia queda sin sugerencia. El backoffice nunca se bloquea |
-| Clave de API        | Sealed Secret en el cluster, jamás en el repo ni en el cliente                                      |
-| Costo estimado      | Centavos para el volumen del proyecto entero                                                        |
+| Aspecto        | Decisión                                                                                                       |
+| -------------- | -------------------------------------------------------------------------------------------------------------- |
+| Proveedor      | Amazon Bedrock en la cuenta de la cátedra, `us-east-2`, con inferencia dentro de EE. UU.                       |
+| Modelo         | El más barato de los diez candidatos de `ESTIMACION-COSTOS-IA.md` que pase la evaluación de `AI-03`            |
+| API            | Converse de Bedrock, la misma para Nova y Claude, con tool use. Cambiar de modelo es cambiar una variable      |
+| Salida         | Una acción del catálogo por paso. El relay la valida antes de mandarla a la app                                |
+| Datos enviados | El pedido en texto y los posts visibles con referencias cortas. Nunca ids, emails, tokens ni audio             |
+| Credenciales   | Un rol de IAM que asume el pod con su token, igual que S3 en `posts-api`. Sin claves en el repo                |
+| Topes          | Hasta 8 llamadas por pedido, tiempo límite por llamada y rate limit por usuario                                |
+| Retención      | Nada del contenido se guarda ni va a logs o trazas. Solo métricas de pasos, latencia y resultado               |
+| Costo estimado | Menos de USD 9 para el proyecto entero con cualquiera de los candidatos                                        |
+| Si falla       | El asistente avisa que no pudo y la app sigue funcionando sin él                                               |
 
-**Restricciones no negociables:** la IA nunca sanciona, el moderador confirma o corrige, se registra la decisión humana junto a la sugerencia, y se minimizan los datos enviados al proveedor.
+**Restricciones no negociables:**
+- lo que ven otros (publicar, comentar, retuitear, seguir) se confirma siempre en la app, lo
+  diga o no el modelo;
+- el texto de los posts es dato no confiable y nunca amplía el catálogo;
+- borrar, bloquear, denunciar, cambiar la contraseña y cerrar la cuenta quedan fuera del
+  catálogo: el agente puede llevar al usuario a esa pantalla, pero la acción la hace él.
 
 ## Decisiones de arquitectura
 

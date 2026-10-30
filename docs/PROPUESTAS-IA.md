@@ -22,7 +22,7 @@ sequenceDiagram
     actor USR as Usuario
     participant APP as App mobile
     participant AST as notifications-api<br/>/api/assistant
-    participant LLM as Claude en Bedrock
+    participant LLM as Modelo en Bedrock
 
     USR->>APP: mantiene el micrófono y habla
     APP->>APP: voz a texto en el teléfono
@@ -53,9 +53,10 @@ sequenceDiagram
   designado para la IA en `ARQUITECTURA.md` y usa TypeScript, igual que la app. Es un relay:
   guarda las credenciales de Bedrock, arma el pedido y aplica los topes. No suma `Service` al
   namespace. El gateway suma la ruta `/api/assistant`.
-- **Modelo.** Claude Haiku 5.5 en Amazon Bedrock por defecto, por latencia, porque cada pedido
-  son varias llamadas. Sonnet 5.5 si la evaluación muestra que Haiku falla en pedidos de varios
-  pasos. GPT 6 Luna o 6.1 Sol quedan como alternativa si Bedrock no está disponible.
+- **Modelo.** En Amazon Bedrock, el más barato de diez candidatos (Nova, Nemotron, GLM, Gemma,
+  Ministral, gpt-oss, Qwen, Llama y Claude Haiku 5.5) que pase la evaluación de `AI-03`, con
+  Claude Sonnet 5.5 solo como referencia de calidad. Lo decide el ADR-023, con la estimación
+  de `ESTIMACION-COSTOS-IA.md`.
 - **Límites.** Tope de pasos por pedido, tiempo límite por llamada al modelo y rate limit por
   usuario. Al modelo llega el pedido y lo que hay en pantalla, nunca tokens, emails ni ids
   internos. Ningún texto del usuario va a logs ni trazas, que salen a Grafana Cloud (ADR-013).
@@ -84,11 +85,12 @@ Las versiones anteriores de este documento proponían el mapa de la conversació
 medición preliminar del 2026-10-17 mostró que el LLM que entra en la cuota no clasifica con la
 confianza necesaria, y el triage dependía de piezas que todavía no existen. Con
 un modelo hosteado, el asistente por voz es la opción que más se ve en la app y que más aporta
-al usuario. Reemplaza la decisión del ADR-016, que se reescribe en `AI-02`.
+al usuario. Reemplaza la decisión del ADR-016; la vigente es el ADR-023.
 
 ## Lo que sigue
 
-- `AI-02`: ADR de proveedor, credenciales de Bedrock y datos enviados, que reemplaza al ADR-016.
+- `AI-02`: ADR-023, con proveedor, credenciales de Bedrock, datos enviados y estimación de
+  costos. Reemplaza al ADR-016.
 - `AI-03`: spike de punta a punta con tres acciones y el set de pedidos del criterio de éxito.
 - `AI-04` a `AI-07`: se reescriben para el relay, la integración en la app, los tests y los
   límites del asistente.
