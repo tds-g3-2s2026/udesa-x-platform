@@ -20,11 +20,13 @@ escribe una nueva que reemplaza a la anterior y se anota acá.
 | [ADR-013](./ADR-013-trazas-y-logs-con-opentelemetry.md) | Trazas y logs con OpenTelemetry, enviados directo a Grafana Cloud | 2026-10-01 | Aceptada |
 | [ADR-014](./ADR-014-revocacion-de-sesiones-en-posts-api.md) | `posts-api` lee las revocaciones de sesión desde el Redis de `users-api` | 2026-10-03 | Aceptada |
 | [ADR-015](./ADR-015-notifications-api-en-bun-y-hono.md) | `notifications-api` en Bun y Hono, igual que el gateway | 2026-10-14 | Aceptada |
+| [ADR-016](./ADR-016-modelos-abiertos-para-la-ia.md) | Modelos abiertos dentro del cluster para la funcionalidad de IA | 2026-10-17 | Propuesta, no se aceptó. Reemplazada por ADR-023 |
 | [ADR-017](./ADR-017-forma-y-versionado-de-eventos.md) | Forma, versionado y verificación de los contratos de eventos | 2026-10-23 | Aceptada |
 | [ADR-018](./ADR-018-librerias-para-imagenes-en-publicaciones.md) | Librerías para imágenes en publicaciones: selector y visor en `mobile`, S3 y multipart en `posts-api` | 2026-10-23 | Aceptada |
 | [ADR-019](./ADR-019-aio-pika-para-eventos-en-python.md) | `aio-pika` para publicar y consumir eventos en los servicios de Python | 2026-10-24 | Aceptada |
 | [ADR-020](./ADR-020-cierre-de-casos-de-denuncias.md) | Cierre de casos de denuncias: el umbral cuenta lo pendiente y la revisión se levanta | 2026-10-25 | Aceptada |
 | [ADR-021](./ADR-021-postgresql-en-rds.md) | PostgreSQL en RDS, una base y un rol por servicio | 2026-10-26 | Aceptada |
+| [ADR-023](./ADR-023-bedrock-para-el-asistente-por-voz.md) | Amazon Bedrock para el asistente por voz, en un servicio propio | 2026-10-30 | Aceptada |
 
 Solo se registran decisiones ya tomadas y que el equipo pueda justificar, numeradas en el
 orden en que se toman. Lo que todavía está por definirse vive como decisión abierta `Dxx` en
@@ -74,3 +76,9 @@ una librería: `aio-pika` publica la `outbox` en `users-api` y consume `user.del
 La base de PostgreSQL de producción quedó registrada en el ADR-021. Reemplaza la parte de
 PostgreSQL del ADR-009 (Neon pasa a RDS, una base y un rol por servicio) y deja vigentes Redis en
 el cluster y las migraciones obligatorias. Actualiza `A12` y `A19` de `ARQUITECTURA.md`.
+
+El proveedor, el modelo y el servicio propio de la funcionalidad de IA quedaron registrados
+en el ADR-023.
+Reemplaza al ADR-016, que no se aceptó, cierra `AI-02` y reescribe la sección "Integración
+de Inteligencia Artificial" de `ARQUITECTURA.md`. La estimación de costos que lo justifica
+está en `docs/ESTIMACION-COSTOS-IA.md`.

@@ -1,6 +1,6 @@
 # ADR-016: modelos abiertos dentro del cluster para la funcionalidad de IA
 
-**Fecha:** 2026-10-17 · **Estado:** propuesta, se acepta con la aprobación del tutor ·
+**Fecha:** 2026-10-17 · **Estado:** propuesta, no se aceptó. Reemplazada por el ADR-023 ·
 **Decide:** el equipo, con el tutor
 
 ## Contexto
