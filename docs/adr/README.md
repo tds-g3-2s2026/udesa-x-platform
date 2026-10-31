@@ -82,3 +82,5 @@ en el ADR-023.
 Reemplaza al ADR-016, que no se aceptó, cierra `AI-02` y reescribe la sección "Integración
 de Inteligencia Artificial" de `ARQUITECTURA.md`. La estimación de costos que lo justifica
 está en `docs/ESTIMACION-COSTOS-IA.md`.
+
+La [búsqueda literal y el estado de consultas en mobile](./busqueda-literal-y-cache-mobile.md) fijan la coincidencia, los límites de cada servicio y la gestión de caché por sesión.
