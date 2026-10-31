@@ -26,7 +26,7 @@ escribe una nueva que reemplaza a la anterior y se anota acá.
 | [ADR-019](./ADR-019-aio-pika-para-eventos-en-python.md) | `aio-pika` para publicar y consumir eventos en los servicios de Python | 2026-10-24 | Aceptada |
 | [ADR-020](./ADR-020-cierre-de-casos-de-denuncias.md) | Cierre de casos de denuncias: el umbral cuenta lo pendiente y la revisión se levanta | 2026-10-25 | Aceptada |
 | [ADR-021](./ADR-021-postgresql-en-rds.md) | PostgreSQL en RDS, una base y un rol por servicio | 2026-10-26 | Aceptada |
-| [ADR-023](./ADR-023-bedrock-para-el-asistente-por-voz.md) | Amazon Bedrock para el asistente por voz, con el modelo más barato que pase la evaluación | 2026-10-30 | Aceptada |
+| [ADR-023](./ADR-023-bedrock-para-el-asistente-por-voz.md) | Amazon Bedrock para el asistente por voz, en un servicio propio | 2026-10-30 | Aceptada |
 
 Solo se registran decisiones ya tomadas y que el equipo pueda justificar, numeradas en el
 orden en que se toman. Lo que todavía está por definirse vive como decisión abierta `Dxx` en
@@ -77,7 +77,8 @@ La base de PostgreSQL de producción quedó registrada en el ADR-021. Reemplaza 
 PostgreSQL del ADR-009 (Neon pasa a RDS, una base y un rol por servicio) y deja vigentes Redis en
 el cluster y las migraciones obligatorias. Actualiza `A12` y `A19` de `ARQUITECTURA.md`.
 
-El proveedor y el modelo de la funcionalidad de IA quedaron registrados en el ADR-023.
+El proveedor, el modelo y el servicio propio de la funcionalidad de IA quedaron registrados
+en el ADR-023.
 Reemplaza al ADR-016, que no se aceptó, cierra `AI-02` y reescribe la sección "Integración
 de Inteligencia Artificial" de `ARQUITECTURA.md`. La estimación de costos que lo justifica
 está en `docs/ESTIMACION-COSTOS-IA.md`.

@@ -21,7 +21,7 @@ sequenceDiagram
     autonumber
     actor USR as Usuario
     participant APP as App mobile
-    participant AST as notifications-api<br/>/api/assistant
+    participant AST as assistant-api<br/>/api/assistant
     participant LLM as Modelo en Bedrock
 
     USR->>APP: mantiene el micrófono y habla
@@ -49,14 +49,16 @@ sequenceDiagram
   el catálogo**: el agente puede llevar al usuario a esa pantalla, pero la acción la hace él.
 - **Confirmación de lo que ven otros.** Publicar, responder, seguir y retuitear muestran una
   tarjeta con lo que se va a hacer, y se confirma con un toque o diciendo "sí".
-- **Dónde corre.** Un módulo `assistant` en `notifications-api`, que ya es el servicio
-  designado para la IA en `ARQUITECTURA.md` y usa TypeScript, igual que la app. Es un relay:
-  guarda las credenciales de Bedrock, arma el pedido y aplica los topes. No suma `Service` al
-  namespace. El gateway suma la ruta `/api/assistant`.
-- **Modelo.** En Amazon Bedrock, el más barato de diez candidatos (Nova, Nemotron, GLM, Gemma,
-  Ministral, gpt-oss, Qwen, Llama y Claude Haiku 5.5) que pase la evaluación de `AI-03`, con
-  Claude Sonnet 5.5 solo como referencia de calidad. Lo decide el ADR-023, con la estimación
-  de `ESTIMACION-COSTOS-IA.md`.
+- **Dónde corre.** Un servicio propio, `assistant-api`, en FastAPI y Python, con sus
+  evaluaciones, tests y playground en el mismo repo. Es un relay: guarda las credenciales de
+  Bedrock, arma el pedido y aplica los topes. El gateway suma la ruta `/api/assistant`. Lo
+  decide el ADR-023: la primera versión lo ponía en `notifications-api`, y el tutor sugirió
+  separarlo.
+- **Modelo.** En Amazon Bedrock. Arranca con gpt-oss-120b, de costo medio entre diez
+  candidatos (Nova, Nemotron, GLM, Gemma, Ministral, gpt-oss, Qwen, Llama y Claude Haiku 5.5),
+  y se ajusta con las evaluaciones de `AI-03` hasta el más barato que cumpla, con Claude
+  Sonnet 5.5 solo como referencia de calidad. Lo decide el ADR-023, con la estimación de
+  `ESTIMACION-COSTOS-IA.md`.
 - **Límites.** Tope de pasos por pedido, tiempo límite por llamada al modelo y rate limit por
   usuario. Al modelo llega el pedido y lo que hay en pantalla, nunca tokens, emails ni ids
   internos. Ningún texto del usuario va a logs ni trazas, que salen a Grafana Cloud (ADR-013).

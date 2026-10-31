@@ -123,21 +123,24 @@ la mayoría de estos modelos. Lo medimos nosotros.
    y "Compare models" (en Labs) manda el mismo pedido a varios modelos a la vez y muestra la
    respuesta, los tokens y la demora de cada uno. Sirve para descartar rápido.
 2. **En serio, con el spike de `AI-03`.** Los mismos 25 pedidos guionados, sobre un feed
-   simulado, contra cada candidato por Converse. Para cada modelo mide:
+   simulado, por Converse. Arranca con gpt-oss-120b, de costo medio, y se mueve por la tabla
+   según el resultado: hacia uno más barato si cumple, hacia uno más capaz si no. Para cada
+   modelo mide:
    - cuántos pedidos terminan bien (se compara el estado final con el esperado);
    - cuántos pasos usa;
    - cuánto tarda hasta la primera acción;
    - cuántos tokens gasta y cuánto cuesta.
 
-   Una corrida con los diez cuesta unos USD 0,42, más USD 0,94 si se suma Sonnet. Probar todos
-   sale más barato que discutir cuál probar.
+   Una corrida con un modelo cuesta centavos, y con los diez, unos USD 0,42 (más USD 0,94 si
+   se suma Sonnet). Por eso se puede iterar sin preocuparse por el gasto.
 
-Gana el más barato que cumpla el criterio de éxito (ADR-023).
+Queda el más barato que cumpla el criterio de éxito (ADR-023). Las evaluaciones viven en el
+repo de `assistant-api`, así que se pueden repetir cuando cambie el prompt o el modelo.
 
 ## Cómo se mantiene acotado
 
 - Tope de 8 llamadas al modelo por pedido y un límite de tokens de salida por llamada.
-- Rate limit por usuario en el relay de `notifications-api`.
+- Rate limit por usuario en `assistant-api`.
 - Una variable de configuración apaga el asistente sin cambiar código.
 - Pedimos a la cátedra una alarma de presupuesto sobre Bedrock en la cuenta.
 
