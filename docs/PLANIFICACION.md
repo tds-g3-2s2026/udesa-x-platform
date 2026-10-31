@@ -747,6 +747,11 @@ Solo aplica si algo quedó pendiente. El cronograma de la cátedra es explícito
 
 ## Funcionalidad de Inteligencia Artificial
 
+> **Reemplazada el 2026-10-26.** La funcionalidad acordada con el tutor es controlar el feed
+> con la voz ([PROPUESTAS-IA.md](./PROPUESTAS-IA.md)). El proveedor y el modelo están en el
+> ADR-023 y el costo en [ESTIMACION-COSTOS-IA.md](./ESTIMACION-COSTOS-IA.md). Lo que sigue
+> queda como registro de la propuesta original.
+
 ### Propuesta: triage asistido de denuncias en el backoffice
 
 Al llegar una denuncia (E.3 H5), un consumidor de la cola envía el contenido reportado a un modelo de lenguaje que devuelve una clasificación estructurada:

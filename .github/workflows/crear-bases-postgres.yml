@@ -1,0 +1,172 @@
+# Creates, in the RDS instance of ADR-021, one role and one database per
+# service that owns PostgreSQL: `users` for users-api and `posts` for posts-api.
+# Manual and idempotent: a second run only resets both passwords to the current
+# GitHub Secrets, which is how they get rotated.
+#
+# psql runs as a Job inside the namespace because the instance only accepts
+# connections from the pods' security group. The admin password travels in a
+# temporary Secret that this workflow deletes on the way out: the namespace
+# never keeps a superuser credential, and the Secret quota (4) is only borrowed.
+# The SQL goes inline in the Job and not in a ConfigMap, whose quota is full.
+#
+# Secrets of this repository: RDS_ADMIN_PASSWORD, USERS_DB_PASSWORD and
+# POSTS_DB_PASSWORD. The two service passwords are the ones inside the
+# DATABASE_URL of udesa-x-users-api and udesa-x-posts-api.
+
+name: Crear bases de PostgreSQL
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: crear-bases-postgres
+  cancel-in-progress: false
+
+jobs:
+  crear:
+    name: Crear roles y bases en RDS
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      NAMESPACE: tds-group-3
+      RDS_HOST: tds-group-3-db.cze2woweg3po.us-east-2.rds.amazonaws.com
+      RDS_ADMIN_USER: tdsadmin_g3
+      TIMEOUT: 180
+      AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      EKS_CLUSTER_NAME: ${{ secrets.EKS_CLUSTER_NAME }}
+      RDS_ADMIN_PASSWORD: ${{ secrets.RDS_ADMIN_PASSWORD }}
+      USERS_DB_PASSWORD: ${{ secrets.USERS_DB_PASSWORD }}
+      POSTS_DB_PASSWORD: ${{ secrets.POSTS_DB_PASSWORD }}
+
+    steps:
+      - name: Verificar el entorno
+        run: |
+          faltan=()
+          for nombre in AWS_ROLE_ARN AWS_REGION EKS_CLUSTER_NAME RDS_ADMIN_PASSWORD USERS_DB_PASSWORD POSTS_DB_PASSWORD; do
+            [ -n "${!nombre}" ] || faltan+=("$nombre")
+          done
+          if [ ${#faltan[@]} -gt 0 ]; then
+            for falta in "${faltan[@]}"; do echo "::error::Falta el secret $falta."; done
+            exit 1
+          fi
+
+      - name: Asumir el rol de AWS por OIDC
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          role-session-name: crear-bases-postgres-${{ github.run_id }}
+
+      - name: Conectar con el cluster
+        run: aws eks update-kubeconfig --name "$EKS_CLUSTER_NAME" --region "$AWS_REGION"
+
+      - name: Crear roles y bases
+        run: |
+          SECRETO="crear-bases-postgres-$GITHUB_RUN_ID"
+          JOB="crear-bases-postgres-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          VALORES=$(mktemp -d)
+          trap 'rm -rf "$VALORES"; kubectl delete secret "$SECRETO" -n "$NAMESPACE" --ignore-not-found' EXIT
+
+          # From files and not --from-literal, so the values never show up in
+          # the runner's process list.
+          printf '%s' "$RDS_ADMIN_PASSWORD" > "$VALORES/PGPASSWORD"
+          printf '%s' "$USERS_DB_PASSWORD" > "$VALORES/USERS_DB_PASSWORD"
+          printf '%s' "$POSTS_DB_PASSWORD" > "$VALORES/POSTS_DB_PASSWORD"
+          kubectl create secret generic "$SECRETO" -n "$NAMESPACE" \
+            --from-file="$VALORES/PGPASSWORD" \
+            --from-file="$VALORES/USERS_DB_PASSWORD" \
+            --from-file="$VALORES/POSTS_DB_PASSWORD"
+
+          # psql interpolates :'var' as a quoted literal everywhere except inside
+          # dollar quotes, so the passwords never get concatenated into SQL.
+          # GRANT ... TO CURRENT_USER is what lets the RDS admin, which is not a
+          # real superuser, hand the databases over to their roles (PG 16+).
+          # Revoking CONNECT from PUBLIC keeps each role out of the other
+          # service's database (ADR-005: no service reads another's data).
+          read -r -d '' SCRIPT <<'SH' || true
+          set -eu
+          psql -v ON_ERROR_STOP=1 -v users_pw="$USERS_DB_PASSWORD" -v posts_pw="$POSTS_DB_PASSWORD" <<'SQL'
+          SELECT format('CREATE ROLE %I LOGIN', r) FROM unnest(ARRAY['users', 'posts']) AS r
+            WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = r) \gexec
+          ALTER ROLE users WITH LOGIN PASSWORD :'users_pw';
+          ALTER ROLE posts WITH LOGIN PASSWORD :'posts_pw';
+          GRANT users, posts TO CURRENT_USER;
+          SELECT format('CREATE DATABASE %I OWNER %I', d, d) FROM unnest(ARRAY['users', 'posts']) AS d
+            WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = d) \gexec
+          REVOKE ALL ON DATABASE users FROM PUBLIC;
+          REVOKE ALL ON DATABASE posts FROM PUBLIC;
+          SQL
+          for servicio in users posts; do
+            if [ "$servicio" = users ]; then clave="$USERS_DB_PASSWORD"; else clave="$POSTS_DB_PASSWORD"; fi
+            PGUSER="$servicio" PGPASSWORD="$clave" PGDATABASE="$servicio" \
+              psql -v ON_ERROR_STOP=1 -tAc "SELECT 'ok ' || current_user || '@' || current_database() || ' ' || version()"
+          done
+          if PGUSER=posts PGPASSWORD="$POSTS_DB_PASSWORD" PGDATABASE=users psql -tAc 'SELECT 1' >/dev/null 2>&1; then
+            echo "posts puede conectarse a la base users y no deberia" >&2
+            exit 1
+          fi
+          echo "ok posts no entra a users"
+          SH
+
+          # The pod label is not app=<servicio>: that one is a Service selector.
+          jq -n \
+            --arg job "$JOB" --arg ns "$NAMESPACE" --arg secreto "$SECRETO" \
+            --arg host "$RDS_HOST" --arg admin "$RDS_ADMIN_USER" --arg script "$SCRIPT" \
+            --argjson limite "$TIMEOUT" '
+            {
+              apiVersion: "batch/v1", kind: "Job",
+              metadata: {name: $job, namespace: $ns, labels: {app: "crear-bases-postgres"}},
+              spec: {
+                backoffLimit: 0,
+                activeDeadlineSeconds: $limite,
+                ttlSecondsAfterFinished: 3600,
+                template: {
+                  metadata: {labels: {app: "crear-bases-postgres"}},
+                  spec: {
+                    restartPolicy: "Never",
+                    containers: [{
+                      name: "psql",
+                      image: "postgres:18-alpine",
+                      command: ["sh", "-c", $script],
+                      env: [
+                        {name: "PGHOST", value: $host},
+                        {name: "PGPORT", value: "5432"},
+                        {name: "PGUSER", value: $admin},
+                        {name: "PGDATABASE", value: "postgres"},
+                        {name: "PGSSLMODE", value: "require"},
+                        {name: "PGCONNECT_TIMEOUT", value: "10"}
+                      ],
+                      envFrom: [{secretRef: {name: $secreto}}],
+                      # The namespace LimitRange rejects any container below
+                      # 100m / 128Mi of request: the pod is never created.
+                      resources: {
+                        requests: {cpu: "100m", memory: "128Mi"},
+                        limits: {cpu: "250m", memory: "256Mi"}
+                      }
+                    }]
+                  }
+                }
+              }
+            }' | kubectl apply -f -
+
+          resultado=""
+          fin=$((SECONDS + TIMEOUT + 30))
+          while [ -z "$resultado" ] && [ "$SECONDS" -lt "$fin" ]; do
+            sleep 5
+            if [ "$(kubectl get job "$JOB" -n "$NAMESPACE" -o jsonpath='{.status.conditions[?(@.type=="Complete")].status}')" = "True" ]; then
+              resultado=ok
+            elif [ "$(kubectl get job "$JOB" -n "$NAMESPACE" -o jsonpath='{.status.conditions[?(@.type=="Failed")].status}')" = "True" ]; then
+              resultado=fallo
+            fi
+          done
+          kubectl logs "job/$JOB" -n "$NAMESPACE" --all-containers || true
+          if [ "$resultado" != ok ]; then
+            kubectl describe job "$JOB" -n "$NAMESPACE" || true
+            echo "::error::No se pudieron crear las bases (${resultado:-sin respuesta en ${TIMEOUT}s})."
+            exit 1
+          fi

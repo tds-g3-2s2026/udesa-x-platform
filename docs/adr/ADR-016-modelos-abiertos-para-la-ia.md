@@ -1,6 +1,6 @@
 # ADR-016: modelos abiertos dentro del cluster para la funcionalidad de IA
 
-**Fecha:** 2026-10-17 · **Estado:** propuesta, se acepta con la aprobación del tutor ·
+**Fecha:** 2026-10-17 · **Estado:** propuesta, no se aceptó. Reemplazada por el ADR-023 ·
 **Decide:** el equipo, con el tutor
 
 ## Contexto
@@ -34,7 +34,7 @@ uso.**
   funciona aunque no se amplíe la cuota.
 - **Los vectores se guardan en la base de `posts-api` como arreglos.** Con el volumen del
   proyecto alcanza con compararlos en memoria, sin `pgvector`. Si la prueba de carga muestra lo
-  contrario, Neon ofrece `pgvector` y el cambio es acotado.
+  contrario, RDS para PostgreSQL ofrece `pgvector` y el cambio es acotado.
 - **El LLM corre en un servidor de modelos propio:** un `Deployment` nuevo con `llama-server`
   de llama.cpp (MIT), que expone una API HTTP y corre modelos cuantizados en CPU. La elección
   inicial es Qwen3 de 1.700 millones de parámetros (Apache 2.0), cuantizado a 4 bits y en modo
