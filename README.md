@@ -96,7 +96,7 @@ La cuota del equipo es de `2` CPU y `2Gi` de memoria en requests, `4` CPU y `4Gi
 en limits, hasta `10` pods, `6` Services, `5` ConfigMaps y `6` Secrets. Los pods, Services,
 ConfigMaps y Secrets eran `8`, `4`, `4` y `4`, y se pidió ampliarlos el 2026-10-26 para sumar
 RabbitMQ y `notifications-api` ([#111](https://github.com/tds-g3-2s2026/udesa-x-platform/issues/111));
-el detalle de cada número está comentado en `k8s/namespace.yaml`.
+el detalle de cada número está en [#113](https://github.com/tds-g3-2s2026/udesa-x-platform/pull/113).
 **Uno de los cinco ConfigMaps ya está ocupado** por `kube-root-ca.crt`, que Kubernetes
 crea solo en cada namespace: quedan cuatro, uno por servicio con código.
 Por contenedor, el mínimo es `100m` / `128Mi` y el máximo `500m` / `512Mi`.
@@ -256,14 +256,18 @@ Corre dentro del cluster, como dice `ARQUITECTURA.md` ("Asincrónica"), con el m
 recibe en su GitHub Secret `RABBITMQ_URL`: `amqp://udesa:<clave>@rabbitmq:5672`. Sin TLS, como
 Redis: es tráfico dentro del namespace.
 
-- **Sin volumen persistente.** Los datos van en un `emptyDir`: sobreviven a un reinicio del
-  contenedor, pero no a un pod nuevo. Lo que quede encolado sin consumir al reemplazar el pod
-  se pierde. Los publicadores no pierden nada sin confirmar: su outbox borra una fila recién
-  cuando el broker la confirma.
-- **Memoria fijada a mano.** RabbitMQ no lee el límite del cgroup: sin
+- **Sin volumen persistente.** Los datos van en un `emptyDir` con tope de `512Mi`: sobreviven a
+  un reinicio del contenedor, pero no a un pod nuevo. Si el broker pasa el tope, el kubelet
+  desaloja el pod. Lo que quede encolado sin consumir al reemplazar el pod se pierde. Los
+  publicadores no pierden nada sin confirmar: su outbox borra una fila recién cuando el broker
+  la confirma.
+- **Memoria y WAL fijados a mano.** RabbitMQ no lee el límite del cgroup: sin
   `total_memory_available_override_value` calcula su alarma sobre la RAM del nodo y el kernel
-  mata el pod antes de que el broker frene a los publicadores. Va como argumento de Erlang
-  porque no queda ConfigMap libre para un `rabbitmq.conf`.
+  mata el pod antes de que el broker frene a los publicadores. El WAL de las colas quorum se
+  baja de `512MiB` a `64MiB` con `quorum_wal_max_size_bytes`: con el valor por defecto ocupa
+  hasta `512MiB` en memoria y en disco, lo mismo que el límite del contenedor y el tope del
+  `emptyDir`. Los dos van como argumentos de Erlang porque no queda ConfigMap libre para un
+  `rabbitmq.conf`.
 - **Corre como el usuario `rabbitmq` (100:101).** Como root, el broker no puede leer su propia
   cookie de Erlang y no arranca.
 - **Rotar la clave** es cambiar `RABBITMQ_PASSWORD` y el `RABBITMQ_URL` de cada servicio,
