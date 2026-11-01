@@ -26,6 +26,7 @@ escribe una nueva que reemplaza a la anterior y se anota acá.
 | [ADR-019](./ADR-019-aio-pika-para-eventos-en-python.md) | `aio-pika` para publicar y consumir eventos en los servicios de Python | 2026-10-24 | Aceptada |
 | [ADR-020](./ADR-020-cierre-de-casos-de-denuncias.md) | Cierre de casos de denuncias: el umbral cuenta lo pendiente y la revisión se levanta | 2026-10-25 | Aceptada |
 | [ADR-021](./ADR-021-postgresql-en-rds.md) | PostgreSQL en RDS, una base y un rol por servicio | 2026-10-26 | Aceptada |
+| [ADR-022](./ADR-022-autoaprobacion-de-fixes-y-chores.md) | Autoaprobación de fixes y chores que no toman decisiones | 2026-10-27 | Aceptada |
 | [ADR-023](./ADR-023-bedrock-para-el-asistente-por-voz.md) | Amazon Bedrock para el asistente por voz, en un servicio propio | 2026-10-30 | Aceptada |
 
 Solo se registran decisiones ya tomadas y que el equipo pueda justificar, numeradas en el
@@ -76,6 +77,11 @@ una librería: `aio-pika` publica la `outbox` en `users-api` y consume `user.del
 La base de PostgreSQL de producción quedó registrada en el ADR-021. Reemplaza la parte de
 PostgreSQL del ADR-009 (Neon pasa a RDS, una base y un rol por servicio) y deja vigentes Redis en
 el cluster y las migraciones obligatorias. Actualiza `A12` y `A19` de `ARQUITECTURA.md`.
+
+La autoaprobación quedó registrada en el ADR-022, con el visto bueno del tutor. Un PR de `fix-`
+o `chore-` que no cierra una historia, no toma decisiones, se deshace con un revert y no afecta
+otros módulos ni código que otra persona tiene en curso se mergea sin aprobación. Actualiza la
+protección de `main` de `CONVENCIONES.md` y la Definition of Done de `PLANIFICACION.md`.
 
 El proveedor, el modelo y el servicio propio de la funcionalidad de IA quedaron registrados
 en el ADR-023.
