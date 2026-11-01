@@ -48,7 +48,7 @@ El criterio que gobierna el documento: **elegir lo más simple que cumpla el req
 
 ## Mapa de repositorios
 
-Seis repositorios en `tds-g3-2s2026`, todos creados y **públicos** desde el 2026-08-21. La visibilidad no es cosmética: en el plan gratuito, GitHub habilita ramas protegidas, reglas de repositorio, secrets de organización y minutos de Actions ilimitados solo en repos públicos.
+Ocho repositorios en `tds-g3-2s2026`, todos **públicos**. Siete existen desde agosto y septiembre; `udesa-x-assistant-api` se crea con `AI-03` (ADR-023). La visibilidad no es cosmética: en el plan gratuito, GitHub habilita ramas protegidas, reglas de repositorio, secrets de organización y minutos de Actions ilimitados solo en repos públicos.
 
 | Repositorio                 | Estado    | Contenido                                          | Stack                      |
 | --------------------------- | --------- | -------------------------------------------------- | -------------------------- |
@@ -56,11 +56,12 @@ Seis repositorios en `tds-g3-2s2026`, todos creados y **públicos** desde el 202
 | `udesa-x-backoffice`        | existe    | Backoffice web                                     | React + Vite               |
 | `udesa-x-users-api`         | existe    | Identidad, perfiles, administradores, avatares     | FastAPI + Python           |
 | `udesa-x-posts-api`         | existe    | Contenido, grafo social, feed, búsqueda, imágenes  | FastAPI + Python           |
-| `udesa-x-notifications-api` | existe    | Push, centro in-app, emails, triage de IA          | Hono + Bun + TypeScript    |
-| `udesa-x-api-gateway`       | existe    | Ruteo interno de `/api` hacia `users-api`, `posts-api` y `notifications-api` | Hono + Bun + TypeScript    |
+| `udesa-x-notifications-api` | existe    | Push, centro in-app, emails                        | Hono + Bun + TypeScript    |
+| `udesa-x-assistant-api`     | a crear   | Asistente por voz: relay hacia Bedrock, evaluaciones y playground | FastAPI + Python |
+| `udesa-x-api-gateway`       | existe    | Ruteo interno de `/api` hacia `users-api`, `posts-api`, `notifications-api` y `assistant-api` | Hono + Bun + TypeScript    |
 | `udesa-x-platform`          | existe    | Gestión, documentación, infraestructura compartida | Kustomize, Terraform, docs |
 
-**Por qué dos servicios en Python y el resto en TypeScript.** La consigna exige que el backend no esté en una única tecnología y no dice más que eso. Dado el margen, conviene que el peso caiga donde el equipo es más rápido: `posts-api` concentra casi la mitad de los puntos del sistema y ponerlo en el stack menos conocido era pagar ese costo en la parte más grande. `notifications-api` es el candidato natural para el segundo lenguaje porque es el más acotado: consume la cola, habla con FCM y con el proveedor de email, y no tiene lógica de dominio propia. Va en el mismo stack que el gateway, Bun y Hono, para que el backend tenga dos stacks y no tres ([ADR-015](./adr/ADR-015-notifications-api-en-bun-y-hono.md)). Y como mobile y backoffice son React, el equipo toca TypeScript igual todos los días.
+**Por qué tres servicios en Python y el resto en TypeScript.** La consigna exige que el backend no esté en una única tecnología y no dice más que eso. Dado el margen, conviene que el peso caiga donde el equipo es más rápido: `posts-api` concentra casi la mitad de los puntos del sistema y ponerlo en el stack menos conocido era pagar ese costo en la parte más grande. `notifications-api` es el candidato natural para el segundo lenguaje porque es el más acotado: consume la cola, habla con FCM y con el proveedor de email, y no tiene lógica de dominio propia. Va en el mismo stack que el gateway, Bun y Hono, para que el backend tenga dos stacks y no tres ([ADR-015](./adr/ADR-015-notifications-api-en-bun-y-hono.md)). Y como mobile y backoffice son React, el equipo toca TypeScript igual todos los días. El asistente por voz suma un tercer servicio en Python, `assistant-api`, por la misma razón que `posts-api`: es el stack donde el equipo es más rápido, y el backend sigue con dos stacks ([ADR-023](./adr/ADR-023-bedrock-para-el-asistente-por-voz.md)).
 
 **Por qué desapareció `media-api`.** Era el servicio más flojo del mapa: sin base de datos propia, era glue de I/O hacia S3, y arrastraba un repositorio entero con su CI, su gate de cobertura del 85%, sus manifiestos y su Dockerfile. Llegar al 85% en un servicio de streaming obliga a mockear S3 pesadamente, que es trabajo real a cambio de una separación que el proyecto no necesita.
 
@@ -68,7 +69,7 @@ La subida ahora vive donde vive el dueño del dato: `users-api` maneja avatares 
 
 ### Qué contiene cada repositorio de servicio
 
-Estructura idéntica en los tres, para que moverse entre repos sea trivial. La plantilla vive en `udesa-x-platform/templates/repo-servicio/`:
+Estructura idéntica en todos, para que moverse entre repos sea trivial. La plantilla vive en `udesa-x-platform/templates/repo-servicio/`:
 
 ```text
 udesa-x-<servicio>/
@@ -149,6 +150,7 @@ flowchart LR
         R1["udesa-x-users-api<br/>Python"]
         R2["udesa-x-posts-api<br/>Python"]
         R3["udesa-x-notifications-api<br/>TypeScript"]
+        R4["udesa-x-assistant-api<br/>Python · a crear"]
     end
 
     subgraph cli["Repos de cliente"]
@@ -166,7 +168,7 @@ flowchart LR
     classDef hub fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#0f172a
     classDef repo fill:#dcfce7,stroke:#16a34a,stroke-width:1.5px,color:#0f172a
     class PLAT hub
-    class R1,R2,R3,R5,R6 repo
+    class R1,R2,R3,R4,R5,R6 repo
 ```
 
 Cada repo lleva sus propias issues y sus propios milestones semanales. `udesa-x-platform` solo concentra lo transversal y lo que se sincroniza hacia los demás.
@@ -192,6 +194,7 @@ flowchart TB
         USR["users-api<br/>FastAPI"]
         PST["posts-api<br/>FastAPI"]
         NTF["notifications-api<br/>Bun + Hono"]
+        AST["assistant-api<br/>FastAPI"]
         MQ{{"RabbitMQ · exchange topic"}}
         RED[("Redis<br/>compartido")]
     end
@@ -202,12 +205,16 @@ flowchart TB
         MDB[("MongoDB<br/>notifications")]
         OBJ[("S3<br/>media")]
     end
+    LLM["Amazon Bedrock<br/>modelo del asistente"]
     BO -->|"build estático"| CDN
     BO -.->|"llamadas a la API,<br/>desde el navegador"| ING
     MOB -->|HTTPS| ING
     ING --> GW
     GW --> USR
     GW --> PST
+    USR -.->|"HTTP interno: bloqueos por lote"| PST
+    PST -.->|"HTTP interno: perfiles y revisión"| USR
+    GW --> AST
     USR --> MQ
     PST --> MQ
     MQ --> NTF
@@ -218,17 +225,21 @@ flowchart TB
     PST --> RED
     PST --> OBJ
     NTF --> MDB
+    AST --> RED
+    AST --> LLM
     classDef cliente fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#0f172a
     classDef borde fill:#fef3c7,stroke:#d97706,stroke-width:1.5px,color:#0f172a
     classDef svc fill:#dcfce7,stroke:#16a34a,stroke-width:1.5px,color:#0f172a
     classDef bus fill:#f5d0fe,stroke:#a21caf,stroke-width:1.5px,color:#0f172a
     classDef store fill:#e2e8f0,stroke:#475569,stroke-width:1.5px,color:#0f172a
+    classDef externo fill:#ffedd5,stroke:#ea580c,stroke-width:1.5px,color:#0f172a
     class MOB,BO cliente
     class ING,GW borde
-    class USR,PST,NTF svc
+    class USR,PST,NTF,AST svc
     class MQ bus
     class PGU,PGP,RED,MDB,OBJ store
     class CDN store
+    class LLM externo
 ```
 
 Lo que el diagrama deja explícito y conviene no perder de vista: **el cluster es compartido con
@@ -241,17 +252,17 @@ una SPA que se compila a estático y se publica en S3 detrás de CloudFront; lo 
 `Ingress` es el tráfico que el JavaScript ya cargado en el navegador del administrador le hace a
 la API. `mobile`, al no tener un paso de "servido", habla directo con el `Ingress`. Las bases
 persistentes están fuera del cluster, mientras que Redis corre adentro porque sus datos son
-efímeros y perderlos no cuesta nada. Entre `users-api` y `posts-api` hay una sola llamada
-síncrona, la que pone una cuenta en revisión por denuncias (ADR-011). Para todo lo demás cada
-uno verifica el JWT por su cuenta contra la clave pública de `users-api`, sin pedirle nada por
-REST; `posts-api` además lee del Redis de `users-api` las marcas de revocación (ADR-014). El resto entre servicios cruza por la cola, y **los dos servicios de
+efímeros y perderlos no cuesta nada. Las llamadas HTTP internas permiten leer perfiles y poner cuentas en revisión desde
+`posts-api`, y consultar bloqueos por lote desde `users-api`. La consulta de bloqueos se
+resuelve únicamente con el grafo local, para evitar una cadena circular de llamadas. Cada
+servicio verifica el JWT contra la clave pública de `users-api`; `posts-api` además lee del Redis de `users-api` las marcas de revocación (ADR-014). El resto entre servicios cruza por la cola, y **los dos servicios de
 Python escriben al mismo bucket de S3 con prefijos distintos** (`avatars/` y `posts/`), cada uno
 dueño de lo suyo.
 
 Lo que deliberadamente **no** dibuja, para que se entienda: los eventos concretos que viajan por
 la cola están en el diagrama de "Comunicación entre servicios", la telemetría en el de
-"Observabilidad", y los proveedores externos que consume `notifications-api` son FCM para push,
-el proveedor de email y la Claude API para el triage de denuncias.
+"Observabilidad", y los proveedores externos que consume `notifications-api` son FCM para push y
+el proveedor de email.
 
 ### Correspondencia con la nube
 
@@ -262,6 +273,7 @@ el proveedor de email y la Claude API para el triage de denuncias.
 | MongoDB                     | MongoDB Atlas en capa gratuita                  | DocumentDB solo si hay créditos: cuesta varias veces más                                                                 |
 | Redis                       | Dentro del cluster, uno solo                    | Cerrado en el ADR-009. Datos efímeros, separación por base lógica: `/0` para users, `/1` para posts                     |
 | Almacenamiento de media     | S3 con bucket privado y URLs firmadas           | Cerrado                                                                                                                  |
+| Modelo de IA                | Amazon Bedrock, inferencia dentro de EE. UU.    | Cerrado en el ADR-023. `AI-03` arranca con gpt-oss-120b y lo ajusta con evaluaciones entre los candidatos de `ESTIMACION-COSTOS-IA.md` |
 | Registry de imágenes        | Amazon ECR                                      | Sin ADR propio todavía. Los manifiestos en revisión (`platform#51`, `users-api#42`, `posts-api#37`, `api-gateway#3`) usan `${ECR_IMAGE}` y probaron imágenes reales contra ECR |
 | DNS y certificados          | Los resuelve la cátedra sobre el ingress        | Cerrado en el ADR-008. El equipo no administra la entrada del cluster                                                    |
 | Región                      | `us-east-2`                                     | Cerrado en el ADR-008 (Ohio)                                                                                             |
@@ -274,7 +286,7 @@ Versiones fijadas en la revisión del 2026-08-20. Se fijan una vez y no se persi
 
 | Stack | Elección | Nota |
 | ----- | -------- | ---- |
-| Python, dos servicios | Python 3.13, FastAPI, SQLAlchemy 2 async con asyncpg, Alembic, uv, Ruff y pytest | Es el stack principal del backend: `users-api` y `posts-api`. **No** usar 3.14 con free-threading: el ecosistema todavía no tiene wheels estables y un servicio web es I/O-bound, así que no hay nada que ganar |
+| Python, tres servicios | Python 3.13, FastAPI, SQLAlchemy 2 async con asyncpg, Alembic, uv, Ruff y pytest | Es el stack principal del backend: `users-api`, `posts-api` y `assistant-api`, este último sin base de datos. **No** usar 3.14 con free-threading: el ecosistema todavía no tiene wheels estables y un servicio web es I/O-bound, así que no hay nada que ganar |
 | TypeScript, dos servicios | Bun 1.4, Hono, Vitest | `api-gateway` y `notifications-api`, con la misma versión de Bun que mobile y backoffice. En `notifications-api`, sin ORM: MongoDB con el driver oficial, que alcanza para documentos de forma variable. Ver el [ADR-015](./adr/ADR-015-notifications-api-en-bun-y-hono.md) |
 | Servidor ASGI | Uvicorn con **un worker por pod** | La escala la da el HPA, no `--workers`. Con varios workers adentro del pod, uno colgado no lo detecta ningún probe |
 | Imágenes | `python:3.13-slim` y `oven/bun`, multi-stage, arm64 | Distroless recién en S13, cuando el pipeline esté aburrido: sin shell, depurar un pod cuesta el doble |
@@ -324,7 +336,7 @@ Cubre E2-H1 a H14 y E3-H1 a H10 salvo mensajes directos.
 
 **Por qué el feed también:** un feed cronológico se arma de posts y follows, que ya están acá. Separarlo obligaría a mantener una proyección del grafo sincronizada por eventos, que es trabajo real y una fuente de inconsistencias, a cambio de una separación que el volumen del proyecto no necesita.
 
-**Búsqueda:** PostgreSQL con `pg_trgm` y `tsvector`. Cubre coincidencias parciales y case-insensitive, que es lo que pide E2-H10 CA.1, sin agregar Elasticsearch al cluster.
+**Búsqueda:** coincidencia literal con `ILIKE` e índices GIN `pg_trgm`. `posts-api` busca publicaciones y respuestas; `users-api` busca nombre visible o handle en su propia base y consulta bloqueos por lote en `posts-api`. Se requieren tres caracteres, el orden es por fecha de creación e id descendentes y cada página contiene hasta veinte resultados autorizados. Un `@` inicial restringe la búsqueda de cuentas al handle. Los snippets son texto segmentado con resaltado y hasta 160 caracteres visibles. La búsqueda no aplica stemming, similitud ni normalización de acentos.
 
 **Trending:** consulta de agregación sobre hashtags de las últimas 24 horas, cacheada en Redis con TTL de 15 minutos, que es exactamente lo que exige E2-H11 CA.3.
 
@@ -369,6 +381,10 @@ Es el consumidor principal de la cola y el que justifica la segunda base de dato
 Cubre E4-H1 a H5, más el envío de emails de E1-H1, H5, H11, H13 y E5-H11.
 
 MongoDB encaja porque las notificaciones tienen forma variable según el tipo, se escriben mucho, se leen paginadas por usuario y se archivan.
+
+### `assistant-api`
+
+**FastAPI sobre Python, sin base de datos.** El asistente por voz ([ADR-023](./adr/ADR-023-bedrock-para-el-asistente-por-voz.md)): recibe el pedido y la pantalla de la app, llama al modelo en Amazon Bedrock y devuelve la próxima acción del catálogo. En el repo viven también las evaluaciones, los tests con un modelo falso y el playground. El detalle está en "Integración de Inteligencia Artificial". Se crea con `AI-03`.
 
 ### Subida de archivos: módulo copiado, no servicio
 
@@ -547,7 +563,7 @@ RabbitMQ 4.x desplegado en el cluster, con exchange de tipo topic. Elegido sobre
 | `post.created`                 | posts        | notifications (menciones)                  |
 | `follow.created`               | posts        | notifications                              |
 | `interaction.created`          | posts        | notifications                              |
-| `report.created`               | posts        | notifications, triage de IA                |
+| `report.created`               | posts        | notifications                              |
 
 La tabla nombra los eventos sin versión. El contrato de cada uno, con su versión, vive en
 [`docs/eventos/`](./eventos/README.md) desde que tiene publicador; `servicios.json` declara qué
@@ -564,22 +580,18 @@ flowchart LR
     subgraph con["Consumen"]
         direction TB
         N["notifications-api"]
-        T["Consumidor de triage<br/>dentro de notifications-api"]
         P2["posts-api<br/>como consumidor"]
     end
 
     U -->|"user.registered · email_verification.requested<br/>user.deleted · user.profile_updated<br/>password.reset_requested<br/>password.changed · feedback.submitted"| EX
     P -->|"post.created · follow.created<br/>interaction.created · report.created"| EX
     EX -->|"casi todos"| N
-    EX -->|"report.created"| T
     EX -->|"user.deleted<br/>user.profile_updated"| P2
 
     classDef svc fill:#dcfce7,stroke:#16a34a,stroke-width:1.5px,color:#0f172a
     classDef bus fill:#f5d0fe,stroke:#a21caf,stroke-width:1.5px,color:#0f172a
-    classDef ai fill:#ffe4e6,stroke:#e11d48,stroke-width:1.5px,color:#0f172a
     class U,P,N,P2 svc
     class EX bus
-    class T ai
 ```
 
 `posts-api` aparece dos veces a propósito: publica y consume. Necesita reaccionar a `user.deleted` y `user.profile_updated` para mantener consistente el autor denormalizado en cada post.
@@ -691,7 +703,9 @@ Expo resuelve tres cosas que el proyecto necesita y que en React Native puro cue
 
 Mantine sobre shadcn porque trae formularios y gráficos en el mismo monorepo con versionado en lockstep, y con quince semanas el pegamento entre librerías es justamente lo que consume sprints. El React Compiler es estable desde octubre de 2025 y elimina una clase entera de bug para quien está aprendiendo React: `useMemo` y `useCallback` mal puestos.
 
-**Los clientes REST se generan, no se escriben a mano.** Los tres servicios ya exponen OpenAPI, y con Orval cada repo cliente genera tipos, cliente y hooks de TanStack Query contra ese esquema, y commitea lo generado. Un cambio de contrato aparece como diff en el PR. Es el mismo criterio que la decisión A3 del tutor para los eventos: nada que publicar, la divergencia se ve en la revisión.
+**La búsqueda mobile integra TanStack Query v5 con los clientes Axios autenticados existentes.** Las consultas se separan por cuenta, tipo y texto, se cancelan al cambiar de sesión y se revalidan al recuperar foco. No persisten resultados en el dispositivo.
+
+**La generación de clientes REST con Orval es una capacidad prevista.** Los tres servicios ya exponen OpenAPI, y con Orval cada repo cliente genera tipos, cliente y hooks de TanStack Query contra ese esquema, y commitea lo generado. Un cambio de contrato aparece como diff en el PR. Es el mismo criterio que la decisión A3 del tutor para los eventos: nada que publicar, la divergencia se ve en la revisión.
 
 ## Infraestructura y despliegue
 
@@ -918,7 +932,7 @@ Se mapea contra la edición **2025**, vigente desde enero de 2026. Cambió basta
 | A07 Fallas de autenticación                   | Lockout tras intentos fallidos. Tokens de vida corta con refresh y rotación. Revocación en cambio de contraseña, exigida por E1-H5 CA.7 y E1-H13 CA.3.                                                                            |
 | A08 Integridad de software y datos            | Imágenes etiquetadas por SHA, nunca `latest`. Migraciones versionadas. Patrón outbox.                                                                                                                                             |
 | A09 Fallas de registro y alertas              | Logs estructurados, trazas, alertas. Auditoría de acciones administrativas en E5-H6.                                                                                                                                              |
-| A10 Manejo de condiciones excepcionales       | Categoría nueva. Timeout y comportamiento definido ante fallo de cada dependencia. Sin stack traces al cliente: errores en formato Problem Details, ver "Formato de error". El triage de IA degrada sin bloquear el backoffice.                                   |
+| A10 Manejo de condiciones excepcionales       | Categoría nueva. Timeout y comportamiento definido ante fallo de cada dependencia. Sin stack traces al cliente: errores en formato Problem Details, ver "Formato de error". Si el asistente de IA falla, la app sigue funcionando sin él.                                   |
 
 El nivel L1 de OWASP ASVS 5.0 se usa como checklist manual antes de cada entrega grande.
 
@@ -946,8 +960,9 @@ El access token se firma con **EdDSA sobre Ed25519**. La clave privada llega por
 | Solicitudes de seguimiento | posts-api     | 50 por hora por usuario (E3-H1 CA.5)       |
 | Feedback                   | users-api     | 2 por hora por usuario (E1-H11 CA.4)       |
 | Invitaciones               | posts-api     | 10 links por día por usuario (E3-H9 CA.3)  |
+| Asistente por voz          | assistant-api | Por usuario, el número sale del spike (ADR-023) |
 
-El middleware se implementa una vez en Python con contadores en Redis, y se copia entre `users-api` y `posts-api` como el módulo de subida: `limits` sobre FastAPI, en vez de escribir scripts Lua a mano. `notifications-api` expone `/api/notifications` desde E4-H1, pero por ahora solo recibe un device token por login, así que no tiene límite propio; se revisa cuando llegue el centro in-app.
+El middleware se implementa una vez en Python con contadores en Redis, y se copia entre `users-api`, `posts-api` y `assistant-api`, como el módulo de subida: `limits` sobre FastAPI, en vez de escribir scripts Lua a mano. `notifications-api` expone `/api/notifications` desde E4-H1, pero por ahora solo recibe un device token por login, así que no tiene límite propio; se revisa cuando llegue el centro in-app.
 
 Un matiz que conviene documentar y que suma en la defensa: el rate limit del Gateway es local a cada pod de NGINX, así que con tres réplicas el límite efectivo se triplica. Se corre una sola réplica para la demo y se explica por qué. La alternativa realmente distribuida exige Redis más el servicio de rate limit de Envoy, que son más piezas de las que este proyecto necesita.
 
@@ -990,53 +1005,61 @@ Cuatro consecuencias que hay que aceptar desde el primer día:
 
 ## Integración de Inteligencia Artificial
 
-El triage de denuncias vive como un consumidor de la cola dentro de `notifications-api`, que ya es el servicio consumidor por diseño. Crear un repositorio nuevo para una única llamada a una API externa sería complejidad sin beneficio, y con polirepo ese costo es aún mayor. Es el mismo criterio que llevó a descartar `media-api`.
+**Decisión del 2026-10-26, acordada con el tutor:** la funcionalidad de IA es controlar el feed
+con la voz ([PROPUESTAS-IA.md](./PROPUESTAS-IA.md)). El proveedor, el modelo, las credenciales
+y los datos enviados están en el [ADR-023](./adr/ADR-023-bedrock-para-el-asistente-por-voz.md),
+y el costo en [ESTIMACION-COSTOS-IA.md](./ESTIMACION-COSTOS-IA.md). Reemplaza al triage de
+denuncias que describía esta sección.
+
+El asistente es un servicio propio, `assistant-api`, en FastAPI y Python. Va separado de
+`notifications-api` desde la revisión del tutor: asistir al usuario no es tarea del servicio de
+notificaciones, y por separado tiene sus propias evaluaciones, tests y playground. Es un relay
+sin estado. Guarda las credenciales, arma cada llamada al modelo, valida lo que el modelo
+devuelve y aplica los topes. El modelo nunca llama a la API: elige una acción de un catálogo y
+la app la ejecuta en la pantalla, con los mismos permisos del usuario.
 
 ```mermaid
 sequenceDiagram
     autonumber
     actor USR as Usuario
-    participant PST as posts-api
-    participant MQ as RabbitMQ
-    participant TRI as Triage de IA
-    participant LLM as Claude API
-    participant BO as Backoffice
-    actor MOD as Moderador
+    participant APP as App mobile
+    participant AST as assistant-api<br/>/api/assistant
+    participant LLM as Modelo en Bedrock
 
-    USR->>PST: denuncia un post, E3-H5
-    PST->>PST: persiste denuncia + outbox
-    PST-->>USR: 201, sin esperar a la IA
-    PST->>MQ: report.created
-    MQ->>TRI: entrega
-
-    alt el modelo responde dentro de 10 s
-        TRI->>LLM: texto reportado y motivo<br/>sin email, handle ni identificadores
-        LLM-->>TRI: categoría, severidad,<br/>justificación, confianza
-        TRI->>PST: persiste la sugerencia
-    else timeout, error o baja confianza
-        TRI->>TRI: un reintento
-        TRI->>PST: la denuncia entra sin sugerencia
-        Note over TRI,PST: el backoffice nunca se bloquea por la IA
+    USR->>APP: mantiene el micrófono y habla
+    APP->>APP: voz a texto en el teléfono
+    APP->>AST: texto + posts visibles como p1, p2...
+    loop hasta terminar, con tope de pasos
+        AST->>LLM: pedido + catálogo de acciones
+        LLM-->>AST: próxima acción
+        AST->>AST: valida la acción contra el catálogo
+        AST-->>APP: acción
+        APP->>APP: la ejecuta en la UI<br/>y confirma si la ven otros
+        APP->>AST: resultado y pantalla nueva
     end
-
-    MOD->>BO: abre la bandeja, E5-H7
-    BO->>PST: denuncias ordenadas por severidad
-    MOD->>BO: confirma o corrige
-    BO->>PST: registra la decisión humana<br/>y si coincidió con la sugerencia
-    Note over MOD,PST: la IA nunca sanciona.<br/>La acción disciplinaria siempre la ejecuta una persona
+    APP-->>USR: respuesta breve en voz y texto
 ```
 
-| Aspecto             | Decisión                                                                                            |
-| ------------------- | --------------------------------------------------------------------------------------------------- |
-| Modelo              | `claude-haiku-4-5`, 1 USD por millón de tokens de entrada y 5 por millón de salida                  |
-| Salida              | Esquema JSON forzado con salida estructurada, para que siempre parsee                               |
-| Datos enviados      | Solo el texto reportado y el motivo. Nunca email, handle ni identificadores                         |
-| Timeout             | 10 segundos. Si vence, la denuncia entra sin sugerencia                                             |
-| Fallo del proveedor | Se registra, se reintenta una vez, la denuncia queda sin sugerencia. El backoffice nunca se bloquea |
-| Clave de API        | Sealed Secret en el cluster, jamás en el repo ni en el cliente                                      |
-| Costo estimado      | Centavos para el volumen del proyecto entero                                                        |
+| Aspecto        | Decisión                                                                                                       |
+| -------------- | -------------------------------------------------------------------------------------------------------------- |
+| Proveedor      | Amazon Bedrock en la cuenta de la cátedra, `us-east-2`, con inferencia dentro de EE. UU.                       |
+| Modelo         | Arranca con gpt-oss-120b, de costo medio, y se ajusta con las evaluaciones hasta el más barato que cumpla        |
+| API            | Converse de Bedrock, la misma para Nova y Claude, con tool use. Cambiar de modelo es cambiar una variable      |
+| Salida         | Una acción del catálogo por paso. El servicio la valida antes de mandarla a la app                             |
+| Datos enviados | El pedido en texto y los posts visibles con referencias cortas. Nunca ids, emails, tokens ni audio             |
+| Credenciales   | Un rol de IAM que asume el pod con su token, igual que S3 en `posts-api`. Sin claves en el repo                |
+| Topes          | Hasta 8 llamadas por pedido, tiempo límite por llamada y rate limit por usuario                                |
+| Retención      | Nada del contenido se guarda ni va a logs o trazas. Solo métricas de pasos, latencia y resultado               |
+| Costo estimado | Menos de USD 9 para el proyecto entero con cualquiera de los candidatos                                        |
+| Si falla       | El asistente avisa que no pudo y la app sigue funcionando sin él                                               |
+| Evaluaciones   | Los 25 pedidos guionados en `evals/`, tests con un modelo falso en cada PR y un playground de línea de comandos |
 
-**Restricciones no negociables:** la IA nunca sanciona, el moderador confirma o corrige, se registra la decisión humana junto a la sugerencia, y se minimizan los datos enviados al proveedor.
+**Restricciones no negociables:**
+- lo que ven otros (publicar, comentar, retuitear, seguir) se confirma siempre en la app, lo
+  diga o no el modelo;
+- el texto de los posts es dato no confiable y nunca amplía el catálogo;
+- borrar, bloquear, denunciar, cambiar la contraseña y cerrar la cuenta quedan fuera del
+  catálogo: el agente puede llevar al usuario a esa pantalla, pero la acción la hace él.
 
 ## Decisiones de arquitectura
 
@@ -1090,3 +1113,19 @@ Pendientes de definir en S1:
 | A28 | Activación del gate de cobertura | **Cerrada: escalonado.** 85% desde S3 en los tres servicios backend, desde S5 en mobile y backoffice |
 | A29 | AGENTS.md y skills          | **Cerrada: obligatorios desde S1.** Bloque común sincronizado desde platform, skills versionadas en el repo. Ver `CONVENCIONES.md` |
 | A30 | Sincronización de comunes   | **Cerrada:** `repo-file-sync-action` para archivos comunes, según recomendó el tutor, y reusable workflows para el CI. Plantear la diferencia en la reunión |
+
+## Auditoría administrativa
+
+El historial se conserva en users-api y lo consultan SuperAdmin y Moderador. Cada
+registro guarda la identidad y el email del actor al preparar la operación, la acción,
+la entidad y su fecha. No admite edición ni borrado desde la aplicación ni mediante
+UPDATE, DELETE o TRUNCATE ordinarios; las migraciones conservan control del esquema.
+
+Las acciones locales insertan el registro en la misma transacción. posts-api escribe
+`admin.action_recorded.v1` en su outbox junto con la decisión sobre las denuncias.
+RabbitMQ lo entrega a users-api, que confirma después de persistir y deduplica por
+ID del evento. La consulta refleja estas acciones con consistencia eventual. No se
+usa un endpoint HTTP para transportar auditorías. El email se obtiene antes de la
+acción mediante una ruta interna de identidad administrativa; no se expone en el
+perfil público ni se incorpora al JWT. Una falla de esa consulta impide confirmar
+la acción, y no se promete atomicidad con cambios concurrentes de email.

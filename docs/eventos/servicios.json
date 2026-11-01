@@ -7,11 +7,19 @@
       "password.changed.v1",
       "user.deleted.v1"
     ],
-    "consume": []
+    "consume": [
+      "admin.action_recorded.v1"
+    ]
   },
   "posts-api": {
-    "publica": ["follow.created.v1", "interaction.created.v1"],
-    "consume": ["user.deleted.v1"]
+    "publica": [
+      "follow.created.v1",
+      "interaction.created.v1",
+      "admin.action_recorded.v1"
+    ],
+    "consume": [
+      "user.deleted.v1"
+    ]
   },
   "notifications-api": {
     "publica": [],

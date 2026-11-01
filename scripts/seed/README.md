@@ -7,8 +7,9 @@ faltantes sin borrar ni sobrescribir usuarios, administradores o contenido.
 Definir `SEED_USERS_DATABASE_URL` y `SEED_POSTS_DATABASE_URL` con conexiones directas
 `postgresql://usuario:clave@host:puerto/base`, sin el prefijo `postgresql+asyncpg://`.
 Para TLS, usar `sslmode=require` en esa URL: asyncpg recibe la URL directo y entiende el
-parámetro libpq. Es lo que admite la base de producción en RDS, cuya CA no está en el bundle del
-sistema (ADR-021); `verify-full` solo sirve si `PGSSLROOTCERT` apunta al bundle de RDS. El rol
+parámetro libpq. Contra la base de producción en RDS, `PGSSLROOTCERT` tiene que apuntar a las
+raíces de RDS (`docker/rds-ca-us-east-2.pem` de `users-api` o `posts-api`): con el bundle del
+sistema, asyncpg rechaza el certificado (ADR-021). El rol
 necesita permisos de inserción, actualización de contadores y creación de tablas temporales.
 
 Por defecto se carga el 1% del volumen objetivo. Desde la raíz de platform:

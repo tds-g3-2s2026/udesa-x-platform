@@ -50,20 +50,25 @@ Rotar una clave es: cambiar el secret del repositorio de plataforma (`USERS_DB_P
 `POSTS_DB_PASSWORD`) y el `DATABASE_URL` del servicio, correr el workflow y redesplegar el
 servicio.
 
-### TLS: `ssl=require`, no `verify-full`
+### TLS: `ssl=require` y la CA de RDS en la imagen
 
 El certificado de la instancia lo firma la CA de Amazon RDS (`rds-ca-rsa2048-g1`), que no está en
-el bundle del sistema al que apunta `PGSSLROOTCERT`. Con `verify-full`, asyncpg no puede validar y
-no conecta. La URL queda:
+el bundle del sistema. Cada imagen trae las raíces de RDS de `us-east-2` en
+`/etc/ssl/certs/rds-ca-us-east-2.pem`, versionadas en `docker/rds-ca-us-east-2.pem` del servicio,
+y `PGSSLROOTCERT` apunta a ese archivo. La URL queda:
 
 ```
 postgresql+asyncpg://<rol>:<clave>@tds-group-3-db.cze2woweg3po.us-east-2.rds.amazonaws.com:5432/<base>?ssl=require
 ```
 
-`require` cifra pero no verifica contra quién se conecta. El riesgo es un intermediario dentro de
-la VPC, acotado porque la instancia es privada y solo la alcanzan los pods. Volver a
-`verify-full` es sumar el bundle de RDS a la imagen de cada servicio y apuntar `PGSSLROOTCERT` a
-ese archivo.
+Con `ssl=require` y `PGSSLROOTCERT` definido, asyncpg exige un certificado firmado por esas
+raíces (`CERT_REQUIRED`), igual que libpq. No verifica el hostname: lo haría `verify-full`, que
+también funciona con este archivo y no se activó para no rotar las claves en medio del incidente
+(cambiar la URL es cambiar el secret entero). El riesgo restante es un certificado válido de otra
+instancia de RDS de la región, acotado porque la instancia es privada y solo la alcanzan los pods.
+
+Apuntar `PGSSLROOTCERT` al bundle del sistema, como pedía el ADR-009 para Neon, hace fallar la
+conexión con `CERTIFICATE_VERIFY_FAILED`: con `require`, asyncpg verifica contra ese archivo.
 
 ### Se arranca con las bases vacías
 
