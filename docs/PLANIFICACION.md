@@ -913,7 +913,7 @@ Esto no es una recomendación: es parte del proceso desde S1, con issues propias
 
 | Skill | Cuándo se usa |
 |---|---|
-| `explicar-implementacion` | Antes de cada merge. Redacta la descripción del PR: una explicación breve en texto corrido de qué problema había, cómo se resolvió y por qué, con qué se topó el autor y qué conviene mirar, para que la entienda alguien sin el contexto de la pieza. También sirve para preparar la defensa de una historia. |
+| `explicar-implementacion` | Antes de cada merge. Primero le pregunta al autor por qué eligió cada solución, qué descartó y con qué se topó, porque eso no está en el diff. Con esas respuestas redacta la descripción del PR: una explicación breve en texto corrido de qué problema había, cómo se resolvió y por qué, con qué se topó el autor y qué conviene mirar, para que la entienda alguien sin el contexto de la pieza. Las preguntas también sirven de ensayo para la defensa de una historia. |
 | `revisar-pr` | Al revisar un PR. Chequea criterios de aceptación cubiertos, tests con su identificador, cobertura, seguridad y reglas del repo. Produce el informe; **no aprueba**: la aprobación la da una persona. |
 
 **Regla del equipo: nadie sube algo que no puede explicar.** El PR sin explicación no se revisa. No es una formalidad de proceso: es el único mecanismo que detecta a tiempo que alguien está mergeando código que no entiende.
