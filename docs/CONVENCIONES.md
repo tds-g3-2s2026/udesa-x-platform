@@ -71,11 +71,13 @@ mergea sin aprobación si responde "no" a las cuatro preguntas:
    piezas o algo que comparten todos los repos?
 3. ¿Hace falta algo más que un `git revert` para deshacerlo: una migración, datos, seguridad o
    los controles del CI?
-4. ¿Tiene más de 100 líneas escritas a mano?
+4. ¿Cambia el comportamiento de algo más que lo que arregla, como un helper o un middleware que
+   usan otros módulos, o toca archivos que otra persona tiene en curso en un PR abierto o una
+   historia?
 
-Si hay duda, va con revisión. El PR autoaprobado lleva la etiqueta `autoaprobado`, el CI en
-verde y una frase en la descripción que diga por qué entra. El revisor primario los repasa en
-la review del lunes.
+Si hay duda, va con revisión, y más de 100 líneas escritas a mano cuentan como duda. El PR
+autoaprobado lleva la etiqueta `autoaprobado`, el CI en verde y una frase en la descripción que
+diga por qué entra. El revisor primario los repasa en la review del lunes.
 
 Desde el 2026-10-27 la protección son dos rulesets por repo, en vez de la protección clásica:
 `main-ci` exige el PR y el CI sin excepciones, y `main-revision` exige la aprobación. Para

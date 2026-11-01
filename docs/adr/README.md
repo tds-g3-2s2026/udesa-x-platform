@@ -79,9 +79,9 @@ PostgreSQL del ADR-009 (Neon pasa a RDS, una base y un rol por servicio) y deja 
 el cluster y las migraciones obligatorias. Actualiza `A12` y `A19` de `ARQUITECTURA.md`.
 
 La autoaprobación quedó registrada en el ADR-022, con el visto bueno del tutor. Un PR de `fix-`
-o `chore-` que no cierra una historia, no toma decisiones, se deshace con un revert y es chico
-se mergea sin aprobación. Actualiza la protección de `main` de `CONVENCIONES.md` y la
-Definition of Done de `PLANIFICACION.md`.
+o `chore-` que no cierra una historia, no toma decisiones, se deshace con un revert y no afecta
+otros módulos ni código que otra persona tiene en curso se mergea sin aprobación. Actualiza la
+protección de `main` de `CONVENCIONES.md` y la Definition of Done de `PLANIFICACION.md`.
 
 El proveedor, el modelo y el servicio propio de la funcionalidad de IA quedaron registrados
 en el ADR-023.

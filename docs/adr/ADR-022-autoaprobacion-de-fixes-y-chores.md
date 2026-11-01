@@ -56,9 +56,19 @@ dan "no". Si alguna da "sí", o si hay duda, va con revisión como siempre.** Lo
      daño puede pasar antes del revert;
    - los controles del CI: bajar el umbral de cobertura, saltear tests o sacar un check
      requerido.
-4. **¿Tiene más de 200 líneas escritas a mano?** No cuentan los lockfiles ni las copias que
-   generan los scripts. El tamaño no es una decisión, pero un chore grande suele esconder una,
-   y en un cambio grande se justifica que lo lea otra persona.
+
+4. **¿Cambia el comportamiento de algo más que lo que arregla, o toca código que otra persona
+   tiene en curso?** Las señales:
+   - modifica algo que usan otros módulos del repo (un helper, un middleware, un modelo, la
+     configuración compartida) y no solo el lugar que arregla;
+   - hay un PR abierto o una historia en curso que toca los mismos archivos. Ahí revisa quien
+     trabaja en esa parte: es quien antes ve si el cambio le rompe algo, y se entera antes de
+     encontrárselo en un merge.
+
+**El tamaño cuenta como duda.** Un cambio de más de 100 líneas escritas a mano va con revisión
+aunque las cuatro preguntas den "no". No cuentan los lockfiles ni las copias que generan los
+scripts. El tamaño no es una decisión, pero en un cambio grande el autor no puede asegurar solo
+que las cuatro respuestas son "no".
 
 **Lo que no cambia.** El PR autoaprobado sigue teniendo su issue, el CI en verde y la
 descripción de siempre (ver `CONVENCIONES.md`), más una frase que diga por qué entra. Lleva la
@@ -100,6 +110,10 @@ repo, con quién lo hizo y en qué PR.
   y saltearla queda registrado.
 - **Seguir aprobando todo, más rápido.** Es lo que ya pasa con los PRs chicos: la aprobación
   existe, pero no dice si alguien leyó el cambio.
+- **El tamaño como una de las preguntas.** Era la primera versión de este ADR. Un tope sirve,
+  pero no dice qué hace el cambio: 30 líneas en un middleware que usan todos los endpoints pesan
+  más que 90 en un script aislado. Por eso el criterio mira el contenido y el tamaño queda como
+  duda.
 
 ## Consecuencias
 
