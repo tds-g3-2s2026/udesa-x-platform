@@ -1,0 +1,1060 @@
+{
+  "rules": [
+    {
+      "uid": "udesa-login-latency",
+      "title": "login · Latencia p95",
+      "ruleGroup": "UdeSA-X SLO",
+      "folderUID": "${FOLDER_UID}",
+      "condition": "B",
+      "for": "5m",
+      "noDataState": "OK",
+      "execErrState": "Error",
+      "isPaused": false,
+      "labels": {
+        "service": "api-gateway",
+        "flow": "login",
+        "severity": "warning"
+      },
+      "annotations": {
+        "summary": "Latencia p95 fuera del objetivo de login",
+        "description": "Ventana de cinco minutos e incumplimiento sostenido durante cinco minutos.",
+        "__dashboardUid__": "udesa-x-observability",
+        "__panelId__": "7"
+      },
+      "notification_settings": {
+        "receiver": "${CONTACT_POINT}",
+        "group_by": [
+          "alertname",
+          "flow"
+        ],
+        "group_wait": "30s",
+        "group_interval": "5m",
+        "repeat_interval": "96h"
+      },
+      "data": [
+        {
+          "refId": "A",
+          "queryType": "",
+          "relativeTimeRange": {
+            "from": 300,
+            "to": 0
+          },
+          "datasourceUid": "${METRICS_UID}",
+          "model": {
+            "expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_request_duration_seconds_bucket{job=\"api-gateway\",udesa_http_flow=\"login\"}[5m])))",
+            "refId": "A",
+            "instant": true,
+            "range": false,
+            "intervalMs": 1000,
+            "maxDataPoints": 43200
+          }
+        },
+        {
+          "refId": "B",
+          "queryType": "",
+          "relativeTimeRange": {
+            "from": 0,
+            "to": 0
+          },
+          "datasourceUid": "__expr__",
+          "model": {
+            "refId": "B",
+            "type": "threshold",
+            "expression": "A",
+            "conditions": [
+              {
+                "type": "query",
+                "query": {
+                  "params": [
+                    "B"
+                  ]
+                },
+                "reducer": {
+                  "type": "last",
+                  "params": []
+                },
+                "operator": {
+                  "type": "and"
+                },
+                "evaluator": {
+                  "type": "gt",
+                  "params": [
+                    0.4
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "uid": "udesa-login-errors",
+      "title": "login · Tasa de errores 5xx",
+      "ruleGroup": "UdeSA-X SLO",
+      "folderUID": "${FOLDER_UID}",
+      "condition": "B",
+      "for": "5m",
+      "noDataState": "OK",
+      "execErrState": "Error",
+      "isPaused": false,
+      "labels": {
+        "service": "api-gateway",
+        "flow": "login",
+        "severity": "warning"
+      },
+      "annotations": {
+        "summary": "Tasa de errores 5xx fuera del objetivo de login",
+        "description": "Ventana de cinco minutos e incumplimiento sostenido durante cinco minutos.",
+        "__dashboardUid__": "udesa-x-observability",
+        "__panelId__": "7"
+      },
+      "notification_settings": {
+        "receiver": "${CONTACT_POINT}",
+        "group_by": [
+          "alertname",
+          "flow"
+        ],
+        "group_wait": "30s",
+        "group_interval": "5m",
+        "repeat_interval": "96h"
+      },
+      "data": [
+        {
+          "refId": "A",
+          "queryType": "",
+          "relativeTimeRange": {
+            "from": 300,
+            "to": 0
+          },
+          "datasourceUid": "${METRICS_UID}",
+          "model": {
+            "expr": "((sum(rate(http_server_request_duration_seconds_count{job=\"api-gateway\",udesa_http_flow=\"login\",http_response_status_code=~\"5..\"}[5m]))) or vector(0)) / clamp_min(sum(rate(http_server_request_duration_seconds_count{job=\"api-gateway\",udesa_http_flow=\"login\"}[5m])), 1e-9)",
+            "refId": "A",
+            "instant": true,
+            "range": false,
+            "intervalMs": 1000,
+            "maxDataPoints": 43200
+          }
+        },
+        {
+          "refId": "B",
+          "queryType": "",
+          "relativeTimeRange": {
+            "from": 0,
+            "to": 0
+          },
+          "datasourceUid": "__expr__",
+          "model": {
+            "refId": "B",
+            "type": "threshold",
+            "expression": "A",
+            "conditions": [
+              {
+                "type": "query",
+                "query": {
+                  "params": [
+                    "B"
+                  ]
+                },
+                "reducer": {
+                  "type": "last",
+                  "params": []
+                },
+                "operator": {
+                  "type": "and"
+                },
+                "evaluator": {
+                  "type": "gt",
+                  "params": [
+                    0.005
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "uid": "udesa-feed_first-latency",
+      "title": "feed_first · Latencia p95",
+      "ruleGroup": "UdeSA-X SLO",
+      "folderUID": "${FOLDER_UID}",
+      "condition": "B",
+      "for": "5m",
+      "noDataState": "OK",
+      "execErrState": "Error",
+      "isPaused": false,
+      "labels": {
+        "service": "api-gateway",
+        "flow": "feed_first",
+        "severity": "warning"
+      },
+      "annotations": {
+        "summary": "Latencia p95 fuera del objetivo de feed_first",
+        "description": "Ventana de cinco minutos e incumplimiento sostenido durante cinco minutos.",
+        "__dashboardUid__": "udesa-x-observability",
+        "__panelId__": "7"
+      },
+      "notification_settings": {
+        "receiver": "${CONTACT_POINT}",
+        "group_by": [
+          "alertname",
+          "flow"
+        ],
+        "group_wait": "30s",
+        "group_interval": "5m",
+        "repeat_interval": "96h"
+      },
+      "data": [
+        {
+          "refId": "A",
+          "queryType": "",
+          "relativeTimeRange": {
+            "from": 300,
+            "to": 0
+          },
+          "datasourceUid": "${METRICS_UID}",
+          "model": {
+            "expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_request_duration_seconds_bucket{job=\"api-gateway\",udesa_http_flow=\"feed_first\"}[5m])))",
+            "refId": "A",
+            "instant": true,
+            "range": false,
+            "intervalMs": 1000,
+            "maxDataPoints": 43200
+          }
+        },
+        {
+          "refId": "B",
+          "queryType": "",
+          "relativeTimeRange": {
+            "from": 0,
+            "to": 0
+          },
+          "datasourceUid": "__expr__",
+          "model": {
+            "refId": "B",
+            "type": "threshold",
+            "expression": "A",
+            "conditions": [
+              {
+                "type": "query",
+                "query": {
+                  "params": [
+                    "B"
+                  ]
+                },
+                "reducer": {
+                  "type": "last",
+                  "params": []
+                },
+                "operator": {
+                  "type": "and"
+                },
+                "evaluator": {
+                  "type": "gt",
+                  "params": [
+                    0.5
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "uid": "udesa-feed_first-errors",
+      "title": "feed_first · Tasa de errores 5xx",
+      "ruleGroup": "UdeSA-X SLO",
+      "folderUID": "${FOLDER_UID}",
+      "condition": "B",
+      "for": "5m",
+      "noDataState": "OK",
+      "execErrState": "Error",
+      "isPaused": false,
+      "labels": {
+        "service": "api-gateway",
+        "flow": "feed_first",
+        "severity": "warning"
+      },
+      "annotations": {
+        "summary": "Tasa de errores 5xx fuera del objetivo de feed_first",
+        "description": "Ventana de cinco minutos e incumplimiento sostenido durante cinco minutos.",
+        "__dashboardUid__": "udesa-x-observability",
+        "__panelId__": "7"
+      },
+      "notification_settings": {
+        "receiver": "${CONTACT_POINT}",
+        "group_by": [
+          "alertname",
+          "flow"
+        ],
+        "group_wait": "30s",
+        "group_interval": "5m",
+        "repeat_interval": "96h"
+      },
+      "data": [
+        {
+          "refId": "A",
+          "queryType": "",
+          "relativeTimeRange": {
+            "from": 300,
+            "to": 0
+          },
+          "datasourceUid": "${METRICS_UID}",
+          "model": {
+            "expr": "((sum(rate(http_server_request_duration_seconds_count{job=\"api-gateway\",udesa_http_flow=\"feed_first\",http_response_status_code=~\"5..\"}[5m]))) or vector(0)) / clamp_min(sum(rate(http_server_request_duration_seconds_count{job=\"api-gateway\",udesa_http_flow=\"feed_first\"}[5m])), 1e-9)",
+            "refId": "A",
+            "instant": true,
+            "range": false,
+            "intervalMs": 1000,
+            "maxDataPoints": 43200
+          }
+        },
+        {
+          "refId": "B",
+          "queryType": "",
+          "relativeTimeRange": {
+            "from": 0,
+            "to": 0
+          },
+          "datasourceUid": "__expr__",
+          "model": {
+            "refId": "B",
+            "type": "threshold",
+            "expression": "A",
+            "conditions": [
+              {
+                "type": "query",
+                "query": {
+                  "params": [
+                    "B"
+                  ]
+                },
+                "reducer": {
+                  "type": "last",
+                  "params": []
+                },
+                "operator": {
+                  "type": "and"
+                },
+                "evaluator": {
+                  "type": "gt",
+                  "params": [
+                    0.01
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "uid": "udesa-feed_next-latency",
+      "title": "feed_next · Latencia p95",
+      "ruleGroup": "UdeSA-X SLO",
+      "folderUID": "${FOLDER_UID}",
+      "condition": "B",
+      "for": "5m",
+      "noDataState": "OK",
+      "execErrState": "Error",
+      "isPaused": false,
+      "labels": {
+        "service": "api-gateway",
+        "flow": "feed_next",
+        "severity": "warning"
+      },
+      "annotations": {
+        "summary": "Latencia p95 fuera del objetivo de feed_next",
+        "description": "Ventana de cinco minutos e incumplimiento sostenido durante cinco minutos.",
+        "__dashboardUid__": "udesa-x-observability",
+        "__panelId__": "7"
+      },
+      "notification_settings": {
+        "receiver": "${CONTACT_POINT}",
+        "group_by": [
+          "alertname",
+          "flow"
+        ],
+        "group_wait": "30s",
+        "group_interval": "5m",
+        "repeat_interval": "96h"
+      },
+      "data": [
+        {
+          "refId": "A",
+          "queryType": "",
+          "relativeTimeRange": {
+            "from": 300,
+            "to": 0
+          },
+          "datasourceUid": "${METRICS_UID}",
+          "model": {
+            "expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_request_duration_seconds_bucket{job=\"api-gateway\",udesa_http_flow=\"feed_next\"}[5m])))",
+            "refId": "A",
+            "instant": true,
+            "range": false,
+            "intervalMs": 1000,
+            "maxDataPoints": 43200
+          }
+        },
+        {
+          "refId": "B",
+          "queryType": "",
+          "relativeTimeRange": {
+            "from": 0,
+            "to": 0
+          },
+          "datasourceUid": "__expr__",
+          "model": {
+            "refId": "B",
+            "type": "threshold",
+            "expression": "A",
+            "conditions": [
+              {
+                "type": "query",
+                "query": {
+                  "params": [
+                    "B"
+                  ]
+                },
+                "reducer": {
+                  "type": "last",
+                  "params": []
+                },
+                "operator": {
+                  "type": "and"
+                },
+                "evaluator": {
+                  "type": "gt",
+                  "params": [
+                    0.3
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "uid": "udesa-feed_next-errors",
+      "title": "feed_next · Tasa de errores 5xx",
+      "ruleGroup": "UdeSA-X SLO",
+      "folderUID": "${FOLDER_UID}",
+      "condition": "B",
+      "for": "5m",
+      "noDataState": "OK",
+      "execErrState": "Error",
+      "isPaused": false,
+      "labels": {
+        "service": "api-gateway",
+        "flow": "feed_next",
+        "severity": "warning"
+      },
+      "annotations": {
+        "summary": "Tasa de errores 5xx fuera del objetivo de feed_next",
+        "description": "Ventana de cinco minutos e incumplimiento sostenido durante cinco minutos.",
+        "__dashboardUid__": "udesa-x-observability",
+        "__panelId__": "7"
+      },
+      "notification_settings": {
+        "receiver": "${CONTACT_POINT}",
+        "group_by": [
+          "alertname",
+          "flow"
+        ],
+        "group_wait": "30s",
+        "group_interval": "5m",
+        "repeat_interval": "96h"
+      },
+      "data": [
+        {
+          "refId": "A",
+          "queryType": "",
+          "relativeTimeRange": {
+            "from": 300,
+            "to": 0
+          },
+          "datasourceUid": "${METRICS_UID}",
+          "model": {
+            "expr": "((sum(rate(http_server_request_duration_seconds_count{job=\"api-gateway\",udesa_http_flow=\"feed_next\",http_response_status_code=~\"5..\"}[5m]))) or vector(0)) / clamp_min(sum(rate(http_server_request_duration_seconds_count{job=\"api-gateway\",udesa_http_flow=\"feed_next\"}[5m])), 1e-9)",
+            "refId": "A",
+            "instant": true,
+            "range": false,
+            "intervalMs": 1000,
+            "maxDataPoints": 43200
+          }
+        },
+        {
+          "refId": "B",
+          "queryType": "",
+          "relativeTimeRange": {
+            "from": 0,
+            "to": 0
+          },
+          "datasourceUid": "__expr__",
+          "model": {
+            "refId": "B",
+            "type": "threshold",
+            "expression": "A",
+            "conditions": [
+              {
+                "type": "query",
+                "query": {
+                  "params": [
+                    "B"
+                  ]
+                },
+                "reducer": {
+                  "type": "last",
+                  "params": []
+                },
+                "operator": {
+                  "type": "and"
+                },
+                "evaluator": {
+                  "type": "gt",
+                  "params": [
+                    0.01
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "uid": "udesa-create_post-latency",
+      "title": "create_post · Latencia p95",
+      "ruleGroup": "UdeSA-X SLO",
+      "folderUID": "${FOLDER_UID}",
+      "condition": "B",
+      "for": "5m",
+      "noDataState": "OK",
+      "execErrState": "Error",
+      "isPaused": false,
+      "labels": {
+        "service": "api-gateway",
+        "flow": "create_post",
+        "severity": "warning"
+      },
+      "annotations": {
+        "summary": "Latencia p95 fuera del objetivo de create_post",
+        "description": "Ventana de cinco minutos e incumplimiento sostenido durante cinco minutos.",
+        "__dashboardUid__": "udesa-x-observability",
+        "__panelId__": "7"
+      },
+      "notification_settings": {
+        "receiver": "${CONTACT_POINT}",
+        "group_by": [
+          "alertname",
+          "flow"
+        ],
+        "group_wait": "30s",
+        "group_interval": "5m",
+        "repeat_interval": "96h"
+      },
+      "data": [
+        {
+          "refId": "A",
+          "queryType": "",
+          "relativeTimeRange": {
+            "from": 300,
+            "to": 0
+          },
+          "datasourceUid": "${METRICS_UID}",
+          "model": {
+            "expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_request_duration_seconds_bucket{job=\"api-gateway\",udesa_http_flow=\"create_post\"}[5m])))",
+            "refId": "A",
+            "instant": true,
+            "range": false,
+            "intervalMs": 1000,
+            "maxDataPoints": 43200
+          }
+        },
+        {
+          "refId": "B",
+          "queryType": "",
+          "relativeTimeRange": {
+            "from": 0,
+            "to": 0
+          },
+          "datasourceUid": "__expr__",
+          "model": {
+            "refId": "B",
+            "type": "threshold",
+            "expression": "A",
+            "conditions": [
+              {
+                "type": "query",
+                "query": {
+                  "params": [
+                    "B"
+                  ]
+                },
+                "reducer": {
+                  "type": "last",
+                  "params": []
+                },
+                "operator": {
+                  "type": "and"
+                },
+                "evaluator": {
+                  "type": "gt",
+                  "params": [
+                    0.4
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "uid": "udesa-create_post-errors",
+      "title": "create_post · Tasa de errores 5xx",
+      "ruleGroup": "UdeSA-X SLO",
+      "folderUID": "${FOLDER_UID}",
+      "condition": "B",
+      "for": "5m",
+      "noDataState": "OK",
+      "execErrState": "Error",
+      "isPaused": false,
+      "labels": {
+        "service": "api-gateway",
+        "flow": "create_post",
+        "severity": "warning"
+      },
+      "annotations": {
+        "summary": "Tasa de errores 5xx fuera del objetivo de create_post",
+        "description": "Ventana de cinco minutos e incumplimiento sostenido durante cinco minutos.",
+        "__dashboardUid__": "udesa-x-observability",
+        "__panelId__": "7"
+      },
+      "notification_settings": {
+        "receiver": "${CONTACT_POINT}",
+        "group_by": [
+          "alertname",
+          "flow"
+        ],
+        "group_wait": "30s",
+        "group_interval": "5m",
+        "repeat_interval": "96h"
+      },
+      "data": [
+        {
+          "refId": "A",
+          "queryType": "",
+          "relativeTimeRange": {
+            "from": 300,
+            "to": 0
+          },
+          "datasourceUid": "${METRICS_UID}",
+          "model": {
+            "expr": "((sum(rate(http_server_request_duration_seconds_count{job=\"api-gateway\",udesa_http_flow=\"create_post\",http_response_status_code=~\"5..\"}[5m]))) or vector(0)) / clamp_min(sum(rate(http_server_request_duration_seconds_count{job=\"api-gateway\",udesa_http_flow=\"create_post\"}[5m])), 1e-9)",
+            "refId": "A",
+            "instant": true,
+            "range": false,
+            "intervalMs": 1000,
+            "maxDataPoints": 43200
+          }
+        },
+        {
+          "refId": "B",
+          "queryType": "",
+          "relativeTimeRange": {
+            "from": 0,
+            "to": 0
+          },
+          "datasourceUid": "__expr__",
+          "model": {
+            "refId": "B",
+            "type": "threshold",
+            "expression": "A",
+            "conditions": [
+              {
+                "type": "query",
+                "query": {
+                  "params": [
+                    "B"
+                  ]
+                },
+                "reducer": {
+                  "type": "last",
+                  "params": []
+                },
+                "operator": {
+                  "type": "and"
+                },
+                "evaluator": {
+                  "type": "gt",
+                  "params": [
+                    0.01
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "uid": "udesa-search_posts-latency",
+      "title": "search_posts · Latencia p95",
+      "ruleGroup": "UdeSA-X SLO",
+      "folderUID": "${FOLDER_UID}",
+      "condition": "B",
+      "for": "5m",
+      "noDataState": "OK",
+      "execErrState": "Error",
+      "isPaused": false,
+      "labels": {
+        "service": "api-gateway",
+        "flow": "search_posts",
+        "severity": "warning"
+      },
+      "annotations": {
+        "summary": "Latencia p95 fuera del objetivo de search_posts",
+        "description": "Ventana de cinco minutos e incumplimiento sostenido durante cinco minutos.",
+        "__dashboardUid__": "udesa-x-observability",
+        "__panelId__": "7"
+      },
+      "notification_settings": {
+        "receiver": "${CONTACT_POINT}",
+        "group_by": [
+          "alertname",
+          "flow"
+        ],
+        "group_wait": "30s",
+        "group_interval": "5m",
+        "repeat_interval": "96h"
+      },
+      "data": [
+        {
+          "refId": "A",
+          "queryType": "",
+          "relativeTimeRange": {
+            "from": 300,
+            "to": 0
+          },
+          "datasourceUid": "${METRICS_UID}",
+          "model": {
+            "expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_request_duration_seconds_bucket{job=\"api-gateway\",udesa_http_flow=\"search_posts\"}[5m])))",
+            "refId": "A",
+            "instant": true,
+            "range": false,
+            "intervalMs": 1000,
+            "maxDataPoints": 43200
+          }
+        },
+        {
+          "refId": "B",
+          "queryType": "",
+          "relativeTimeRange": {
+            "from": 0,
+            "to": 0
+          },
+          "datasourceUid": "__expr__",
+          "model": {
+            "refId": "B",
+            "type": "threshold",
+            "expression": "A",
+            "conditions": [
+              {
+                "type": "query",
+                "query": {
+                  "params": [
+                    "B"
+                  ]
+                },
+                "reducer": {
+                  "type": "last",
+                  "params": []
+                },
+                "operator": {
+                  "type": "and"
+                },
+                "evaluator": {
+                  "type": "gt",
+                  "params": [
+                    0.8
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "uid": "udesa-search_posts-errors",
+      "title": "search_posts · Tasa de errores 5xx",
+      "ruleGroup": "UdeSA-X SLO",
+      "folderUID": "${FOLDER_UID}",
+      "condition": "B",
+      "for": "5m",
+      "noDataState": "OK",
+      "execErrState": "Error",
+      "isPaused": false,
+      "labels": {
+        "service": "api-gateway",
+        "flow": "search_posts",
+        "severity": "warning"
+      },
+      "annotations": {
+        "summary": "Tasa de errores 5xx fuera del objetivo de search_posts",
+        "description": "Ventana de cinco minutos e incumplimiento sostenido durante cinco minutos.",
+        "__dashboardUid__": "udesa-x-observability",
+        "__panelId__": "7"
+      },
+      "notification_settings": {
+        "receiver": "${CONTACT_POINT}",
+        "group_by": [
+          "alertname",
+          "flow"
+        ],
+        "group_wait": "30s",
+        "group_interval": "5m",
+        "repeat_interval": "96h"
+      },
+      "data": [
+        {
+          "refId": "A",
+          "queryType": "",
+          "relativeTimeRange": {
+            "from": 300,
+            "to": 0
+          },
+          "datasourceUid": "${METRICS_UID}",
+          "model": {
+            "expr": "((sum(rate(http_server_request_duration_seconds_count{job=\"api-gateway\",udesa_http_flow=\"search_posts\",http_response_status_code=~\"5..\"}[5m]))) or vector(0)) / clamp_min(sum(rate(http_server_request_duration_seconds_count{job=\"api-gateway\",udesa_http_flow=\"search_posts\"}[5m])), 1e-9)",
+            "refId": "A",
+            "instant": true,
+            "range": false,
+            "intervalMs": 1000,
+            "maxDataPoints": 43200
+          }
+        },
+        {
+          "refId": "B",
+          "queryType": "",
+          "relativeTimeRange": {
+            "from": 0,
+            "to": 0
+          },
+          "datasourceUid": "__expr__",
+          "model": {
+            "refId": "B",
+            "type": "threshold",
+            "expression": "A",
+            "conditions": [
+              {
+                "type": "query",
+                "query": {
+                  "params": [
+                    "B"
+                  ]
+                },
+                "reducer": {
+                  "type": "last",
+                  "params": []
+                },
+                "operator": {
+                  "type": "and"
+                },
+                "evaluator": {
+                  "type": "gt",
+                  "params": [
+                    0.01
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "uid": "udesa-profile-latency",
+      "title": "profile · Latencia p95",
+      "ruleGroup": "UdeSA-X SLO",
+      "folderUID": "${FOLDER_UID}",
+      "condition": "B",
+      "for": "5m",
+      "noDataState": "OK",
+      "execErrState": "Error",
+      "isPaused": false,
+      "labels": {
+        "service": "api-gateway",
+        "flow": "profile",
+        "severity": "warning"
+      },
+      "annotations": {
+        "summary": "Latencia p95 fuera del objetivo de profile",
+        "description": "Ventana de cinco minutos e incumplimiento sostenido durante cinco minutos.",
+        "__dashboardUid__": "udesa-x-observability",
+        "__panelId__": "7"
+      },
+      "notification_settings": {
+        "receiver": "${CONTACT_POINT}",
+        "group_by": [
+          "alertname",
+          "flow"
+        ],
+        "group_wait": "30s",
+        "group_interval": "5m",
+        "repeat_interval": "96h"
+      },
+      "data": [
+        {
+          "refId": "A",
+          "queryType": "",
+          "relativeTimeRange": {
+            "from": 300,
+            "to": 0
+          },
+          "datasourceUid": "${METRICS_UID}",
+          "model": {
+            "expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_request_duration_seconds_bucket{job=\"api-gateway\",udesa_http_flow=\"profile\"}[5m])))",
+            "refId": "A",
+            "instant": true,
+            "range": false,
+            "intervalMs": 1000,
+            "maxDataPoints": 43200
+          }
+        },
+        {
+          "refId": "B",
+          "queryType": "",
+          "relativeTimeRange": {
+            "from": 0,
+            "to": 0
+          },
+          "datasourceUid": "__expr__",
+          "model": {
+            "refId": "B",
+            "type": "threshold",
+            "expression": "A",
+            "conditions": [
+              {
+                "type": "query",
+                "query": {
+                  "params": [
+                    "B"
+                  ]
+                },
+                "reducer": {
+                  "type": "last",
+                  "params": []
+                },
+                "operator": {
+                  "type": "and"
+                },
+                "evaluator": {
+                  "type": "gt",
+                  "params": [
+                    0.4
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "uid": "udesa-profile-errors",
+      "title": "profile · Tasa de errores 5xx",
+      "ruleGroup": "UdeSA-X SLO",
+      "folderUID": "${FOLDER_UID}",
+      "condition": "B",
+      "for": "5m",
+      "noDataState": "OK",
+      "execErrState": "Error",
+      "isPaused": false,
+      "labels": {
+        "service": "api-gateway",
+        "flow": "profile",
+        "severity": "warning"
+      },
+      "annotations": {
+        "summary": "Tasa de errores 5xx fuera del objetivo de profile",
+        "description": "Ventana de cinco minutos e incumplimiento sostenido durante cinco minutos.",
+        "__dashboardUid__": "udesa-x-observability",
+        "__panelId__": "7"
+      },
+      "notification_settings": {
+        "receiver": "${CONTACT_POINT}",
+        "group_by": [
+          "alertname",
+          "flow"
+        ],
+        "group_wait": "30s",
+        "group_interval": "5m",
+        "repeat_interval": "96h"
+      },
+      "data": [
+        {
+          "refId": "A",
+          "queryType": "",
+          "relativeTimeRange": {
+            "from": 300,
+            "to": 0
+          },
+          "datasourceUid": "${METRICS_UID}",
+          "model": {
+            "expr": "((sum(rate(http_server_request_duration_seconds_count{job=\"api-gateway\",udesa_http_flow=\"profile\",http_response_status_code=~\"5..\"}[5m]))) or vector(0)) / clamp_min(sum(rate(http_server_request_duration_seconds_count{job=\"api-gateway\",udesa_http_flow=\"profile\"}[5m])), 1e-9)",
+            "refId": "A",
+            "instant": true,
+            "range": false,
+            "intervalMs": 1000,
+            "maxDataPoints": 43200
+          }
+        },
+        {
+          "refId": "B",
+          "queryType": "",
+          "relativeTimeRange": {
+            "from": 0,
+            "to": 0
+          },
+          "datasourceUid": "__expr__",
+          "model": {
+            "refId": "B",
+            "type": "threshold",
+            "expression": "A",
+            "conditions": [
+              {
+                "type": "query",
+                "query": {
+                  "params": [
+                    "B"
+                  ]
+                },
+                "reducer": {
+                  "type": "last",
+                  "params": []
+                },
+                "operator": {
+                  "type": "and"
+                },
+                "evaluator": {
+                  "type": "gt",
+                  "params": [
+                    0.01
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

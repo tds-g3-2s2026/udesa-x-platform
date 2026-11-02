@@ -500,3 +500,10 @@ semilla fija. Incluye originales eliminados con sus respuestas conservadas.
 Requiere las bases de ambos servicios migradas y convive con sus datos existentes.
 Puede repetirse sin duplicar filas: informa los conteos de la carga, las inserciones
 nuevas y los totales, además de un hash de muestra.
+
+## Observabilidad operativa
+
+La [configuración de observabilidad](./observability/README.md) conserva las decisiones de
+medición, prepara importaciones revisables para Grafana Cloud y describe la validación de
+métricas, trazas, logs y alertas. El enlace del dashboard desplegado se incorpora al importar
+y verificar el acceso del tutor; la configuración versionada no certifica ese acceso.
