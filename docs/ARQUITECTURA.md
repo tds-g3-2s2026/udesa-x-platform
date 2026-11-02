@@ -851,69 +851,27 @@ Cada servicio se despliega solo, sin tocar a los demás. Ese es el desacoplamien
 
 ## Observabilidad
 
-**OpenTelemetry** en los tres servicios, exportando a **Grafana Cloud**.
+Los cuatro servicios exportan trazas, logs y métricas por OTLP/HTTP con protobuf directo a
+Grafana Cloud. El gateway propaga el contexto por HTTP y posts-api instrumenta sus llamadas
+internas a users-api. Un proceso tiene su propia identidad de instancia. Las métricas
+operativas usan rutas acotadas y los percentiles se calculan después de agregar los buckets
+entre réplicas. Los objetivos de los flujos se observan desde el gateway; los backends
+permiten localizar la degradación.
 
-| Señal    | Herramienta | Qué se recolecta                                                |
-| -------- | ----------- | --------------------------------------------------------------- |
-| Logs     | Loki        | Logs estructurados en JSON con `trace_id`, `user_id`, `service` |
-| Métricas | Prometheus  | Latencia, tasa de error, throughput, saturación por endpoint    |
-| Trazas   | Tempo       | Traza distribuida completa de cada request entre servicios      |
+Grafana consulta métricas en su almacenamiento compatible con Prometheus, trazas en Tempo y
+logs en Loki. Los exemplars de Python permiten abrir una traza desde una medición y buscar
+sus logs mediante `trace_id`. El envío de contexto a través de RabbitMQ y los spans de las
+consultas de base de datos requieren instrumentación explícita; medir consumo no los crea.
 
-Grafana Cloud se elige por su capa gratuita: 14 días de retención, 10.000 series activas, 50 GB de logs, 50 GB de trazas y 500 VUh de k6 por mes, que además cubre las pruebas de carga de S6 y S12 sin cuenta aparte. Autohospedar el stack LGTM consumiría varios GB de RAM que compiten con las apps, más upgrades y backups.
+La salud se observa desde Synthetic Monitoring y conserva sus chequeos y alertas. El tráfico
+real agrega tasas de peticiones, errores 5xx, percentiles, intentos de consumo y resultados de
+correo. Los contadores del consumidor no representan profundidad de cola ni tiempo de
+espera. Los datos de negocio y las métricas propias del broker requieren sus fuentes.
 
-**El free tier son 3 usuarios y el equipo más el tutor son 5.** La consigna exige que el tutor acceda, así que hay que resolverlo antes de S6, no en S10: dashboards públicos o snapshots, que no consumen asiento, es la salida más barata y probablemente suficiente porque el tutor necesita ver, no administrar. Si la cátedra exige cuenta propia con acceso completo, la alternativa es Honeycomb, que da usuarios ilimitados.
-
-Tres detalles de implementación: el Collector va en modo gateway (un Deployment con una o dos réplicas), no como DaemonSet ni sidecar; se exporta por OTLP sobre HTTP con protobuf, para no configurar HTTP/2 en el Gateway; y la señal de **logs sigue experimental en el SDK de JavaScript**, así que hay que fijar la versión exacta o rompe en cualquier actualización. En Python, OpenTelemetry se inicializa **antes** que structlog, o el `trace_id` no aparece en los logs.
-
-Dashboards mínimos:
-
-1. Salud del sistema: healthcheck y estado de los pods de cada servicio, alimenta E5-H11.
-2. Rendimiento por endpoint: p50, p95, p99, tasa de error.
-3. Negocio: registros, posts, interacciones por día, alimenta E5-H3.
-4. Cola: profundidad, tasa de consumo, mensajes en la dead letter queue.
-
-```mermaid
-flowchart LR
-    ING["Gateway<br/>genera trace_id"]
-    S1["users-api"]
-    S2["posts-api"]
-    S3["notifications-api"]
-    COL["OpenTelemetry<br/>Collector"]
-    LOKI[("Loki<br/>logs")]
-    PROM[("Prometheus<br/>métricas")]
-    TEMPO[("Tempo<br/>trazas")]
-    GRAF["Grafana Cloud"]
-
-    ING --> S1
-    ING --> S2
-    ING --> S3
-    S2 --> S1
-    S1 --> COL
-    S2 --> COL
-    S3 --> COL
-    COL --> LOKI
-    COL --> PROM
-    COL --> TEMPO
-    LOKI --> GRAF
-    PROM --> GRAF
-    TEMPO --> GRAF
-    GRAF --> D1["Salud del sistema<br/>alimenta E5-H11"]
-    GRAF --> D2["Rendimiento por endpoint<br/>p50 · p95 · p99 · errores"]
-    GRAF --> D3["Negocio<br/>alimenta E5-H3"]
-    GRAF --> D4["Cola<br/>profundidad · dead letter"]
-    GRAF --> TUT(["Acceso del tutor"])
-
-    classDef svc fill:#dcfce7,stroke:#16a34a,stroke-width:1.5px,color:#0f172a
-    classDef borde fill:#fef3c7,stroke:#d97706,stroke-width:1.5px,color:#0f172a
-    classDef store fill:#e2e8f0,stroke:#475569,stroke-width:1.5px,color:#0f172a
-    classDef externo fill:#ffe4e6,stroke:#e11d48,stroke-width:1.5px,color:#0f172a
-    class S1,S2,S3 svc
-    class ING,COL borde
-    class LOKI,PROM,TEMPO store
-    class GRAF,D1,D2,D3,D4,TUT externo
-```
-
-El `trace_id` nace en el Gateway, viaja por header y aparece en todos los logs. Es lo que convierte depurar un flujo distribuido en algo posible en vez de un ejercicio de adivinación.
+La [configuración operativa](../observability/README.md) permite preparar dashboards, reglas
+con los objetivos del proyecto y correlación sin conectarse a la cuenta. El acceso del tutor
+y la recepción de una alerta se verifican en el entorno desplegado, conservando los recursos
+y destinatarios existentes.
 
 ## Seguridad
 

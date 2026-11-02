@@ -1,0 +1,582 @@
+{
+  "uid": "udesa-x-observability",
+  "title": "UdeSA-X · Observabilidad",
+  "schemaVersion": 39,
+  "version": 1,
+  "tags": [
+    "udesa-x"
+  ],
+  "timezone": "browser",
+  "editable": true,
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "refresh": "30s",
+  "panels": [
+    {
+      "id": 1,
+      "title": "Peticiones por segundo",
+      "type": "timeseries",
+      "description": "Tráfico HTTP agregado por servicio y ruta; cada petición se cuenta en cada servicio que atraviesa.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${METRICS_UID}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (job, http_route) (rate(http_server_request_duration_seconds_count{job=~\"$service\"}[$__rate_interval]))",
+          "legendFormat": "{{job}} · {{http_route}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${METRICS_UID}"
+          },
+          "range": true,
+          "exemplar": true
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Errores HTTP del sistema",
+      "type": "timeseries",
+      "description": "Fracción de respuestas 5xx. Los rechazos 4xx siguen registrados y no se clasifican como fallos del sistema.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${METRICS_UID}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "((sum by (job, http_route) (rate(http_server_request_duration_seconds_count{job=~\"$service\",http_response_status_code=~\"5..\"}[$__rate_interval]))) or (0 * sum by (job, http_route) (rate(http_server_request_duration_seconds_count{job=~\"$service\"}[$__rate_interval])))) / clamp_min(sum by (job, http_route) (rate(http_server_request_duration_seconds_count{job=~\"$service\"}[$__rate_interval])), 1e-9)",
+          "legendFormat": "{{job}} · {{http_route}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${METRICS_UID}"
+          },
+          "range": true,
+          "exemplar": true
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Latencia p50",
+      "type": "timeseries",
+      "description": "Los buckets se agregan entre instancias antes de calcular el percentil. Los exemplars de Python permiten abrir su traza.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${METRICS_UID}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.5, sum by (le, job, http_route) (rate(http_server_request_duration_seconds_bucket{job=~\"$service\"}[$__rate_interval])))",
+          "legendFormat": "{{job}} · {{http_route}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${METRICS_UID}"
+          },
+          "range": true,
+          "exemplar": true
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Latencia p95",
+      "type": "timeseries",
+      "description": "Los buckets se agregan entre instancias antes de calcular el percentil. Los exemplars de Python permiten abrir su traza.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${METRICS_UID}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le, job, http_route) (rate(http_server_request_duration_seconds_bucket{job=~\"$service\"}[$__rate_interval])))",
+          "legendFormat": "{{job}} · {{http_route}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${METRICS_UID}"
+          },
+          "range": true,
+          "exemplar": true
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Latencia p99",
+      "type": "timeseries",
+      "description": "Los buckets se agregan entre instancias antes de calcular el percentil. Los exemplars de Python permiten abrir su traza.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 16
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${METRICS_UID}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.99, sum by (le, job, http_route) (rate(http_server_request_duration_seconds_bucket{job=~\"$service\"}[$__rate_interval])))",
+          "legendFormat": "{{job}} · {{http_route}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${METRICS_UID}"
+          },
+          "range": true,
+          "exemplar": true
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Fallos de conexión a backends",
+      "type": "timeseries",
+      "description": "Respuestas 502 y 504 observadas en el gateway.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 16
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${METRICS_UID}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (backend, http_response_status_code) (rate(udesa_gateway_upstream_errors_total{job=\"api-gateway\"}[$__rate_interval]))",
+          "legendFormat": "{{backend}} · {{http_response_status_code}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${METRICS_UID}"
+          },
+          "range": true,
+          "exemplar": true
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Latencia p95 por flujo",
+      "type": "timeseries",
+      "description": "Medida desde el gateway. Primera página del feed y siguientes tienen clasificaciones distintas.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 24
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${METRICS_UID}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le, udesa_http_flow) (rate(http_server_request_duration_seconds_bucket{job=\"api-gateway\",udesa_http_flow!=\"\"}[$__rate_interval])))",
+          "legendFormat": "{{udesa_http_flow}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${METRICS_UID}"
+          },
+          "range": true,
+          "exemplar": true
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Disponibilidad externa",
+      "type": "timeseries",
+      "description": "Usa los chequeos existentes de Synthetic Monitoring. Elegir sus jobs reales en la variable de salud; una ausencia de datos no significa disponibilidad.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 24
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${METRICS_UID}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bool"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "min by (job, instance) (probe_success{job=~\"$health_job\"})",
+          "legendFormat": "{{job}} · {{instance}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${METRICS_UID}"
+          },
+          "range": true,
+          "exemplar": true
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "Mensajes: intentos y resultados",
+      "type": "timeseries",
+      "description": "Cuenta entregas e intentos. Una reentrega vuelve a contar; un mensaje confirmado no implica un email enviado.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 32
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${METRICS_UID}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(udesa_messaging_consumed_total{job=\"notifications-api\"}[$__rate_interval]))",
+          "legendFormat": "Consumidos: intentos",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${METRICS_UID}"
+          },
+          "range": true,
+          "exemplar": true
+        },
+        {
+          "refId": "B",
+          "expr": "sum(rate(udesa_messaging_failed_total{job=\"notifications-api\"}[$__rate_interval]))",
+          "legendFormat": "Fallos de procesamiento",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${METRICS_UID}"
+          },
+          "range": true,
+          "exemplar": true
+        },
+        {
+          "refId": "C",
+          "expr": "sum(rate(udesa_messaging_dead_letter_total{job=\"notifications-api\"}[$__rate_interval]))",
+          "legendFormat": "Descartes permanentes",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${METRICS_UID}"
+          },
+          "range": true,
+          "exemplar": true
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "title": "Procesamiento de mensajes p95",
+      "type": "timeseries",
+      "description": "Tiempo dentro del handler; no incluye espera en la cola. Profundidad y publicaciones del broker requieren sus propias métricas.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 32
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${METRICS_UID}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(udesa_messaging_processing_duration_seconds_bucket{job=\"notifications-api\"}[$__rate_interval])))",
+          "legendFormat": "Procesamiento",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${METRICS_UID}"
+          },
+          "range": true,
+          "exemplar": true
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "title": "Emails por plantilla",
+      "type": "timeseries",
+      "description": "Resultados reales del envío. Los eventos duplicados que no vuelven a enviar no incrementan estos contadores.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 40
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${METRICS_UID}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (template) (rate(udesa_email_sent_total{job=\"notifications-api\"}[$__rate_interval]))",
+          "legendFormat": "{{template}} · enviados",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${METRICS_UID}"
+          },
+          "range": true,
+          "exemplar": true
+        },
+        {
+          "refId": "B",
+          "expr": "sum by (template) (rate(udesa_email_failed_total{job=\"notifications-api\"}[$__rate_interval]))",
+          "legendFormat": "{{template}} · fallidos",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${METRICS_UID}"
+          },
+          "range": true,
+          "exemplar": true
+        }
+      ]
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "service",
+        "label": "Servicio",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${METRICS_UID}"
+        },
+        "query": {
+          "query": "label_values(http_server_request_duration_seconds_count, job)",
+          "refId": "service"
+        },
+        "refresh": 1,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".*",
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        }
+      },
+      {
+        "name": "health_job",
+        "label": "Chequeos de salud",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${METRICS_UID}"
+        },
+        "query": {
+          "query": "label_values(probe_success, job)",
+          "refId": "health"
+        },
+        "refresh": 1,
+        "multi": true,
+        "includeAll": false,
+        "current": {
+          "text": "",
+          "value": ""
+        }
+      }
+    ]
+  }
+}
