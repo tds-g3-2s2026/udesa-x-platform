@@ -21,9 +21,10 @@ de simplicidad de los `AGENTS.md` pide un ADR aprobado antes de sumar una librer
 - **Umbral de confianza de 0,6:** por debajo, o si el idioma más probable no es español ni
   inglés, el post queda `other`.
 - **La preferencia del lector llega por el evento `preferences.changed.v1`**, que `posts-api`
-  copia en `user_profiles`. Quien cambia el idioma espera ver el efecto al volver al feed: un
+  copia en una tabla propia. Quien cambia el idioma espera ver el efecto al volver al feed: un
   claim en el JWT tardaría hasta 15 minutos, y preguntar a `users-api` sumaría una llamada a cada
-  pedido de feed.
+  pedido de feed. No va en `user_profiles` porque el evento puede llegar antes que la cuenta: una
+  fila de perfil creada con él no tendría handle ni la visibilidad real.
 
 Se probó con 19 textos cortos en español, inglés y otros idiomas. Es una muestra chica, útil para
 comparar opciones y no como medición de precisión:
@@ -46,8 +47,12 @@ comparar opciones y no como medición de precisión:
 - La imagen de `posts-api` crece unos 291 MB: el paquete trae los modelos de todos los idiomas
   aunque se usen seis.
 - Los posts anteriores quedan sin idioma y se muestran siempre: no se reprocesan.
-- Las cuentas que ya habían elegido un idioma antes de este cambio no tienen copia en `posts-api`
-  hasta que vuelvan a cambiarlo: mientras tanto ven todos los idiomas.
+- Las cuentas que ya habían elegido un idioma reciben su evento por una migración de `users-api`,
+  que los deja una sola vez en la `outbox`.
+- Esa migración tiene que correr con la cola de `posts-api` ya ligada al evento. Sin consumidor, el
+  broker devuelve esas filas, y como el publicador toma las más viejas, pueden frenar los mails de
+  cuenta. Por eso `users-api` se despliega después de ver el binding, no solo después del rollout
+  de `posts-api`, que arranca aunque el broker no responda.
 - El filtro depende de RabbitMQ en el cluster. Si el broker no está, el cambio de idioma espera en
   la `outbox` de `users-api` y el feed sigue con la preferencia anterior.
 - Resuelve `D16`.
