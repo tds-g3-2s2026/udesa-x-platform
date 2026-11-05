@@ -7,7 +7,8 @@ y qué pantalla cubre cada criterio de aceptación. Los criterios completos est�
 
 ## Cómo cargar una historia
 
-Cada historia la carga o la revisa quien la hizo, porque es quien la puede explicar:
+Las historias cerradas ya están cargadas, a partir del código de `main`. Si tu historia no dice lo
+que hace la app, corregila. Una historia pendiente la carga quien la cierra, en el mismo PR:
 
 1. Completá una fila por criterio, mirando la pantalla real y no lo que decía la issue.
 2. En "Pantalla", poné cómo se llega: `Perfil > Editar perfil`. Si el criterio no tiene pantalla,
@@ -17,75 +18,71 @@ Cada historia la carga o la revisa quien la hizo, porque es quien la puede expli
 5. Agregá arriba de la tabla una frase que diga qué permite la historia, y cambiá el estado en
    la tabla de seguimiento.
 
-Si tu historia está en estado Borrador, ya tiene el texto armado a partir del código: revisalo,
-corregí lo que haga falta y pasala a Cargada.
-
 ## Seguimiento
 
 - **Cargada:** ya está en esta guía.
-- **Borrador:** es de S2 a S9, está armada a partir del código y falta que la revise su dueño.
-- **Se carga en S13:** es de S10 a S12.
+- **Pendiente:** todavía no está cerrada, y la carga quien la cierre.
 - **Fuera de alcance:** optativa que el plan dejó afuera (`PLANIFICACION.md`).
 - **Sin issue:** optativa del catálogo que todavía no tiene issue ni dueño.
 
 | Historia | Tipo | Puntos | Sprint | Dueño | Estado |
 |---|---|---:|---|---|---|
-| E1-H1. Registro de Usuarios | Obligatoria | 3 | S2 | @tommycass | Borrador |
-| E1-H2. Inicio de Sesión | Obligatoria | 3 | S2 | @tommycass | Borrador |
+| E1-H1. Registro de Usuarios | Obligatoria | 3 | S2 | @tommycass | Cargada |
+| E1-H2. Inicio de Sesión | Obligatoria | 3 | S2 | @tommycass | Cargada |
 | E1-H3. Cierre de Sesión | Obligatoria | 1 | S2 | @FedeTrejo | Cargada |
 | E1-H4. Eliminación de Cuenta | Obligatoria | 3 | S9 | @FedeTrejo | Cargada |
 | E1-H5. Olvidé Mi Contraseña | Obligatoria | 3 | S3 | @FedeTrejo | Cargada |
 | E1-H6. Editar mi perfil | Obligatoria | 2 | S3 | @FedeTrejo | Cargada |
 | E1-H7. Preferencias | Optativa | 2 | S4 | @FedeTrejo | Cargada |
-| E1-H8. Foto de Perfil | Optativa | 3 | S10 | @FedeTrejo | Se carga en S13 |
+| E1-H8. Foto de Perfil | Optativa | 3 | S10 | @FedeTrejo | Cargada |
 | E1-H9. Social Login | Optativa | 5 | - | - | Fuera de alcance |
 | E1-H10. Tema de la Aplicación | Optativa | 1 | S4 | @FedeTrejo | Cargada |
-| E1-H11. Enviar Feedback o Reportar Error | Optativa | 3 | S11 | @FedeTrejo | Se carga en S13 |
+| E1-H11. Enviar Feedback o Reportar Error | Optativa | 3 | S11 | @FedeTrejo | Pendiente |
 | E1-H12. Aceptación de Términos y Política de Privacidad | Obligatoria | 1 | S2 | @FedeTrejo | Cargada |
 | E1-H13. Cambiar Contraseña | Optativa | 3 | S3 | @FedeTrejo | Cargada |
-| E1-H14. Onboarding Inicial | Optativa | 3 | S12 | @FedeTrejo | Se carga en S13 |
+| E1-H14. Onboarding Inicial | Optativa | 3 | S12 | @FedeTrejo | Pendiente |
 | E2-H1. Crear Post | Obligatoria | 3 | S6 | @FedeTrejo | Cargada |
 | E2-H2. Feed Principal | Obligatoria | 3 | S6 | @FedeTrejo | Cargada |
-| E2-H3. Eliminar Post | Obligatoria | 2 | S8 | @varbelaiz | Borrador |
+| E2-H3. Eliminar Post | Obligatoria | 2 | S8 | @varbelaiz | Cargada |
 | E2-H4. Responder a un Post | Obligatoria | 2 | S8 | @FedeTrejo | Cargada |
-| E2-H5. Retweet / Repost | Obligatoria | 2 | S8 | @varbelaiz | Borrador |
+| E2-H5. Retweet / Repost | Obligatoria | 2 | S8 | @varbelaiz | Cargada |
 | E2-H6. Like a un Post | Obligatoria | 2 | S8 | @FedeTrejo | Cargada |
 | E2-H7. Post con Imagen | Obligatoria | 5 | S9 | @FedeTrejo | Cargada |
-| E2-H8. Hashtags | Optativa | 3 | S11 | @varbelaiz | Se carga en S13 |
-| E2-H9. Menciones a Usuarios | Optativa | 3 | S12 | @jleonalderete | Se carga en S13 |
-| E2-H10. Búsqueda de Posts y Usuarios | Obligatoria | 5 | S10 | @varbelaiz | Se carga en S13 |
-| E2-H11. Trending Topics | Optativa | 3 | S12 | @varbelaiz | Se carga en S13 |
-| E2-H12. Guardar Posts | Optativa | 3 | S12 | @varbelaiz | Se carga en S13 |
+| E2-H8. Hashtags | Optativa | 3 | S11 | @varbelaiz | Pendiente |
+| E2-H9. Menciones a Usuarios | Optativa | 3 | S12 | @jleonalderete | Pendiente |
+| E2-H10. Búsqueda de Posts y Usuarios | Obligatoria | 5 | S10 | @varbelaiz | Cargada |
+| E2-H11. Trending Topics | Optativa | 3 | S12 | @varbelaiz | Pendiente |
+| E2-H12. Guardar Posts | Optativa | 3 | S12 | @varbelaiz | Pendiente |
 | E2-H13. Citar Post | Optativa | 5 | - | - | Sin issue |
-| E2-H14. Visualización de Perfil de Usuario | Obligatoria | 3 | S9 | @tommycass | Borrador |
+| E2-H14. Visualización de Perfil de Usuario | Obligatoria | 3 | S9 | @tommycass | Cargada |
 | E2-H15. Post con Video | Optativa | 5 | - | - | Fuera de alcance |
-| E3-H1. Seguir a un Usuario | Obligatoria | 5 | S5 | @tommycass | Borrador |
-| E3-H2. Dejar de Seguir a un Usuario | Obligatoria | 2 | S5 | @tommycass | Borrador |
+| E3-H1. Seguir a un Usuario | Obligatoria | 5 | S5 | @tommycass | Cargada |
+| E3-H2. Dejar de Seguir a un Usuario | Obligatoria | 2 | S5 | @tommycass | Cargada |
 | E3-H3. Listado de Seguidores y Seguidos | Obligatoria | 3 | S5 | @FedeTrejo | Cargada |
-| E3-H4. Bloquear Usuario | Obligatoria | 2 | S6 | @tommycass | Borrador |
-| E3-H5. Denunciar Usuario | Obligatoria | 2 | S6 | @jleonalderete | Borrador |
+| E3-H4. Bloquear Usuario | Obligatoria | 2 | S6 | @tommycass | Cargada |
+| E3-H5. Denunciar Usuario | Obligatoria | 2 | S6 | @jleonalderete | Cargada |
 | E3-H6. Mensajes Directos | Optativa | 8 | - | - | Fuera de alcance |
 | E3-H7. Usuarios en Línea | Optativa | 3 | - | - | Sin issue |
-| E3-H8. Listas Personalizadas | Optativa | 3 | S12 | @tommycass | Se carga en S13 |
-| E3-H9. Invitar Usuarios Externos | Optativa | 2 | S11 | @varbelaiz | Se carga en S13 |
-| E3-H10. Silenciar Usuario | Optativa | 5 | S10 | @tommycass | Se carga en S13 |
-| E4-H1. Recibir notificaciones de nuevo seguidor | Obligatoria | 2 | S10 | @jleonalderete | Se carga en S13 |
-| E4-H2. Notificación de interacción | Obligatoria | 2 | S11 | @jleonalderete | Se carga en S13 |
-| E4-H3. Centro de Notificaciones In-App | Obligatoria | 3 | S10 | @FedeTrejo | Se carga en S13 |
-| E4-H4. Notificación de mención | Optativa | 5 | S12 | @jleonalderete | Se carga en S13 |
-| E4-H5. Configurar Preferencias de Notificación | Optativa | 3 | S11 | @jleonalderete | Se carga en S13 |
-| E5-H1. Creación de Administradores | Obligatoria | 5 | S4 | @jleonalderete | Borrador |
-| E5-H2. Inicio de Sesión como Administrador | Obligatoria | 2 | S3 | @jleonalderete | Borrador |
-| E5-H3. Visualización de Métricas | Optativa | 5 | S11 | @jleonalderete | Se carga en S13 |
-| E5-H4. Buscador y Detalles de Usuarios | Obligatoria | 3 | S9 | @tommycass | Borrador |
-| E5-H5. Bloqueo de Usuarios por Admin | Obligatoria | 2 | S9 | @tommycass | Borrador |
-| E5-H6. Logs de Auditoría | Obligatoria | 3 | S10 | @varbelaiz | Se carga en S13 |
-| E5-H7. Gestión de Denuncias | Obligatoria | 3 | S9 | @tommycass | Borrador |
-| E5-H8. Exportar Datos | Optativa | 2 | S11 | @tommycass | Se carga en S13 |
-| E5-H9. Registro de Última Conexión | Optativa | 2 | S11 | @tommycass | Se carga en S13 |
-| E5-H10. Borrado Forzado de Contenido | Optativa | 3 | S12 | @tommycass | Se carga en S13 |
-| E5-H11. Estado de los Microservicios | Optativa | 5 | S7 | @varbelaiz | Borrador |
-| E5-H12. Gestión de Feedback/Reportes | Optativa | 3 | S12 | @FedeTrejo | Se carga en S13 |
+| E3-H8. Listas Personalizadas | Optativa | 3 | S12 | @tommycass | Pendiente |
+| E3-H9. Invitar Usuarios Externos | Optativa | 2 | S11 | @varbelaiz | Pendiente |
+| E3-H10. Silenciar Usuario | Optativa | 5 | S10 | @tommycass | Cargada |
+| E4-H1. Recibir notificaciones de nuevo seguidor | Obligatoria | 2 | S10 | @jleonalderete | Cargada |
+| E4-H2. Notificación de interacción | Obligatoria | 2 | S11 | @jleonalderete | Pendiente |
+| E4-H3. Centro de Notificaciones In-App | Obligatoria | 3 | S10 | @FedeTrejo | Cargada |
+| E4-H4. Notificación de mención | Optativa | 5 | S12 | @jleonalderete | Pendiente |
+| E4-H5. Configurar Preferencias de Notificación | Optativa | 3 | S11 | @jleonalderete | Pendiente |
+| E5-H1. Creación de Administradores | Obligatoria | 5 | S4 | @jleonalderete | Cargada |
+| E5-H2. Inicio de Sesión como Administrador | Obligatoria | 2 | S3 | @jleonalderete | Cargada |
+| E5-H3. Visualización de Métricas | Optativa | 5 | S11 | @jleonalderete | Pendiente |
+| E5-H4. Buscador y Detalles de Usuarios | Obligatoria | 3 | S9 | @tommycass | Cargada |
+| E5-H5. Bloqueo de Usuarios por Admin | Obligatoria | 2 | S9 | @tommycass | Cargada |
+| E5-H6. Logs de Auditoría | Obligatoria | 3 | S10 | @varbelaiz | Cargada |
+| E5-H7. Gestión de Denuncias | Obligatoria | 3 | S9 | @tommycass | Cargada |
+| E5-H8. Exportar Datos | Optativa | 2 | S11 | @tommycass | Pendiente |
+| E5-H9. Registro de Última Conexión | Optativa | 2 | S11 | @tommycass | Pendiente |
+| E5-H10. Borrado Forzado de Contenido | Optativa | 3 | S12 | @tommycass | Pendiente |
+| E5-H11. Estado de los Microservicios | Optativa | 5 | S7 | @varbelaiz | Cargada |
+| E5-H12. Gestión de Feedback/Reportes | Optativa | 3 | S12 | @FedeTrejo | Pendiente |
 
 ## Mapa de pantallas
 
@@ -218,15 +215,17 @@ Permite elegir quién ve el perfil y el idioma del feed.
 
 Optativa · 3 puntos · S10 · Dueño: @FedeTrejo
 
+Permite poner, cambiar y sacar la foto de perfil y la portada.
+
 | Criterio | Pantalla | Qué ve el usuario |
 |---|---|---|
-| CA.1 |  |  |
-| CA.2 |  |  |
-| CA.3 |  |  |
-| CA.4 |  |  |
-| CA.5 |  |  |
-| CA.6 |  |  |
-| CA.7 |  |  |
+| CA.1 | Perfil > Editar perfil | Solo acepta JPG y PNG. Con otro formato avisa "Elegí una imagen JPG o PNG.". |
+| CA.2 | Perfil > Editar perfil | La foto llega hasta 5 MB y la portada hasta 10 MB. Más grande, no se sube y lo avisa. |
+| CA.3 | Sin pantalla (backend) | Se mira el contenido real del archivo: no alcanza con que la extensión sea la correcta. |
+| CA.4 | Sin pantalla (backend) | Al reemplazar una imagen se borra la anterior del bucket. Si ese borrado falla, queda un aviso en el log y el perfil igual cambia. |
+| CA.5 | Perfil, Inicio | Sin foto, muestra un ícono de persona en el perfil y en los posts. |
+| CA.6 | Perfil > Editar perfil | Con una foto cargada aparece "Eliminar foto actual", y el perfil vuelve al ícono. La portada tiene "Eliminar portada". |
+| CA.7 | Sin pantalla (backend) | La subida pasa por un archivo temporal y va a S3 por partes, sin cargar el archivo entero en memoria. |
 
 ### E1-H10. Tema de la Aplicación
 
@@ -407,13 +406,15 @@ Optativa · 3 puntos · S12 · Dueño: @jleonalderete
 
 Obligatoria · 5 puntos · S10 · Dueño: @varbelaiz
 
+Permite buscar publicaciones y personas.
+
 | Criterio | Pantalla | Qué ve el usuario |
 |---|---|---|
-| CA.1 |  |  |
-| CA.2 |  |  |
-| CA.3 |  |  |
-| CA.4 |  |  |
-| CA.5 |  |  |
+| CA.1 | Buscar | Encuentra una parte del texto, sin distinguir mayúsculas. Hay que escribir al menos 3 caracteres. |
+| CA.2 | Buscar | Los resultados van en las pestañas "Posts" y "Usuarios". |
+| CA.3 | Buscar > Posts | Cada resultado muestra un fragmento con el texto buscado resaltado. |
+| CA.4 | Buscar | Al llegar al final carga la página siguiente, de a 20. |
+| CA.5 | Sin pantalla (backend) | La búsqueda aplica la misma regla de visibilidad que el feed. |
 
 ### E2-H11. Trending Topics
 
@@ -540,13 +541,15 @@ Optativa · 2 puntos · S11 · Dueño: @varbelaiz
 
 Optativa · 5 puntos · S10 · Dueño: @tommycass
 
+Permite dejar de ver a una cuenta sin dejar de seguirla.
+
 | Criterio | Pantalla | Qué ve el usuario |
 |---|---|---|
-| CA.1 |  |  |
-| CA.2 |  |  |
-| CA.3 |  |  |
-| CA.4 |  |  |
-| CA.5 |  |  |
+| CA.1 | Perfil de un usuario > Silenciar | La cuenta no se entera. El aviso de confirmación lo aclara. |
+| CA.2 | Inicio; perfil de un usuario | Sus posts salen del feed y siguen visibles en su perfil. |
+| CA.3 | Perfil > Configuración > Cuentas silenciadas | Lista las cuentas silenciadas y permite dejar de silenciarlas. |
+| CA.4 | Sin pantalla (backend) | Si te sigue una cuenta silenciada, no se genera el aviso. Los avisos de likes, respuestas y retweets todavía no existen (E4-H2). |
+| CA.5 | Inicio | Sus retweets también salen del feed. |
 
 ## App: notificaciones
 
@@ -554,12 +557,14 @@ Optativa · 5 puntos · S10 · Dueño: @tommycass
 
 Obligatoria · 2 puntos · S10 · Dueño: @jleonalderete
 
+Avisa con un push cuando alguien te empieza a seguir. Solo en Android. Depende de `notifications-api`, que todavía no se despliega desde `main`: esto describe lo que hace el código, no lo que se ve hoy en producción.
+
 | Criterio | Pantalla | Qué ve el usuario |
 |---|---|---|
-| CA.1 |  |  |
-| CA.2 |  |  |
-| CA.3 |  |  |
-| CA.4 |  |  |
+| CA.1 | Notificación del celular | El push sale por Firebase Cloud Messaging. |
+| CA.2 | Notificación del celular > Perfil de un usuario | Al tocarla, la app abre el perfil de quien te siguió. |
+| CA.3 | Sin pantalla (backend) | La app manda el token del dispositivo al iniciar sesión, al abrirse con una sesión guardada y cuando Firebase lo cambia. |
+| CA.4 | Sin pantalla (backend) | Si Firebase dice que un token ya no existe, se marca como borrado y no se le manda más nada. Queda la fila con su fecha, no se elimina de la base. |
 
 ### E4-H2. Notificación de interacción
 
@@ -574,13 +579,15 @@ Obligatoria · 2 puntos · S11 · Dueño: @jleonalderete
 
 Obligatoria · 3 puntos · S10 · Dueño: @FedeTrejo
 
+Junta las notificaciones de la cuenta en una pestaña. Depende de `notifications-api`, que todavía no se despliega desde `main`: esto describe lo que hace el código, no lo que se ve hoy en producción.
+
 | Criterio | Pantalla | Qué ve el usuario |
 |---|---|---|
-| CA.1 |  |  |
-| CA.2 |  |  |
-| CA.3 |  |  |
-| CA.4 |  |  |
-| CA.5 |  |  |
+| CA.1 | Notificaciones | Una no leída tiene fondo teñido, un punto y texto en negrita. |
+| CA.2 | Notificaciones | El botón "Marcar todas como leídas" las marca a todas. |
+| CA.3 | Notificaciones | Van de la más reciente a la más antigua, de a 20 por página. |
+| CA.4 | Notificaciones | Se borra deslizando la fila hacia la izquierda o con el ícono de tacho. |
+| CA.5 | Sin pantalla (backend) | El borrado es lógico: la notificación queda en la base y deja de listarse. |
 
 ### E4-H4. Notificación de mención
 
@@ -664,11 +671,13 @@ Permite bloquear una cuenta que incumple los términos.
 
 Obligatoria · 3 puntos · S10 · Dueño: @varbelaiz
 
+Muestra qué hicieron los administradores.
+
 | Criterio | Pantalla | Qué ve el usuario |
 |---|---|---|
-| CA.1 |  |  |
-| CA.2 |  |  |
-| CA.3 |  |  |
+| CA.1 | Auditoría | Columnas de fecha, "Administrador" (su email), "Acción" y "Entidad afectada". |
+| CA.2 | Auditoría | La pantalla solo permite leer. El historial no admite edición ni borrado, tampoco por SQL común contra la base. |
+| CA.3 | Auditoría | Va de la más reciente a la más antigua, y se recorre con "Anterior" y "Siguiente". |
 
 ### E5-H7. Gestión de Denuncias
 
