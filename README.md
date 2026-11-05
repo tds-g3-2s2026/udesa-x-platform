@@ -2,17 +2,51 @@
 
 Repositorio central de gestión, arquitectura, documentación e infraestructura compartida para **UdeSA-X** (Taller de Desarrollo de Software - Grupo 3, 2S2026).
 
-## Documentación principal
+## Índice: dónde está cada cosa
 
-Toda la documentación base del proyecto está centralizada en [`docs/`](./docs/):
+| Pregunta | Dónde se responde |
+|---|---|
+| ¿Qué pide la materia? | [`docs/CONSIGNA.md`](./docs/CONSIGNA.md): requisitos, épicas, historias y criterios de aceptación |
+| ¿Qué puede hacer un usuario o un administrador? | [`docs/GUIA-FUNCIONAL.md`](./docs/GUIA-FUNCIONAL.md): historia por historia, con la pantalla que cubre cada criterio |
+| ¿Cómo está armado el sistema? | [`docs/ARQUITECTURA.md`](./docs/ARQUITECTURA.md) para el detalle y [`docs/C4.md`](./docs/C4.md) para los diagramas |
+| ¿Por qué se decidió así? | [`docs/adr/`](./docs/adr/README.md): una decisión por archivo |
+| ¿Cómo corro todo en local? | [Sistema completo en local](#sistema-completo-en-local) |
+| ¿Cómo levanto, pruebo o despliego un servicio? | El README de su repo, en la [tabla de abajo](#cada-repositorio) |
+| ¿Cómo se despliega? | [Despliegue en el cluster](#despliegue-en-el-cluster-de-la-cátedra), [despliegue continuo](#despliegue-continuo) y [cómo verificar qué está desplegado](#cómo-verificar-qué-está-desplegado) |
+| ¿Qué eventos viajan por la cola? | [`docs/eventos/README.md`](./docs/eventos/README.md) y el ADR-017 |
+| ¿Cómo se prueba la carga? | [`loadtests/README.md`](./loadtests/README.md) y el [generador de datos](./scripts/seed/README.md) |
+| ¿Cómo se observa en producción? | [`observability/README.md`](./observability/README.md) |
+| ¿Qué se hace en cada sprint y quién lo hace? | [`docs/PLANIFICACION.md`](./docs/PLANIFICACION.md) y [`docs/CATALOGO-ISSUES.md`](./docs/CATALOGO-ISSUES.md), que explica las referencias `T-XX`, `AI-XX` y `DXX` |
+| ¿Cómo trabaja el equipo? | [`docs/CONVENCIONES.md`](./docs/CONVENCIONES.md) y [`AGENTS.md`](./AGENTS.md) |
+| ¿Qué propuestas de IA hubo y cuánto cuestan? | [`docs/PROPUESTAS-IA.md`](./docs/PROPUESTAS-IA.md), [`docs/ESTIMACION-COSTOS-IA.md`](./docs/ESTIMACION-COSTOS-IA.md) y el ADR-023 |
 
-- [`docs/CONSIGNA.md`](./docs/CONSIGNA.md): Transcripción depurada de la consigna oficial, requisitos funcionales/no funcionales, épicas e historias de usuario con criterios de aceptación.
-- [`docs/ARQUITECTURA.md`](./docs/ARQUITECTURA.md): Arquitectura de referencia del sistema, mapa de servicios, stack tecnológico, comunicaciones, persistencia, observabilidad y seguridad (OWASP Top 10:2025).
-- [`docs/PLANIFICACION.md`](./docs/PLANIFICACION.md): Plan de trabajo del semestre dividido en 15 sprints semanales, reparto de historias por integrante, gestión en GitHub Projects y análisis de riesgos.
-- [`docs/CONVENCIONES.md`](./docs/CONVENCIONES.md): Reglas de trabajo del equipo y guidelines del tutor: repositorios, ramas, issues, labels, milestones, PRs y sincronización entre repos. Es la fuente del bloque común de los `AGENTS.md`.
-- [`docs/CATALOGO-ISSUES.md`](./docs/CATALOGO-ISSUES.md): Inventario de las issues del semestre con sus identificadores `T-XX`, `AI-XX` y `DXX`, y estado del tablero. Es lo que da sentido a las referencias `T-XX` de la planificación.
+### Cada repositorio
 
-Además, [`AGENTS.md`](./AGENTS.md) es el punto de entrada para trabajar en este repo, con o sin agente: mapa, reglas del equipo y checks.
+| Repositorio | Levantar | Probar | Desplegar |
+|---|---|---|---|
+| [`udesa-x-users-api`](https://github.com/tds-g3-2s2026/udesa-x-users-api#readme) | [Levantarlo en desarrollo](https://github.com/tds-g3-2s2026/udesa-x-users-api#levantarlo-en-desarrollo) | [Correr los tests](https://github.com/tds-g3-2s2026/udesa-x-users-api#correr-los-tests) | [Despliegue en Kubernetes](https://github.com/tds-g3-2s2026/udesa-x-users-api#despliegue-en-kubernetes) |
+| [`udesa-x-posts-api`](https://github.com/tds-g3-2s2026/udesa-x-posts-api#readme) | [Cómo correrlo](https://github.com/tds-g3-2s2026/udesa-x-posts-api#cómo-correrlo) | [Cómo correrlo](https://github.com/tds-g3-2s2026/udesa-x-posts-api#cómo-correrlo) | [Kubernetes](https://github.com/tds-g3-2s2026/udesa-x-posts-api#kubernetes) |
+| [`udesa-x-api-gateway`](https://github.com/tds-g3-2s2026/udesa-x-api-gateway#readme) | [Levantarlo en desarrollo](https://github.com/tds-g3-2s2026/udesa-x-api-gateway#levantarlo-en-desarrollo) | [Correr los tests](https://github.com/tds-g3-2s2026/udesa-x-api-gateway#correr-los-tests) | [Despliegue en Kubernetes](https://github.com/tds-g3-2s2026/udesa-x-api-gateway#despliegue-en-kubernetes) |
+| [`udesa-x-notifications-api`](https://github.com/tds-g3-2s2026/udesa-x-notifications-api#readme) | [Levantarlo en desarrollo](https://github.com/tds-g3-2s2026/udesa-x-notifications-api#levantarlo-en-desarrollo) | [Tests](https://github.com/tds-g3-2s2026/udesa-x-notifications-api#tests) | Todavía sin manifiestos ni job de despliegue en `main` |
+| [`udesa-x-backoffice`](https://github.com/tds-g3-2s2026/udesa-x-backoffice#readme) | [Con Docker](https://github.com/tds-g3-2s2026/udesa-x-backoffice#levantarlo-en-desarrollo-con-docker) o [con Bun](https://github.com/tds-g3-2s2026/udesa-x-backoffice#levantarlo-en-desarrollo-con-bun) | [Correr los tests](https://github.com/tds-g3-2s2026/udesa-x-backoffice#correr-los-tests) | [Despliegue](https://github.com/tds-g3-2s2026/udesa-x-backoffice#despliegue) |
+| [`udesa-x-mobile`](https://github.com/tds-g3-2s2026/udesa-x-mobile#readme) | [Ejecución con Expo](https://github.com/tds-g3-2s2026/udesa-x-mobile#ejecución-con-expo) | [Checks](https://github.com/tds-g3-2s2026/udesa-x-mobile#checks) | No despliega: se distribuye por Expo |
+
+## Sistema completo en local
+
+```bash
+docker compose -f compose/docker-compose.full.yml up --build
+docker compose -f compose/docker-compose.full.yml down
+```
+
+Levanta `users-api`, `notifications-api`, PostgreSQL, Redis, MongoDB y RabbitMQ, y lleva los correos
+de la cuenta por la cola de punta a punta. **No incluye `posts-api` ni `api-gateway`**: para el feed y
+las publicaciones hay que levantar esos servicios con el compose de su repo.
+
+Las imágenes se construyen desde los repos hermanos, así que `udesa-x-users-api` y
+`udesa-x-notifications-api` tienen que estar clonados al lado de este repo, o indicados con
+`USERS_API_DIR` y `NOTIFICATIONS_API_DIR`. Los puertos se publican solo en `127.0.0.1`: `users-api` en
+`8000`, `notifications-api` en `8003` y la consola de RabbitMQ en `15672`. Los detalles están en
+[`compose/docker-compose.full.yml`](./compose/docker-compose.full.yml).
 
 ## Estructura del repositorio
 

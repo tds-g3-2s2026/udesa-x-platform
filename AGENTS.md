@@ -23,6 +23,8 @@ Los workflows reusables que consumen los repos de servicio viven en `.github/wor
 
 ## Documentación (Progressive Disclosure)
 
+- Índice de toda la documentación: `README.md`
+- Qué puede hacer cada usuario, historia por historia: `docs/GUIA-FUNCIONAL.md`
 - Arquitectura del sistema y componentes: `docs/ARQUITECTURA.md`
 - Convenciones de equipo, ramas, PRs y estilo de código: `docs/CONVENCIONES.md`
 - Planificación, sprints y roadmap: `docs/PLANIFICACION.md`
