@@ -557,6 +557,7 @@ RabbitMQ 4.x desplegado en el cluster, con exchange de tipo topic. Elegido sobre
 | `email_verification.requested` | users        | notifications (reenvío de la verificación) |
 | `user.deleted`                 | users        | posts, notifications                       |
 | `user.profile_updated`         | users        | posts                                      |
+| `preferences.changed`          | users        | posts (filtro de idioma del feed)          |
 | `password.reset_requested`     | users        | notifications                              |
 | `password.changed`             | users        | notifications                              |
 | `feedback.submitted`           | users        | notifications                              |

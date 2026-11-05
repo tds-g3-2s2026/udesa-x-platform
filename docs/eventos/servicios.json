@@ -5,7 +5,8 @@
       "email_verification.requested.v1",
       "password.reset_requested.v1",
       "password.changed.v1",
-      "user.deleted.v1"
+      "user.deleted.v1",
+      "preferences.changed.v1"
     ],
     "consume": [
       "admin.action_recorded.v1"
@@ -18,7 +19,8 @@
       "admin.action_recorded.v1"
     ],
     "consume": [
-      "user.deleted.v1"
+      "user.deleted.v1",
+      "preferences.changed.v1"
     ]
   },
   "notifications-api": {
