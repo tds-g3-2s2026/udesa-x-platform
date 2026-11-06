@@ -6,7 +6,8 @@
       "password.reset_requested.v1",
       "password.changed.v1",
       "user.deleted.v1",
-      "preferences.changed.v1"
+      "preferences.changed.v1",
+      "feedback.submitted.v1"
     ],
     "consume": [
       "admin.action_recorded.v1"
@@ -31,6 +32,7 @@
       "password.reset_requested.v1",
       "password.changed.v1",
       "user.deleted.v1",
+      "feedback.submitted.v1",
       "follow.created.v1",
       "interaction.created.v1"
     ]
