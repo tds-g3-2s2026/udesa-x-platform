@@ -14,7 +14,7 @@ El resto sigue sujeto a validación en S1. Cada decisión relevante debe quedar 
 **Decisiones del equipo del 2026-08-20**, incorporadas a todo el documento:
 
 1. **Python es el stack principal del backend.** `users-api` y `posts-api` van en Python con FastAPI, y `notifications-api` en TypeScript, sobre Bun y Hono desde el [ADR-015](./adr/ADR-015-notifications-api-en-bun-y-hono.md). La consigna pide que el backend no esté en una única tecnología y no dice cuál lleva más peso: conviene que el servicio más grande quede en el stack que el equipo maneja mejor.
-2. **No hay `media-api`.** La subida de archivos se resuelve dentro de `users-api` y `posts-api`, con el módulo de streaming escrito una vez y copiado. **Son siete repositorios desde el 17 de septiembre**, cuando se sumó `udesa-x-api-gateway` para el ruteo interno que mostró la clase de Cloud Computing I.
+2. **No hay `media-api`.** La subida de archivos se resuelve dentro de `posts-api`, que guarda las imágenes de los posts y las fotos de perfil y portada. **Son siete repositorios desde el 17 de septiembre**, cuando se sumó `udesa-x-api-gateway` para el ruteo interno que mostró la clase de Cloud Computing I.
 
 **Revisión del stack del 2026-08-20** (superada por el ADR-008 del 14 de septiembre). En ese
 momento se descartó el NGINX Ingress Controller por estar archivado y se propuso Gateway API con
@@ -54,18 +54,18 @@ Ocho repositorios en `tds-g3-2s2026`, todos **públicos**. Siete existen desde a
 | --------------------------- | --------- | -------------------------------------------------- | -------------------------- |
 | `udesa-x-mobile`            | existe    | App mobile                                         | React Native + Expo        |
 | `udesa-x-backoffice`        | existe    | Backoffice web                                     | React + Vite               |
-| `udesa-x-users-api`         | existe    | Identidad, perfiles, administradores, avatares     | FastAPI + Python           |
-| `udesa-x-posts-api`         | existe    | Contenido, grafo social, feed, búsqueda, imágenes  | FastAPI + Python           |
+| `udesa-x-users-api`         | existe    | Identidad, perfiles, administradores               | FastAPI + Python           |
+| `udesa-x-posts-api`         | existe    | Contenido, grafo social, feed, búsqueda, imágenes y fotos de perfil | FastAPI + Python           |
 | `udesa-x-notifications-api` | existe    | Push, centro in-app, emails                        | Hono + Bun + TypeScript    |
 | `udesa-x-assistant-api`     | a crear   | Asistente por voz: relay hacia Bedrock, evaluaciones y playground | FastAPI + Python |
 | `udesa-x-api-gateway`       | existe    | Ruteo interno de `/api` hacia `users-api`, `posts-api`, `notifications-api` y `assistant-api` | Hono + Bun + TypeScript    |
-| `udesa-x-platform`          | existe    | Gestión, documentación, infraestructura compartida | Kustomize, Terraform, docs |
+| `udesa-x-platform`          | existe    | Gestión, documentación, infraestructura compartida | YAML plano, GitHub Actions, docs |
 
 **Por qué tres servicios en Python y el resto en TypeScript.** La consigna exige que el backend no esté en una única tecnología y no dice más que eso. Dado el margen, conviene que el peso caiga donde el equipo es más rápido: `posts-api` concentra casi la mitad de los puntos del sistema y ponerlo en el stack menos conocido era pagar ese costo en la parte más grande. `notifications-api` es el candidato natural para el segundo lenguaje porque es el más acotado: consume la cola, habla con FCM y con el proveedor de email, y no tiene lógica de dominio propia. Va en el mismo stack que el gateway, Bun y Hono, para que el backend tenga dos stacks y no tres ([ADR-015](./adr/ADR-015-notifications-api-en-bun-y-hono.md)). Y como mobile y backoffice son React, el equipo toca TypeScript igual todos los días. El asistente por voz suma un tercer servicio en Python, `assistant-api`, por la misma razón que `posts-api`: es el stack donde el equipo es más rápido, y el backend sigue con dos stacks ([ADR-023](./adr/ADR-023-bedrock-para-el-asistente-por-voz.md)).
 
 **Por qué desapareció `media-api`.** Era el servicio más flojo del mapa: sin base de datos propia, era glue de I/O hacia S3, y arrastraba un repositorio entero con su CI, su gate de cobertura del 85%, sus manifiestos y su Dockerfile. Llegar al 85% en un servicio de streaming obliga a mockear S3 pesadamente, que es trabajo real a cambio de una separación que el proyecto no necesita.
 
-La subida ahora vive donde vive el dueño del dato: `users-api` maneja avatares y portadas, `posts-api` maneja imágenes de post, los dos contra el mismo bucket con prefijos distintos. El módulo de subida por streams con validación por magic numbers se escribe una vez en `users-api` y se copia a `posts-api`, que es el mismo criterio que el tutor dio para los contratos de eventos y ahora es literal porque los dos servicios están en Python. Desaparece además la llamada cruzada entre servicios para subir un archivo, y el evento `media.orphaned`: cada servicio limpia su propio storage en la misma operación que borra el registro.
+La subida vive en `posts-api`, que maneja las imágenes de los posts y las fotos de perfil y portada, en el mismo bucket con prefijos distintos y con validación por magic numbers. Desaparece además la llamada cruzada entre servicios para subir un archivo, y el evento `media.orphaned`: el servicio limpia su propio storage en la misma operación que borra el registro.
 
 ### Qué contiene cada repositorio de servicio
 
@@ -114,6 +114,8 @@ udesa-x-platform/
 │   ├── CONSIGNA.md
 │   ├── PLANIFICACION.md
 │   ├── ARQUITECTURA.md
+│   ├── C4.md
+│   ├── GUIA-FUNCIONAL.md
 │   ├── CONVENCIONES.md      # reglas del equipo y guidelines del tutor
 │   ├── adr/                 # registro de decisiones de arquitectura
 │   ├── eventos/             # esquemas fuente de los contratos
@@ -121,9 +123,14 @@ udesa-x-platform/
 │   └── retros/
 ├── k8s/                      # el cluster lo provisiona la cátedra, no hay terraform propio
 │   ├── namespace.yaml        # cuota y límites del grupo, lo aplica el docente
-│   └── ingress.yaml          # único Ingress del sistema, lo aplica el docente
+│   ├── ingress.yaml          # único Ingress del sistema, lo aplica el docente
+│   ├── networkpolicy.yaml    # tráfico dentro del namespace, lo aplica el docente
+│   ├── redis.yaml            # Redis compartido, lo aplica el CD
+│   └── rabbitmq.yaml         # RabbitMQ del namespace, lo aplica el CD
 ├── compose/
-│   └── docker-compose.full.yml    # sistema completo con imágenes publicadas
+│   └── docker-compose.full.yml    # la cola y los correos en local, con builds desde los repos
+├── loadtests/               # prueba de carga del feed
+├── observability/           # dashboards y alertas versionados
 ├── templates/
 │   └── repo-servicio/       # plantilla de repositorio, incluye AGENTS.md
 ├── scripts/
@@ -143,7 +150,7 @@ Los milestones se crean solo en los repos que tienen trabajo esa semana. Quince 
 
 ```mermaid
 flowchart LR
-    PLAT["<b>udesa-x-platform</b><br/>issues transversales · Project<br/>ADR y documentación<br/>esquemas de eventos<br/>skills y archivos comunes<br/>compose integrado · Terraform"]
+    PLAT["<b>udesa-x-platform</b><br/>issues transversales · Project<br/>ADR y documentación<br/>esquemas de eventos<br/>skills y archivos comunes<br/>compose integrado"]
 
     subgraph svcs["Repos de servicio"]
         direction TB
@@ -719,8 +726,8 @@ Mantine sobre shadcn porque trae formularios y gráficos en el mismo monorepo co
 | Manifiestos  | YAML plano en `k8s/` por repositorio          | Cerrado en el ADR-008. Un solo entorno y un solo namespace no justifican overlays                 |
 | Entrada      | **`Ingress` único, aplicado por el docente**  | Reemplazado en el ADR-008. Instalar un gateway controller excede los permisos del grupo            |
 | TLS          | ACM, vía annotations del `Ingress`            | `certificate-arn` + `ssl-redirect`, ya configurado por la cátedra en el ALB compartido             |
-| Secretos     | **SOPS con age**, desencriptado en Actions    | Cero pods en el cluster, y sobrevive a destruir y recrear el cluster                              |
-| Registry     | Amazon ECR                                    | Sin ADR propio todavía; los manifiestos en revisión ya usan `${ECR_IMAGE}` con imágenes reales |
+| Secretos     | **GitHub Secrets**, volcados por `deploy.yml` | Cero pods extra en el cluster. El pipeline arma el Secret de cada servicio                         |
+| Registry     | Amazon ECR                                    | Sin ADR propio. Se publica con el commit como tag y se despliega por digest (`${ECR_IMAGE}`)   |
 | Identidad    | OIDC + IRSA                                   | Vista en la clase de Cloud Computing I: el pod asume un IAM Role vía ServiceAccount anotado        |
 | Autoescalado | HPA por servicio, más **KEDA** para la cola   | KEDA escala `notifications-api` por profundidad de cola, con `minReplicaCount: 0`                  |
 
@@ -732,7 +739,7 @@ el equipo no tiene permisos para instalar un controller propio, solo para editar
 de su namespace. El reemplazo real es el AWS Load Balancer Controller que la cátedra ya tiene
 instalado, consumido a través de la misma API `Ingress` de Kubernetes.
 
-**Por qué SOPS y no Sealed Secrets.** Sealed Secrets está sano, pero su clave privada vive solo dentro del cluster, y la palanca de ahorro principal es destruir y recrear el cluster entre sprints. Cada recreación dejaría todos los secretos del repositorio irrecuperables.
+**Por qué GitHub Secrets.** El plan original era SOPS con age, pensado para destruir y recrear un cluster propio entre sprints. Con el cluster de la cátedra (ADR-008) ese caso no existe: los valores viven como GitHub Secrets y `deploy.yml` arma el Secret de cada servicio.
 
 **Por qué KEDA.** El HPA por CPU no puede demostrar lo que interesa. KEDA permite mostrar cero pods, publicar mensajes en la cola y verlos aparecer. Dos advertencias que ahorran horas: nunca definir un HPA propio sobre el mismo Deployment que un `ScaledObject`, y el vhost de RabbitMQ hay que URL-encodearlo.
 
@@ -774,11 +781,11 @@ Palancas, por impacto:
 | Entorno                   | Cómo se levanta                                                              | Para qué                                      |
 | ------------------------- | ---------------------------------------------------------------------------- | --------------------------------------------- |
 | Desarrollo de un servicio | `docker compose -f docker/docker-compose.dev.yml up` en su repo              | Trabajar en ese servicio con sus dependencias |
-| Sistema completo local    | `docker compose -f compose/docker-compose.full.yml up` en `udesa-x-platform` | E2E, demos, onboarding                        |
+| Sistema completo local    | `docker compose -f compose/docker-compose.full.yml up` en `udesa-x-platform` | Probar la cola y los correos de punta a punta |
 | Staging                   | Automático al mergear a `main` de cualquier repo de servicio                 | Aceptación de historias, pruebas de carga     |
 | Producción                | Manual con aprobación                                                        | Entrega final y defensa                       |
 
-El compose completo usa **imágenes publicadas en el registry**, no builds locales. Así levantar el sistema entero no requiere clonar los seis repos: se clona `udesa-x-platform` y listo. Es la respuesta al problema que introduce el polirepo.
+El compose construye las imágenes desde los repos hermanos, así que `udesa-x-users-api` y `udesa-x-notifications-api` tienen que estar clonados al lado de `udesa-x-platform`. Levanta esos dos servicios con sus dependencias: no incluye `posts-api` ni `api-gateway`. El plan original era usar imágenes publicadas en ECR, y se descartó en `udesa-x-platform#85`.
 
 ### Pipeline por repositorio de servicio
 
@@ -932,7 +939,7 @@ Un matiz que conviene documentar y que suma en la defensa: el rate limit del Gat
 | Unitarias   | Lógica de dominio, validaciones, hooks, componentes | pytest, Vitest, RNTL 14           | CI de cada repo              |
 | Integración | Endpoints contra base y cola reales en contenedores | pytest, Testcontainers, Supertest | CI de cada repo              |
 | Contrato    | La copia local de esquemas coincide con la fuente   | Validación de JSON Schema         | CI de cada repo              |
-| E2E         | Flujos críticos de punta a punta                    | Maestro, Playwright               | `udesa-x-platform`, nocturno |
+| E2E         | Descartado (`udesa-x-platform#89`)                  | Maestro, Playwright               | `udesa-x-platform`, nocturno |
 | Carga       | Los seis flujos con SLO definido                    | k6                                | `udesa-x-platform`, S6 y S12 |
 
 Los E2E y las pruebas de carga viven en `udesa-x-platform` porque cruzan servicios y ningún repo de servicio es su dueño natural.
@@ -954,6 +961,8 @@ Cuatro consecuencias que hay que aceptar desde el primer día:
 4. **El porcentaje no mide si el test verifica algo**: se llega a 85% con tests sin un solo assert. La contramedida barata es correr mutation testing (mutmut en Python, Stryker en TypeScript) sobre los módulos críticos (autenticación, autorización, contadores) una vez por sprint, nunca como gate de PR porque es lento. La skill `revisar-pr` chequea explícitamente que los tests tengan asserts.
 
 ### Flujos críticos de E2E
+
+La suite de `T-38` se cerró sin hacer, por decisión del equipo (`udesa-x-platform#89`). La lista queda como referencia de los flujos que más importan.
 
 1. Registro, verificación por email y primer login.
 2. Crear post con imagen y verlo en el feed de un seguidor.
@@ -1042,7 +1051,7 @@ Pendientes de definir en S1:
 | A8  | Motor de búsqueda                | PostgreSQL con `pg_trgm`, sin Elasticsearch                                            |
 | A9  | Broker de mensajes               | RabbitMQ sobre Kafka, por simplicidad operativa                                        |
 | A10 | Plan B de despliegue             | ECS con Fargate si EKS no llega. Se decide el 20 de septiembre                         |
-| A11 | Herramienta de manifiestos       | Kustomize sobre Helm                                                                   |
+| A11 | Herramienta de manifiestos       | **Reemplazada por el ADR-008:** YAML plano, sin Kustomize ni Helm                      |
 | A12 | Bases dentro o fuera del cluster | **Cerrada por el ADR-009**: las persistentes fuera, Redis adentro, uno solo con bases lógicas separadas. **El ADR-021 reemplaza a Neon por RDS**, una base y un rol por servicio |
 | A13 | Observabilidad                   | Grafana Cloud, por el requisito de acceso del tutor                                    |
 | A14 | Proveedor de email               | **Cerrada por el ADR-010**: Resend con el dominio propio `udesax.app` verificado |
@@ -1067,7 +1076,7 @@ Pendientes de definir en S1:
 | #   | Decisión                    | Estado                                                                                                                    |
 | --- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | A25 | Reparto de lenguajes        | **Cerrada: Python es el stack principal del backend.** `users-api` y `posts-api` en FastAPI, `notifications-api` en TypeScript (Bun y Hono desde el ADR-015). La consigna solo exige más de una tecnología, no fija el peso de cada una |
-| A26 | `media-api` como servicio   | **Cerrada: se descarta.** La subida vive en el servicio dueño del dato, con el módulo copiado entre `users-api` y `posts-api`. Seis repositorios en vez de siete |
+| A26 | `media-api` como servicio   | **Cerrada: se descarta.** La subida vive en `posts-api` |
 | A27 | Ubicación de las issues     | **Cerrada por el tutor: una issue por repo, junto a su código.** `udesa-x-platform` solo lleva las transversales. Ver `CONVENCIONES.md` |
 | A28 | Activación del gate de cobertura | **Cerrada: escalonado.** 85% desde S3 en los tres servicios backend, desde S5 en mobile y backoffice |
 | A29 | AGENTS.md y skills          | **Cerrada: obligatorios desde S1.** Bloque común sincronizado desde platform, skills versionadas en el repo. Ver `CONVENCIONES.md` |

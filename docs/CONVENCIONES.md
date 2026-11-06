@@ -9,16 +9,17 @@ Las reglas marcadas con **(tutor)** vienen de las code guidelines que el tutor m
 
 ## Repositorios
 
-Seis repositorios en `tds-g3-2s2026`:
+Siete repositorios en `tds-g3-2s2026`:
 
 | Repositorio | Contenido |
 |---|---|
 | `udesa-x-platform` | Documentación, infraestructura compartida, contratos, skills, CI reusable |
 | `udesa-x-mobile` | App mobile |
 | `udesa-x-backoffice` | Backoffice web |
-| `udesa-x-users-api` | Identidad, perfiles, administradores, avatares |
-| `udesa-x-posts-api` | Contenido, grafo social, feed, búsqueda, imágenes de post |
-| `udesa-x-notifications-api` | Cola, push, emails, triage de IA |
+| `udesa-x-users-api` | Identidad, perfiles, administradores |
+| `udesa-x-posts-api` | Contenido, grafo social, feed, búsqueda, imágenes de post y fotos de perfil |
+| `udesa-x-notifications-api` | Cola, push, emails |
+| `udesa-x-api-gateway` | Ruteo interno de `/api` hacia los servicios |
 
 **(tutor)** Cada servicio en su repositorio, con sus tests y coverage, sus pipelines y
 scripts, su Docker y compose de desarrollo, y sus manifiestos de Kubernetes.
@@ -26,7 +27,7 @@ scripts, su Docker y compose de desarrollo, y sus manifiestos de Kubernetes.
 **(tutor)** Todos los repositorios tienen `README.md`, `.editorconfig`, linters y
 formatters.
 
-Los seis son **públicos** desde el 2026-08-21. En el plan gratuito GitHub habilita ramas
+Todos son **públicos**: los seis primeros, desde el 2026-08-21. En el plan gratuito GitHub habilita ramas
 protegidas, secrets de organización y minutos de Actions ilimitados solo en repos públicos:
 con repos privados, la regla de `main` protegida que sigue no se puede aplicar.
 
@@ -34,14 +35,14 @@ con repos privados, la regla de `main` protegida que sigue no se puede aplicar.
 
 Antes de crear una rama o escribir código, traer el estado remoto y revisar `main`, las ramas
 abiertas y los Pull Requests abiertos. **No solo los del repositorio propio**: lo transversal
-vive en `udesa-x-platform` y puede tocar los seis.
+vive en `udesa-x-platform` y puede tocar a todos.
 
 Si ya hay una rama o un PR sobre los mismos archivos, se habla con quien lo abrió antes de
 empezar. El chequeo se repite antes de commitear, porque el estado pudo cambiar mientras
 tanto.
 
 Saltear esto ya costó trabajo duplicado: dos personas editaron los mismos archivos porque
-había una rama pusheada que nadie miró. Con seis repositorios y tres personas, el estado del
+había una rama pusheada que nadie miró. Con siete repositorios y varias personas, el estado del
 proyecto nunca es el que uno recuerda.
 
 ## Ramas
@@ -59,7 +60,7 @@ fix-contador-retweets
 chore-sync-agents-md
 ```
 
-`main` está protegida en los seis repos desde el 2026-08-21: sin push directo, sin force
+`main` está protegida en todos los repos: sin push directo, sin force
 push, sin borrado, y con una aprobación de otra persona. Alcanza también a los admins.
 
 La excepción son los PRs autoaprobados del
@@ -248,7 +249,7 @@ todas apuradas**, y así lo pidió el tutor explícitamente. Lo que se corre se 
 crea el tag correspondiente.
 
 - Nombre del milestone: `S1` a `S15`, con vencimiento el lunes de la review.
-- El milestone `SN` se crea en **los seis repos**. Cuesta un comando y evita que una issue
+- El milestone `SN` se crea en **todos los repos**. Cuesta un comando y evita que una issue
   quede sin milestone por haberse cargado en un repo que no estaba previsto.
 - **El tag es una versión, no el número de sprint.** Cada repo avanza su propia minor:
   `v0.1.0`, `v0.2.0`, `v0.3.0`. **Las versiones no se emparejan entre repos**: un repo que

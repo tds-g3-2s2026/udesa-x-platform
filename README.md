@@ -2,17 +2,51 @@
 
 Repositorio central de gestión, arquitectura, documentación e infraestructura compartida para **UdeSA-X** (Taller de Desarrollo de Software - Grupo 3, 2S2026).
 
-## Documentación principal
+## Índice: dónde está cada cosa
 
-Toda la documentación base del proyecto está centralizada en [`docs/`](./docs/):
+| Pregunta | Dónde se responde |
+|---|---|
+| ¿Qué pide la materia? | [`docs/CONSIGNA.md`](./docs/CONSIGNA.md): requisitos, épicas, historias y criterios de aceptación |
+| ¿Qué puede hacer un usuario o un administrador? | [`docs/GUIA-FUNCIONAL.md`](./docs/GUIA-FUNCIONAL.md): historia por historia, con la pantalla que cubre cada criterio |
+| ¿Cómo está armado el sistema? | [`docs/ARQUITECTURA.md`](./docs/ARQUITECTURA.md) para el detalle y [`docs/C4.md`](./docs/C4.md) para los diagramas |
+| ¿Por qué se decidió así? | [`docs/adr/`](./docs/adr/README.md): una decisión por archivo |
+| ¿Cómo corro todo en local? | [Sistema completo en local](#sistema-completo-en-local) |
+| ¿Cómo levanto, pruebo o despliego un servicio? | El README de su repo, en la [tabla de abajo](#cada-repositorio) |
+| ¿Cómo se despliega? | [Despliegue en el cluster](#despliegue-en-el-cluster-de-la-cátedra), [despliegue continuo](#despliegue-continuo) y [cómo verificar qué está desplegado](#cómo-verificar-qué-está-desplegado) |
+| ¿Qué eventos viajan por la cola? | [`docs/eventos/README.md`](./docs/eventos/README.md) y el ADR-017 |
+| ¿Cómo se prueba la carga? | [`loadtests/README.md`](./loadtests/README.md) y el [generador de datos](./scripts/seed/README.md) |
+| ¿Cómo se observa en producción? | [`observability/README.md`](./observability/README.md) |
+| ¿Qué se hace en cada sprint y quién lo hace? | [`docs/PLANIFICACION.md`](./docs/PLANIFICACION.md) y [`docs/CATALOGO-ISSUES.md`](./docs/CATALOGO-ISSUES.md), que explica las referencias `T-XX`, `AI-XX` y `DXX` |
+| ¿Cómo trabaja el equipo? | [`docs/CONVENCIONES.md`](./docs/CONVENCIONES.md) y [`AGENTS.md`](./AGENTS.md) |
+| ¿Qué propuestas de IA hubo y cuánto cuestan? | [`docs/PROPUESTAS-IA.md`](./docs/PROPUESTAS-IA.md), [`docs/ESTIMACION-COSTOS-IA.md`](./docs/ESTIMACION-COSTOS-IA.md) y el ADR-023 |
 
-- [`docs/CONSIGNA.md`](./docs/CONSIGNA.md): Transcripción depurada de la consigna oficial, requisitos funcionales/no funcionales, épicas e historias de usuario con criterios de aceptación.
-- [`docs/ARQUITECTURA.md`](./docs/ARQUITECTURA.md): Arquitectura de referencia del sistema, mapa de servicios, stack tecnológico, comunicaciones, persistencia, observabilidad y seguridad (OWASP Top 10:2025).
-- [`docs/PLANIFICACION.md`](./docs/PLANIFICACION.md): Plan de trabajo del semestre dividido en 15 sprints semanales, reparto de historias por integrante, gestión en GitHub Projects y análisis de riesgos.
-- [`docs/CONVENCIONES.md`](./docs/CONVENCIONES.md): Reglas de trabajo del equipo y guidelines del tutor: repositorios, ramas, issues, labels, milestones, PRs y sincronización entre repos. Es la fuente del bloque común de los `AGENTS.md`.
-- [`docs/CATALOGO-ISSUES.md`](./docs/CATALOGO-ISSUES.md): Inventario de las issues del semestre con sus identificadores `T-XX`, `AI-XX` y `DXX`, y estado del tablero. Es lo que da sentido a las referencias `T-XX` de la planificación.
+### Cada repositorio
 
-Además, [`AGENTS.md`](./AGENTS.md) es el punto de entrada para trabajar en este repo, con o sin agente: mapa, reglas del equipo y checks.
+| Repositorio | Levantar | Probar | Desplegar |
+|---|---|---|---|
+| [`udesa-x-users-api`](https://github.com/tds-g3-2s2026/udesa-x-users-api#readme) | [Levantarlo en desarrollo](https://github.com/tds-g3-2s2026/udesa-x-users-api#levantarlo-en-desarrollo) | [Correr los tests](https://github.com/tds-g3-2s2026/udesa-x-users-api#correr-los-tests) | [Despliegue en Kubernetes](https://github.com/tds-g3-2s2026/udesa-x-users-api#despliegue-en-kubernetes) |
+| [`udesa-x-posts-api`](https://github.com/tds-g3-2s2026/udesa-x-posts-api#readme) | [Cómo correrlo](https://github.com/tds-g3-2s2026/udesa-x-posts-api#cómo-correrlo) | [Cómo correrlo](https://github.com/tds-g3-2s2026/udesa-x-posts-api#cómo-correrlo) | [Kubernetes](https://github.com/tds-g3-2s2026/udesa-x-posts-api#kubernetes) |
+| [`udesa-x-api-gateway`](https://github.com/tds-g3-2s2026/udesa-x-api-gateway#readme) | [Levantarlo en desarrollo](https://github.com/tds-g3-2s2026/udesa-x-api-gateway#levantarlo-en-desarrollo) | [Correr los tests](https://github.com/tds-g3-2s2026/udesa-x-api-gateway#correr-los-tests) | [Despliegue en Kubernetes](https://github.com/tds-g3-2s2026/udesa-x-api-gateway#despliegue-en-kubernetes) |
+| [`udesa-x-notifications-api`](https://github.com/tds-g3-2s2026/udesa-x-notifications-api#readme) | [Levantarlo en desarrollo](https://github.com/tds-g3-2s2026/udesa-x-notifications-api#levantarlo-en-desarrollo) | [Tests](https://github.com/tds-g3-2s2026/udesa-x-notifications-api#tests) | Todavía sin manifiestos ni job de despliegue en `main` |
+| [`udesa-x-backoffice`](https://github.com/tds-g3-2s2026/udesa-x-backoffice#readme) | [Con Docker](https://github.com/tds-g3-2s2026/udesa-x-backoffice#levantarlo-en-desarrollo-con-docker) o [con Bun](https://github.com/tds-g3-2s2026/udesa-x-backoffice#levantarlo-en-desarrollo-con-bun) | [Correr los tests](https://github.com/tds-g3-2s2026/udesa-x-backoffice#correr-los-tests) | [Despliegue](https://github.com/tds-g3-2s2026/udesa-x-backoffice#despliegue) |
+| [`udesa-x-mobile`](https://github.com/tds-g3-2s2026/udesa-x-mobile#readme) | [Ejecución con Expo](https://github.com/tds-g3-2s2026/udesa-x-mobile#ejecución-con-expo) | [Checks](https://github.com/tds-g3-2s2026/udesa-x-mobile#checks) | No despliega: se distribuye por Expo |
+
+## Sistema completo en local
+
+```bash
+docker compose -f compose/docker-compose.full.yml up --build
+docker compose -f compose/docker-compose.full.yml down
+```
+
+Levanta `users-api`, `notifications-api`, PostgreSQL, Redis, MongoDB y RabbitMQ, y lleva los correos
+de la cuenta por la cola de punta a punta. **No incluye `posts-api` ni `api-gateway`**: para el feed y
+las publicaciones hay que levantar esos servicios con el compose de su repo.
+
+Las imágenes se construyen desde los repos hermanos, así que `udesa-x-users-api` y
+`udesa-x-notifications-api` tienen que estar clonados al lado de este repo, o indicados con
+`USERS_API_DIR` y `NOTIFICATIONS_API_DIR`. Los puertos se publican solo en `127.0.0.1`: `users-api` en
+`8000`, `notifications-api` en `8003` y la consola de RabbitMQ en `15672`. Los detalles están en
+[`compose/docker-compose.full.yml`](./compose/docker-compose.full.yml).
 
 ## Estructura del repositorio
 
@@ -24,18 +58,25 @@ udesa-x-platform/
 │   └── skills/                # Skills del equipo, versionadas y sincronizadas
 ├── docs/
 │   ├── CONSIGNA.md            # Requisitos y alcance oficial
+│   ├── GUIA-FUNCIONAL.md      # Qué puede hacer cada usuario, historia por historia
 │   ├── PLANIFICACION.md       # Sprints, roles, reparto y riesgos
 │   ├── ARQUITECTURA.md        # Diseño de referencia y mapa técnico
+│   ├── C4.md                  # Diagramas de contexto, contenedores y componentes
 │   ├── CONVENCIONES.md        # Reglas de trabajo del equipo
 │   ├── CATALOGO-ISSUES.md     # Inventario de issues del semestre
+│   ├── PROPUESTAS-IA.md       # Propuestas de la funcionalidad de IA
+│   ├── ESTIMACION-COSTOS-IA.md # Costo estimado de la funcionalidad de IA
 │   ├── adr/                   # Decisiones de arquitectura, una por archivo
+│   ├── eventos/               # Contratos de los eventos, fuente de las copias de cada servicio
 │   ├── actas/                 # Minutas de reuniones de seguimiento
 │   └── retros/                # Retrospectivas semanales
-├── compose/                   # Docker Compose integrado para ambiente local completo
-├── k8s/                       # Namespace, cuotas, límites e Ingress; los aplica el docente
+├── compose/                   # Docker Compose integrado para ambiente local
+├── k8s/                       # Namespace, cuotas, Ingress y NetworkPolicy, que aplica el docente; Redis y RabbitMQ, que aplica el CD
+├── loadtests/                 # Prueba de carga del feed con k6
+├── observability/             # Dashboards y alertas versionados para Grafana Cloud
 ├── templates/
 │   └── repo-servicio/         # Plantilla de repositorio de servicio
-├── scripts/                   # sync-contracts.sh y sync-comunes.sh
+├── scripts/                   # Sincronización de comunes y contratos, validación de esquemas y generador de datos
 └── .github/
     ├── workflows/             # Reusable workflows para CI/CD de todos los repos
     ├── copilot-instructions.md  # Fuente, se sincroniza a todos los repos
@@ -44,21 +85,24 @@ udesa-x-platform/
 
 ## Mapa de repositorios de la organización
 
-La solución se estructura en seis repositorios bajo la organización `tds-g3-2s2026`, todos públicos (ver [ADR-003](./docs/adr/ADR-003-repositorios-publicos.md)):
+La solución se estructura en siete repositorios bajo la organización `tds-g3-2s2026`, todos públicos (ver [ADR-003](./docs/adr/ADR-003-repositorios-publicos.md)):
 
 | Repositorio | Descripción | Stack principal |
 |---|---|---|
 | `udesa-x-platform` | Gestión central, docs, infra compartida, CI/CD reusable | Kubernetes (manifiestos planos), GitHub Actions |
 | `udesa-x-mobile` | Aplicación mobile para usuarios finales | React Native + Expo, TanStack Query, Zustand |
 | `udesa-x-backoffice` | Panel web de administración y moderación | React 19 + Vite 8 + Mantine |
-| `udesa-x-users-api` | Identidad, autenticación, perfiles, administradores y avatares | FastAPI + Python 3.13, PostgreSQL 18, Redis, S3 |
-| `udesa-x-posts-api` | Contenido, grafo social, feed cronológico, búsqueda e imágenes de post | FastAPI + Python 3.13, PostgreSQL 18, Redis, S3 |
-| `udesa-x-notifications-api` | Notificaciones push (FCM), historial in-app, emails y triage IA | Hono + Bun + TypeScript, MongoDB Atlas |
+| `udesa-x-users-api` | Identidad, autenticación, perfiles y administradores | FastAPI + Python 3.13, PostgreSQL 18, Redis, RabbitMQ |
+| `udesa-x-posts-api` | Contenido, grafo social, feed cronológico, búsqueda, imágenes de post y fotos de perfil | FastAPI + Python 3.13, PostgreSQL 18, Redis, RabbitMQ, S3 |
+| `udesa-x-notifications-api` | Notificaciones push (FCM), historial in-app y emails | Hono + Bun + TypeScript, MongoDB, RabbitMQ |
+| `udesa-x-api-gateway` | Ruteo interno de `/api` hacia los servicios | Hono + Bun + TypeScript |
 
 Dos decisiones del 2026-08-20 explican este mapa y están justificadas en [`ARQUITECTURA.md`](./docs/ARQUITECTURA.md):
 
 - **Python es el stack principal del backend** (A25). `users-api` y `posts-api` van en FastAPI, y `notifications-api` va en TypeScript sobre Bun y Hono, como el gateway ([ADR-015](./docs/adr/ADR-015-notifications-api-en-bun-y-hono.md)). La consigna exige más de una tecnología, no fija el peso de cada una.
-- **No hay `media-api`** (A26). La subida de archivos vive en el servicio dueño del dato, con el módulo de streaming escrito una vez en `users-api` y copiado a `posts-api`.
+- **No hay `media-api`** (A26). La subida de archivos vive en `posts-api`, que guarda las imágenes de los posts y las fotos de perfil y portada.
+
+El asistente por voz va a sumar un repositorio más, `udesa-x-assistant-api`, que todavía no existe ([ADR-023](./docs/adr/ADR-023-bedrock-para-el-asistente-por-voz.md)).
 
 ## Archivos comunes
 
@@ -103,10 +147,9 @@ Por contenedor, el mínimo es `100m` / `128Mi` y el máximo `500m` / `512Mi`.
 Los valores predeterminados son request `100m` / `128Mi` y limit `500m` / `512Mi`.
 Igualmente, cada Deployment debe declarar sus requests y limits explícitamente.
 
-**La cuota es de ocho pods, no seis.** Un escenario futuro con `users-api`, `posts-api`,
-`api-gateway`, `notifications-api`, RabbitMQ y Redis tendría seis pods con una réplica
-cada uno; no significa que esos seis componentes ya estén desplegados. El séptimo y octavo
-entran si alcanzan las demás cuotas; el noveno es rechazado.
+**La cuota es de diez pods.** `users-api`, `posts-api`, `api-gateway`, `notifications-api`,
+RabbitMQ y Redis suman seis con una réplica cada uno. Del séptimo al décimo entran si alcanzan
+las demás cuotas; el undécimo es rechazado.
 
 Los tres Deployment HTTP usan `maxSurge: 1` y `maxUnavailable: 0`: conservan el pod anterior
 hasta que el nuevo esté listo. Reservar capacidad para el pod adicional y los Jobs de
@@ -151,11 +194,7 @@ Las annotations de alcance de grupo (`scheme`, `listen-ports`, `certificate-arn`
 no se declaran acá a propósito: son del ALB compartido y las fija la cátedra. Declararlas
 con un valor distinto al del resto del grupo rompe la reconciliación para todos los equipos.
 
-La integración requiere desplegar conjuntamente las versiones alineadas:
-[users-api#42](https://github.com/tds-g3-2s2026/udesa-x-users-api/pull/42),
-[posts-api#37](https://github.com/tds-g3-2s2026/udesa-x-posts-api/pull/37) y los manifiestos del
-[gateway#2](https://github.com/tds-g3-2s2026/udesa-x-api-gateway/issues/2). El gateway conserva
-`/api` y la query: los backends deben montar sus rutas bajo ese prefijo. Sus URLs internas
+El gateway conserva `/api` y la query: los backends deben montar sus rutas bajo ese prefijo. Sus URLs internas
 son `http://users-api` y `http://posts-api`, sin `/api` ni `:8000`.
 
 Las APIs usan `/livez` para liveness sin consultar dependencias y `/healthcheck` para
@@ -217,7 +256,7 @@ sola instancia, con una base y un rol por servicio.
 |---|---|---|---|
 | Base `users`, rol `users` | RDS `tds-group-3-db`, `us-east-2` | `users-api` | Secret `DATABASE_URL` del repo `udesa-x-users-api` |
 | Base `posts`, rol `posts` | RDS `tds-group-3-db`, `us-east-2` | `posts-api` | Secret `DATABASE_URL` del repo `udesa-x-posts-api` |
-| Redis compartido | Pod del namespace `tds-group-3`, manifiesto `k8s/redis.yaml` de este repo | `users-api` con `/0`, `posts-api` con `/1` | Secret `REDIS_URL` de cada repo de servicio |
+| Redis compartido | Pod del namespace `tds-group-3`, manifiesto `k8s/redis.yaml` de este repo | `users-api` con `/0`; `posts-api` con `/1`, y lee las revocaciones de `/0` (ADR-014) | Secret `REDIS_URL` de cada repo de servicio, más `AUTH_REDIS_URL` en `posts-api` |
 
 La instancia solo acepta el 5432 desde los pods del cluster. Las bases y los roles los crea el
 workflow manual `crear-bases-postgres.yml`, y cada base tiene `CONNECT` revocado a `PUBLIC`. Se
@@ -331,9 +370,13 @@ token de OIDC.
 
 | Servicio | `secretos` | `migracion` |
 |---|---|---|
-| `users-api` | `DATABASE_URL REDIS_URL JWT_PRIVATE_KEY` | `alembic upgrade head` |
-| `posts-api` | `DATABASE_URL REDIS_URL JWT_PUBLIC_KEY` | `alembic upgrade head` |
-| `api-gateway` | ninguno | ninguna |
+| `users-api` | `DATABASE_URL REDIS_URL RABBITMQ_URL JWT_PRIVATE_KEY INTERNAL_API_TOKEN OTEL_EXPORTER_OTLP_HEADERS SUPERADMIN_EMAIL SUPERADMIN_PASSWORD` | `alembic upgrade head && python -m users_api.seed_superadmin` |
+| `posts-api` | `DATABASE_URL REDIS_URL RABBITMQ_URL AUTH_REDIS_URL JWT_PUBLIC_KEY INTERNAL_API_TOKEN OTEL_EXPORTER_OTLP_HEADERS` | `alembic upgrade head` |
+| `api-gateway` | `OTEL_EXPORTER_OTLP_HEADERS` | ninguna |
+
+`notifications-api` todavía no llama a este workflow: no tiene manifiestos ni job de despliegue en
+`main`. El backoffice tampoco, porque no corre en el cluster: su `ci.yml` publica en S3 e invalida
+la caché de CloudFront.
 
 Qué hace, en orden:
 
@@ -363,13 +406,8 @@ Un despliegue por servicio a la vez, sin cancelar el que ya está tocando el clu
 distintos sí corren en paralelo: si se mergea en los tres a la vez, las migraciones y los
 pods extra del `maxSurge` comparten la cuota.
 
-Lo que el pipeline no hace y queda para el primer despliegue:
-
-- Crear el primer superadmin de users, con su comando idempotente y credenciales de
-  bootstrap separadas.
-- Aplicar el Ingress, que es del docente. El gateway y las APIs tienen que estar listos
-  antes, y después se comprueba login y una operación autenticada de posts por HTTPS desde
-  el host público.
+Lo que el pipeline no hace es aplicar el Ingress, que es del docente. El primer superadmin sí sale
+del pipeline: lo crea la migración de `users-api`, que no hace nada si la cuenta ya existe.
 
 Users firma con una clave privada Ed25519 estable; posts recibe su pública correspondiente.
 Ambos validan `JWT_ISSUER=users-api`. No hay descubrimiento JWKS ni rotación automática.
@@ -386,12 +424,9 @@ compatible con la versión anterior durante el rolling update. Volver a una imag
 **no** revierte el esquema de la base.
 No usar `alembic stamp` para adoptar una base existente sin verificar su esquema.
 
-Pendientes externos: bases y TLS real ([#46](https://github.com/tds-g3-2s2026/udesa-x-platform/issues/46))
-e identidades/acceso ([#47](https://github.com/tds-g3-2s2026/udesa-x-platform/issues/47)). Los clientes deben usar
-`https://tds-group-3.tds-linar.udesa.edu.ar/api` como base, sin `/v1`, también para posts;
-los defaults locales antiguos no son configuración de producción. Si el backoffice se
-sirve desde otro origen, configurar `CORS_ALLOWED_ORIGINS` en users con ese origen real.
-No se inventan esos valores ni se promete una validación en AWS antes de disponer de ellos.
+Los clientes deben usar `https://tds-group-3.tds-linar.udesa.edu.ar/api` como base, sin `/v1`,
+también para posts; los defaults locales antiguos no son configuración de producción. Si el
+backoffice se sirve desde otro origen, configurar `CORS_ALLOWED_ORIGINS` en users con ese origen real.
 
 ### Cómo verificar qué está desplegado
 
