@@ -832,7 +832,7 @@ Cada una necesita dueño y fecha de resolución. Se cargan como issues con la la
 | D13 | Composición del feed | Definir si incluye posts propios. E.2 H5 CA.1 ya confirma que incluye retweets de los seguidos. |
 | D14 | "Tiempo real" en likes y métricas | E.2 H6 CA.2 y E.5 H3 CA.1 dicen "tiempo real". Se interpreta como actualización optimista en el cliente más refresco, no WebSockets. Documentar. |
 | D15 | Imágenes que exceden el límite | E.2 H7 CA.2 fija 1 MB por imagen. Definir si el cliente comprime antes de subir o si el backend rechaza. |
-| D16 | Idioma del contenido | E.1 H7 CA.2 exige filtrar el feed por idioma, lo que implica detectar el idioma de cada post. Se resuelve con una librería de detección o como parte de la funcionalidad de IA. Es un requisito escondido y costoso. |
+| D16 | Idioma del contenido | **Cerrada el 05-11 por el ADR-024.** E.1 H7 CA.2 exige filtrar el feed por idioma, lo que implica detectar el idioma de cada post. Se resuelve con `lingua-language-detector` en `posts-api`, y la preferencia llega por el evento `preferences.changed`. |
 | D17 | Alertas de servicio caído | E.5 H11 CA.4 exige email a todos los admins si un servicio cae. Definir debounce para evitar tormenta de correos. |
 | D18 | Zona horaria | Todo en UTC en backend, conversión a local en el cliente. |
 | D19 | Retención de datos | Borrado de posts definido en la política de borrado de publicaciones de ARQUITECTURA: contenido conservado y oculto, marcadores y respuestas preservados, likes y retweets eliminados. Pendientes con grupo y tutor: plazo de conservación, purga, backups y borrado de cuentas. No implica aprobación del tutor ni cierre de la política general de privacidad. |
