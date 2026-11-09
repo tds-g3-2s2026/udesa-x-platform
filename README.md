@@ -19,6 +19,7 @@ Repositorio central de gestión, arquitectura, documentación e infraestructura 
 | ¿Qué se hace en cada sprint y quién lo hace? | [`docs/PLANIFICACION.md`](./docs/PLANIFICACION.md) y [`docs/CATALOGO-ISSUES.md`](./docs/CATALOGO-ISSUES.md), que explica las referencias `T-XX`, `AI-XX` y `DXX` |
 | ¿Cómo trabaja el equipo? | [`docs/CONVENCIONES.md`](./docs/CONVENCIONES.md) y [`AGENTS.md`](./AGENTS.md) |
 | ¿Qué propuestas de IA hubo y cuánto cuestan? | [`docs/PROPUESTAS-IA.md`](./docs/PROPUESTAS-IA.md), [`docs/ESTIMACION-COSTOS-IA.md`](./docs/ESTIMACION-COSTOS-IA.md) y el ADR-023 |
+| ¿Qué modelo usa el asistente y cómo se eligió? | [`docs/SPIKE-IA.md`](./docs/SPIKE-IA.md) |
 
 ### Cada repositorio
 
@@ -66,6 +67,8 @@ udesa-x-platform/
 │   ├── CATALOGO-ISSUES.md     # Inventario de issues del semestre
 │   ├── PROPUESTAS-IA.md       # Propuestas de la funcionalidad de IA
 │   ├── ESTIMACION-COSTOS-IA.md # Costo estimado de la funcionalidad de IA
+│   ├── SPIKE-IA.md            # Mediciones del asistente por voz y modelo elegido
+│   ├── spike-ia/              # Resultados crudos de cada corrida del spike
 │   ├── adr/                   # Decisiones de arquitectura, una por archivo
 │   ├── eventos/               # Contratos de los eventos, fuente de las copias de cada servicio
 │   ├── actas/                 # Minutas de reuniones de seguimiento
@@ -102,7 +105,7 @@ Dos decisiones del 2026-08-20 explican este mapa y están justificadas en [`ARQU
 - **Python es el stack principal del backend** (A25). `users-api` y `posts-api` van en FastAPI, y `notifications-api` va en TypeScript sobre Bun y Hono, como el gateway ([ADR-015](./docs/adr/ADR-015-notifications-api-en-bun-y-hono.md)). La consigna exige más de una tecnología, no fija el peso de cada una.
 - **No hay `media-api`** (A26). La subida de archivos vive en `posts-api`, que guarda las imágenes de los posts y las fotos de perfil y portada.
 
-El asistente por voz va a sumar un repositorio más, `udesa-x-assistant-api`, que todavía no existe ([ADR-023](./docs/adr/ADR-023-bedrock-para-el-asistente-por-voz.md)).
+El asistente por voz suma un repositorio más, `udesa-x-assistant-api`, creado con `AI-03`: tiene el bucle del agente y sus evaluaciones, y el endpoint y el deploy llegan con `AI-04` ([ADR-023](./docs/adr/ADR-023-bedrock-para-el-asistente-por-voz.md)).
 
 ## Archivos comunes
 

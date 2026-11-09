@@ -280,7 +280,7 @@ el proveedor de email.
 | MongoDB                     | MongoDB Atlas en capa gratuita                  | DocumentDB solo si hay créditos: cuesta varias veces más                                                                 |
 | Redis                       | Dentro del cluster, uno solo                    | Cerrado en el ADR-009. Datos efímeros, separación por base lógica: `/0` para users, `/1` para posts                     |
 | Almacenamiento de media     | S3 con bucket privado y URLs firmadas           | Cerrado                                                                                                                  |
-| Modelo de IA                | Amazon Bedrock, inferencia dentro de EE. UU.    | Cerrado en el ADR-023. `AI-03` arranca con gpt-oss-120b y lo ajusta con evaluaciones entre los candidatos de `ESTIMACION-COSTOS-IA.md` |
+| Modelo de IA                | Amazon Bedrock, inferencia dentro de EE. UU.    | Cerrado en el ADR-023: Claude Haiku 5.5 sin razonamiento, elegido con el spike de `AI-03` (`SPIKE-IA.md`) |
 | Registry de imágenes        | Amazon ECR                                      | Sin ADR propio todavía. Los manifiestos en revisión (`platform#51`, `users-api#42`, `posts-api#37`, `api-gateway#3`) usan `${ECR_IMAGE}` y probaron imágenes reales contra ECR |
 | DNS y certificados          | Los resuelve la cátedra sobre el ingress        | Cerrado en el ADR-008. El equipo no administra la entrada del cluster                                                    |
 | Región                      | `us-east-2`                                     | Cerrado en el ADR-008 (Ohio)                                                                                             |
