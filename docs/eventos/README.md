@@ -27,6 +27,7 @@ checks están en el [ADR-017](../adr/ADR-017-forma-y-versionado-de-eventos.md).
 | `user.deleted.v1` | users-api | posts-api, notifications-api |
 | `preferences.changed.v1` | users-api | posts-api |
 | `feedback.submitted.v1` | users-api | notifications-api |
+| `invitation.accepted.v1` | users-api | posts-api |
 | `follow.created.v1` | posts-api | notifications-api |
 | `interaction.created.v1` | posts-api | notifications-api |
 

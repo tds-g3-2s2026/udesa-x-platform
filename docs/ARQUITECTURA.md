@@ -568,6 +568,7 @@ RabbitMQ 4.x desplegado en el cluster, con exchange de tipo topic. Elegido sobre
 | `password.reset_requested`     | users        | notifications                              |
 | `password.changed`             | users        | notifications                              |
 | `feedback.submitted`           | users        | notifications                              |
+| `invitation.accepted`          | users        | posts (follow del invitado al invitador)   |
 | `post.created`                 | posts        | notifications (menciones)                  |
 | `follow.created`               | posts        | notifications                              |
 | `interaction.created`          | posts        | notifications                              |
