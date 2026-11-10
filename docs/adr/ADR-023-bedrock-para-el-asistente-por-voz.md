@@ -1,6 +1,7 @@
 # ADR-023: Amazon Bedrock para el asistente por voz, en un servicio propio
 
-**Fecha:** 2026-10-30, revisada el 2026-10-31 con los comentarios del tutor · **Estado:**
+**Fecha:** 2026-10-30, revisada el 2026-10-31 con los comentarios del tutor y el 2026-11-09
+con el spike · **Estado:**
 aceptada · **Decide:** el equipo, con la aprobación del tutor
 
 ## Contexto
@@ -118,6 +119,27 @@ con evaluaciones hasta el más barato que cumpla.**
   - un rate limit por usuario;
   - una variable que apaga el asistente;
   - una alarma de presupuesto que se le pide a la cátedra.
+
+## Revisión del 2026-11-09: lo que cambió con el spike
+
+- **El modelo es Claude Haiku 5.5, sin razonamiento.** La cátedra habilitó solo Claude Haiku
+  5.5, con un perfil de inferencia por grupo y un tope mensual (guía de Bedrock de la cátedra).
+  gpt-oss-120b y los otros candidatos no se pueden invocar. El spike de `AI-03` arrancó entonces
+  con Haiku, que cumplió los tres criterios: 24 de 25 pedidos terminados bien, ninguna acción
+  visible para otros sin confirmación y 1,2 segundos de mediana hasta la primera acción, a USD
+  0,0009 por pedido. Queda elegido. El detalle está en `docs/SPIKE-IA.md`.
+- **Un perfil de inferencia por entorno.** En las máquinas del equipo, el perfil local del grupo
+  en `us-east-1`; en el cluster, el perfil de EKS en `us-east-2`. Los dos son perfiles del grupo
+  y su ARN va en `BEDROCK_MODEL_ID`, nunca en el código.
+- **Sin access keys.** En local, la sesión sale de `aws login --remote --profile tds-group-3`,
+  que pide MFA y es temporal: no hay una access key del usuario en ninguna máquina. En el
+  cluster, el pod asume el rol `tds-group-3-bedrock-role`, con la política
+  `tds-group-3-bedrock-policy`, el boundary `tds-group-boundary` y la etiqueta
+  `group=tds-group-3`. Los creó el equipo siguiendo la guía de deploy de la cátedra (Anexo A),
+  y no la cátedra como suponía este ADR. El pod lo asume con el ServiceAccount
+  `tds-group-3-bedrock-sa`, que entra con el deploy de `AI-04`.
+- **El anexo de permisos queda como registro** de lo que se pidió el 2026-10-30. Lo que rige
+  es la guía de la cátedra.
 
 ## Alternativas descartadas
 
