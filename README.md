@@ -128,7 +128,7 @@ Los manifiestos son planos, sin Kustomize ni overlays.
 
 | Recurso | Quién lo aplica |
 |---|---|
-| [`k8s/namespace.yaml`](./k8s/namespace.yaml): Namespace, ResourceQuota y LimitRange | El docente, después de revisar y aprobar el PR |
+| [`k8s/namespace.yaml`](./k8s/namespace.yaml): Namespace, ResourceQuota, LimitRange y el ServiceAccount de Bedrock | El docente, después de revisar y aprobar el PR |
 | [`k8s/ingress.yaml`](./k8s/ingress.yaml): entrada HTTP del sistema | El docente, después de revisar y aprobar el PR |
 | [`k8s/networkpolicy.yaml`](./k8s/networkpolicy.yaml): los pods del namespace solo aceptan tráfico entre ellos | El docente, después de revisar y aprobar el PR |
 | Deployment, Service, ConfigMap, Secret y Job de migración de cada servicio | [`deploy.yml`](./.github/workflows/deploy.yml), en cada push a `main` del servicio |
@@ -139,20 +139,27 @@ Los valores de cuota, el grupo de ALB y el host salen de la clase 6, Cloud Compu
 14 de septiembre, la misma que cierra el [ADR-008](./docs/adr/ADR-008-plataforma-de-despliegue.md).
 Los fija la cátedra: no son decisiones del equipo y no se cambian por cuenta propia.
 
-La cuota del equipo es de `2` CPU y `2Gi` de memoria en requests, `4` CPU y `4Gi`
-en limits, hasta `10` pods, `6` Services, `5` ConfigMaps y `6` Secrets. Los pods, Services,
-ConfigMaps y Secrets eran `8`, `4`, `4` y `4`, y se pidió ampliarlos el 2026-10-26 para sumar
-RabbitMQ y `notifications-api` ([#111](https://github.com/tds-g3-2s2026/udesa-x-platform/issues/111));
-el detalle de cada número está en [#113](https://github.com/tds-g3-2s2026/udesa-x-platform/pull/113).
-**Uno de los cinco ConfigMaps ya está ocupado** por `kube-root-ca.crt`, que Kubernetes
-crea solo en cada namespace: quedan cuatro, uno por servicio con código.
+La cuota del equipo es de `2` CPU y `2Gi` de memoria en requests, `5` CPU y `5Gi`
+en limits, hasta `11` pods, `7` Services, `6` ConfigMaps y `7` Secrets. Se pidió ampliarla
+dos veces. El 2026-10-26, para sumar RabbitMQ y `notifications-api`
+([#111](https://github.com/tds-g3-2s2026/udesa-x-platform/issues/111)): los pods, Services,
+ConfigMaps y Secrets pasaron de `8`, `4`, `4` y `4` a `10`, `6`, `5` y `6`, con el detalle de cada
+número en [#113](https://github.com/tds-g3-2s2026/udesa-x-platform/pull/113). El 2026-11-11, para
+sumar `assistant-api` (ADR-023): uno más de cada objeto, y los limits de `4` a `5` CPU y de
+`4Gi` a `5Gi`, para que dos despliegues con su Job de migración entren a la vez.
+**Uno de los seis ConfigMaps ya está ocupado** por `kube-root-ca.crt`, que Kubernetes
+crea solo en cada namespace: quedan cinco, uno por servicio con código.
 Por contenedor, el mínimo es `100m` / `128Mi` y el máximo `500m` / `512Mi`.
 Los valores predeterminados son request `100m` / `128Mi` y limit `500m` / `512Mi`.
 Igualmente, cada Deployment debe declarar sus requests y limits explícitamente.
 
-**La cuota es de diez pods.** `users-api`, `posts-api`, `api-gateway`, `notifications-api`,
-RabbitMQ y Redis suman seis con una réplica cada uno. Del séptimo al décimo entran si alcanzan
-las demás cuotas; el undécimo es rechazado.
+**La cuota es de once pods.** `users-api`, `posts-api`, `api-gateway`, `notifications-api`,
+`assistant-api`, RabbitMQ y Redis suman siete con una réplica cada uno. Del octavo al undécimo
+entran si alcanzan las demás cuotas; el duodécimo es rechazado.
+
+**El ServiceAccount `tds-group-3-bedrock-sa` va en `namespace.yaml`** porque el rol del
+pipeline no puede crear ServiceAccounts. Con él, `assistant-api` asume `tds-group-3-bedrock-role`,
+cuya política de confianza solo acepta pods que corren con ese ServiceAccount (ADR-023).
 
 Los tres Deployment HTTP usan `maxSurge: 1` y `maxUnavailable: 0`: conservan el pod anterior
 hasta que el nuevo esté listo. Reservar capacidad para el pod adicional y los Jobs de
@@ -160,8 +167,8 @@ migración activos, incluyendo CPU y memoria. Ejecutar los despliegues de forma 
 si comparten ese margen; la exclusión de GitHub Actions de un repo no serializa otros repos.
 Un pod todavía terminando también puede consumir cuota. Sin margen, el rollout puede
 quedar trabado: no aumentar automáticamente `maxUnavailable` a costa de interrumpir el servicio.
-Una réplica con rolling update no es alta disponibilidad. Ocho contenedores con límites
-de `500m` / `512Mi` agotan los `4` CPU / `4Gi` de limits.
+Una réplica con rolling update no es alta disponibilidad. Diez contenedores con límites
+de `500m` / `512Mi` agotan los `5` CPU / `5Gi` de limits.
 
 El Ingress comparte el ALB mediante `group.name: tds-shared`, usa `group.order: "203"`
 y solo recibe tráfico para `tds-group-3.tds-linar.udesa.edu.ar`.

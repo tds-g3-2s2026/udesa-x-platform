@@ -14,12 +14,12 @@ spec:
   hard:
     requests.cpu: "2"
     requests.memory: 2Gi
-    limits.cpu: "4"
-    limits.memory: 4Gi
-    pods: "10"
-    services: "6"
-    configmaps: "5"
-    secrets: "6"
+    limits.cpu: "5"
+    limits.memory: 5Gi
+    pods: "11"
+    services: "7"
+    configmaps: "6"
+    secrets: "7"
 ---
 apiVersion: v1
 kind: LimitRange
@@ -41,3 +41,11 @@ spec:
       default:
         cpu: 500m
         memory: 512Mi
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: tds-group-3-bedrock-sa
+  namespace: tds-group-3
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::172786533418:role/tds-group-3-bedrock-role

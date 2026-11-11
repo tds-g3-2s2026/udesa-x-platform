@@ -137,7 +137,8 @@ con evaluaciones hasta el más barato que cumpla.**
   `tds-group-3-bedrock-policy`, el boundary `tds-group-boundary` y la etiqueta
   `group=tds-group-3`. Los creó el equipo siguiendo la guía de deploy de la cátedra (Anexo A),
   y no la cátedra como suponía este ADR. El pod lo asume con el ServiceAccount
-  `tds-group-3-bedrock-sa`, que entra con el deploy de `AI-04`.
+  `tds-group-3-bedrock-sa`. Como el pipeline no puede crear ServiceAccounts, va en
+  `k8s/namespace.yaml` y lo aplica el docente, junto con la cuota para el servicio nuevo.
 - **El anexo de permisos queda como registro** de lo que se pidió el 2026-10-30. Lo que rige
   es la guía de la cátedra.
 
