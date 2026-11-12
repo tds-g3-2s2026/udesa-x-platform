@@ -125,6 +125,7 @@ udesa-x-platform/
 │   ├── namespace.yaml        # cuota y límites del grupo, lo aplica el docente
 │   ├── ingress.yaml          # único Ingress del sistema, lo aplica el docente
 │   ├── networkpolicy.yaml    # tráfico dentro del namespace, lo aplica el docente
+│   ├── serviceaccount.yaml   # ServiceAccount del rol de Bedrock de assistant-api, lo aplica el docente
 │   ├── redis.yaml            # Redis compartido, lo aplica el CD
 │   └── rabbitmq.yaml         # RabbitMQ del namespace, lo aplica el CD
 ├── compose/
