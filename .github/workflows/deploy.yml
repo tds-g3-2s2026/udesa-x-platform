@@ -16,7 +16,7 @@
 #
 # It applies exactly these things: k8s/configmap.yaml, the Secret built from
 # GitHub Secrets, k8s/service.yaml, k8s/deployment.yaml and, only if the
-# service has one, k8s/networkpolicy.yaml. Never
+# service has them, k8s/networkpolicy.yaml and k8s/hpa.yaml. Never
 # namespace.yaml nor ingress.yaml, which the docente applies and the CI role
 # cannot touch, and never secret.template.yaml, whose empty values would
 # overwrite the real ones.
@@ -106,6 +106,10 @@ jobs:
           if [ -f k8s/deployment.yaml ] && ! grep -qF '${ECR_IMAGE}' k8s/deployment.yaml; then
             faltan+=('el marcador ${ECR_IMAGE} en k8s/deployment.yaml')
           fi
+          if [ -f k8s/hpa.yaml ] && [ -f k8s/deployment.yaml ] \
+            && [ "$(yq '.spec | has("replicas")' k8s/deployment.yaml)" = true ]; then
+            faltan+=('sacar spec.replicas de k8s/deployment.yaml: con k8s/hpa.yaml, cada deploy pisaria las replicas que eligio el HPA')
+          fi
           if [ ${#faltan[@]} -gt 0 ]; then
             for falta in "${faltan[@]}"; do echo "::error::Falta $falta."; done
             exit 1
@@ -176,6 +180,7 @@ jobs:
           faltan=()
           recursos=(configmaps secrets services deployments jobs)
           [ -f k8s/networkpolicy.yaml ] && recursos+=(networkpolicies)
+          [ -f k8s/hpa.yaml ] && recursos+=(horizontalpodautoscalers)
           for recurso in "${recursos[@]}"; do
             kubectl auth can-i create "$recurso" -n "$NAMESPACE" >/dev/null || faltan+=("$recurso")
           done
@@ -306,6 +311,12 @@ jobs:
             kubectl apply -n "$NAMESPACE" -f k8s/networkpolicy.yaml
           fi
           kubectl apply -n "$NAMESPACE" -f k8s/service.yaml -f "$RENDER/deployment.yaml"
+          # Optional: an HPA that scales the Deployment by CPU. Its
+          # deployment.yaml must not set replicas, or every apply above would
+          # reset the count the HPA chose.
+          if [ -f k8s/hpa.yaml ]; then
+            kubectl apply -n "$NAMESPACE" -f k8s/hpa.yaml
+          fi
           if kubectl rollout status "deployment/$SERVICIO" -n "$NAMESPACE" --timeout="${TIMEOUT}s"; then
             exit 0
           fi
