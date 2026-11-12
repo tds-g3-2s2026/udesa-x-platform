@@ -731,7 +731,7 @@ Mantine sobre shadcn porque trae formularios y gráficos en el mismo monorepo co
 | Secretos     | **GitHub Secrets**, volcados por `deploy.yml` | Cero pods extra en el cluster. El pipeline arma el Secret de cada servicio                         |
 | Registry     | Amazon ECR                                    | Sin ADR propio. Se publica con el commit como tag y se despliega por digest (`${ECR_IMAGE}`)   |
 | Identidad    | OIDC + IRSA                                   | Vista en la clase de Cloud Computing I: el pod asume un IAM Role vía ServiceAccount anotado        |
-| Autoescalado | HPA por servicio, más **KEDA** para la cola   | KEDA escala `notifications-api` por profundidad de cola, con `minReplicaCount: 0`                  |
+| Autoescalado | HPA por CPU en `users-api` y `posts-api`      | De 1 a 2 y de 1 a 3 réplicas, dentro de la cuota del namespace (README de platform). KEDA para `notifications-api` espera a que la cátedra lo instale |
 
 **Por qué cambia el ingress.** El repositorio `kubernetes/ingress-nginx` está archivado desde el 24 de marzo de 2026 y su README dice textualmente que quien no lo esté usando ya no debería desplegarlo. No va a haber más parches de seguridad, y antes de cerrar acumulaba seis CVEs en cuatro meses. Lo traicionero es que no se rompe: funcionaría perfecto los quince sprints. La API `Ingress` de Kubernetes no está deprecada: lo que murió es ese controller.
 
@@ -743,7 +743,7 @@ instalado, consumido a través de la misma API `Ingress` de Kubernetes.
 
 **Por qué GitHub Secrets.** El plan original era SOPS con age, pensado para destruir y recrear un cluster propio entre sprints. Con el cluster de la cátedra (ADR-008) ese caso no existe: los valores viven como GitHub Secrets y `deploy.yml` arma el Secret de cada servicio.
 
-**Por qué KEDA.** El HPA por CPU no puede demostrar lo que interesa. KEDA permite mostrar cero pods, publicar mensajes en la cola y verlos aparecer. Dos advertencias que ahorran horas: nunca definir un HPA propio sobre el mismo Deployment que un `ScaledObject`, y el vhost de RabbitMQ hay que URL-encodearlo.
+**Por qué KEDA.** El HPA por CPU no puede demostrar lo que interesa. KEDA permite mostrar cero pods, publicar mensajes en la cola y verlos aparecer. Dos advertencias que ahorran horas: nunca definir un HPA propio sobre el mismo Deployment que un `ScaledObject`, y el vhost de RabbitMQ hay que URL-encodearlo. El cluster de la cátedra todavía no lo tiene instalado: lo sigue `udesa-x-notifications-api#46`.
 
 ### Costo: los números reales
 

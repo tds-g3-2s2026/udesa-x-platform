@@ -172,6 +172,22 @@ quedar trabado: no aumentar automáticamente `maxUnavailable` a costa de interru
 Una réplica con rolling update no es alta disponibilidad. Diez contenedores con límites
 de `500m` / `512Mi` agotan los `5` CPU / `5Gi` de limits.
 
+**Autoescalado.** `users-api` y `posts-api` tienen un HorizontalPodAutoscaler (HPA): un objeto
+de Kubernetes que sube y baja las réplicas de un Deployment según su uso de CPU. `posts-api` va
+de 1 a 3 réplicas y `users-api` de 1 a 2, con objetivo de `250m` de CPU promedio por pod, la mitad
+del límite. El objetivo va como valor y no como porcentaje porque el porcentaje se mide contra el
+request, que es de `100m`. El gateway queda fijo en una réplica.
+
+El tamaño sale de la cuota. Con los siete servicios en una réplica hay siete pods y los limits
+suman `3` CPU y `3Gi`: queda lugar para cuatro pods extra de `500m` / `512Mi` a la vez. Esos
+cuatro lugares los comparten las réplicas que suma el HPA y los deploys en curso. Cada deploy
+ocupa uno solo, porque el Job de migración termina antes del rollout y un pod terminado no cuenta
+en la cuota. Con los dos HPA al máximo quedan tres lugares ocupados y uno libre para un deploy. Si
+en ese momento se despliegan dos servicios a la vez, el pod nuevo del segundo espera a que se
+libere lugar y, si no llega antes del timeout, el deploy vuelve a la versión anterior. Subir un
+máximo es pedir antes más cuota. KEDA para `notifications-api` espera a que la cátedra lo instale
+([udesa-x-notifications-api#46](https://github.com/tds-g3-2s2026/udesa-x-notifications-api/issues/46)).
+
 El Ingress comparte el ALB mediante `group.name: tds-shared`, usa `group.order: "203"`
 y solo recibe tráfico para `tds-group-3.tds-linar.udesa.edu.ar`.
 No cambiar el grupo compartido ni agregar reglas sin host: eso puede crear otro ALB
@@ -393,7 +409,8 @@ la caché de CloudFront.
 Qué hace, en orden:
 
 1. Verifica que estén los secrets de organización, los secrets listados en `secretos`, los
-   manifiestos y el marcador `${ECR_IMAGE}`. Si falta algo, falla nombrando qué falta.
+   manifiestos y el marcador `${ECR_IMAGE}`, y que el Deployment no fije `replicas` si el servicio
+   tiene `k8s/hpa.yaml`. Si falta algo, falla nombrando qué falta.
 2. Asume `AWS_ROLE_ARN` por OIDC, construye la imagen y la publica en ECR.
 3. Se conecta al cluster y comprueba que el namespace tenga su ResourceQuota y que el rol
    pueda crear lo que va a aplicar.
@@ -404,15 +421,16 @@ Qué hace, en orden:
    falla, corta ahí y los pods anteriores siguen sirviendo. Los logs quedan en el run y el
    Job se retira solo a la hora.
 6. Si el servicio tiene `k8s/networkpolicy.yaml`, la aplica. Es el caso del gateway, que tiene
-   que aceptar el tráfico del ALB. Después aplica `k8s/service.yaml` y el Deployment con la
-   imagen resuelta y espera el rollout. Si no converge, muestra el diagnóstico, hace
-   `kubectl rollout undo` y falla. En el primer despliegue no hay versión anterior: solo falla.
+   que aceptar el tráfico del ALB. Después aplica `k8s/service.yaml`, el Deployment con la
+   imagen resuelta y, si el servicio lo tiene, `k8s/hpa.yaml`, y espera el rollout. Si no
+   converge, muestra el diagnóstico, hace `kubectl rollout undo` y falla. En el primer
+   despliegue no hay versión anterior: solo falla.
 
 El pod template lleva la annotation `udesa-x/config-hash`, calculada sobre el ConfigMap y los
 valores del Secret: un cambio solo de configuración también reemplaza los pods. El rollback
-vuelve atrás los pods, no el ConfigMap, el Secret, la NetworkPolicy ni el esquema de la base.
-Borrar `k8s/networkpolicy.yaml` de un servicio no la borra del cluster: hay que hacerlo con
-`kubectl delete`.
+vuelve atrás los pods, no el ConfigMap, el Secret, la NetworkPolicy, el HPA ni el esquema de la
+base. Borrar `k8s/networkpolicy.yaml` o `k8s/hpa.yaml` de un servicio no los borra del cluster:
+hay que hacerlo con `kubectl delete`.
 
 Un despliegue por servicio a la vez, sin cancelar el que ya está tocando el cluster. Repos
 distintos sí corren en paralelo: si se mergea en los tres a la vez, las migraciones y los
@@ -446,11 +464,13 @@ Cada push a `main` de un servicio lo vuelve a desplegar, así que la versión qu
 anota acá: se consulta. Con el acceso personal descrito abajo:
 
 ```bash
-kubectl --context tds-group-3 -n tds-group-3 get pods,deploy,svc,ingress -o wide
+kubectl --context tds-group-3 -n tds-group-3 get pods,deploy,svc,ingress,hpa -o wide
 ```
 
 Los pods tienen que estar `Running` y `1/1`. El `/healthcheck` de las APIs no se expone por el
 Ingress: es su readiness probe, así que `1/1` significa que responde bien con PostgreSQL y Redis.
+En cada HPA, `REPLICAS` muestra cuántas eligió y `TARGETS` el uso de CPU contra el objetivo. Un
+`<unknown>` en `TARGETS` significa que el cluster no le está dando métricas.
 
 La columna de imágenes muestra el digest de cada servicio. Para saber a qué commit corresponde,
 buscar ese digest en el log del job `deploy` del run de CI en `main`: la imagen se publica con el
