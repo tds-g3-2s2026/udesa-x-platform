@@ -41,11 +41,3 @@ spec:
       default:
         cpu: 500m
         memory: 512Mi
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: tds-group-3-bedrock-sa
-  namespace: tds-group-3
-  annotations:
-    eks.amazonaws.com/role-arn: arn:aws:iam::172786533418:role/tds-group-3-bedrock-role
