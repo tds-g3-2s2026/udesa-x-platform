@@ -1092,7 +1092,8 @@ la entidad y su fecha. No admite edición ni borrado desde la aplicación ni med
 UPDATE, DELETE o TRUNCATE ordinarios; las migraciones conservan control del esquema.
 
 Las acciones locales insertan el registro en la misma transacción. posts-api escribe
-`admin.action_recorded.v1` en su outbox junto con la decisión sobre las denuncias.
+`admin.action_recorded.v1` en su outbox junto con la decisión sobre las denuncias o
+la limpieza de un post.
 RabbitMQ lo entrega a users-api, que confirma después de persistir y deduplica por
 ID del evento. La consulta refleja estas acciones con consistencia eventual. No se
 usa un endpoint HTTP para transportar auditorías. El email se obtiene antes de la
