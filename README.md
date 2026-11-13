@@ -188,6 +188,33 @@ libere lugar y, si no llega antes del timeout, el deploy vuelve a la versión an
 máximo es pedir antes más cuota. KEDA para `notifications-api` espera a que la cátedra lo instale
 ([udesa-x-notifications-api#46](https://github.com/tds-g3-2s2026/udesa-x-notifications-api/issues/46)).
 
+**Prueba del 13/11/2026.** k6 corrió desde una máquina fuera del cluster contra el host público:
+30 usuarios virtuales durante 7 minutos (1 de rampa y 6 estables), leyendo `/api/feed` y
+`/api/search/posts?q=hola` con una sola cuenta, el superadmin, porque el seed todavía no está
+cargado en producción. Desplegados: `posts-api` `dd69af1`, `users-api` `09f8e86` y `api-gateway`
+`5fffc7a`. Fueron 27.023 requests, 63 por segundo, sin errores y con p95 de 819 ms. La CPU y las
+réplicas salen de `kubectl get hpa posts-api`, leído cada 15 segundos:
+
+| Hora (UTC) | CPU promedio por pod | Réplicas de `posts-api` | |
+|---|---|---|---|
+| 03:29:46 | `4m` | 1 | Antes de la carga |
+| 03:30:20 | `296m` | 1 | Pasa el objetivo y el HPA pide más |
+| 03:30:38 | `458m` | 2 | |
+| 03:31:12 | `457m` | 3 | El máximo |
+| 03:36:55 | `464m` | 3 | Última lectura con carga |
+| 03:37:30 | `4m` | 3 | Se cortó la carga |
+| 03:42:23 | `3m` | 1 | Vuelve al mínimo |
+
+Sube de 1 a 3 en menos de un minuto y no pasa de 3. Baja de 3 a 1 unos cinco minutos después de
+cortar la carga, que es la ventana de estabilización por defecto: antes de bajar, el HPA toma la
+recomendación más alta de los últimos cinco minutos, así un pico corto no lo hace subir y bajar.
+Con 3 réplicas la CPU siguió cerca de `460m` por pod, casi el límite de `500m`: sin el máximo, el
+HPA habría pedido 6 (3 × 460 / 250). Con esta carga, `posts-api` llega saturado al tope que deja
+la cuota. Esto no es una medición contra los objetivos de latencia: hay una sola cuenta y su feed
+está vacío, así que casi todo el trabajo es la búsqueda. El ajuste del objetivo de `250m` y la
+medición contra los SLO quedan para la prueba final
+([#121](https://github.com/tds-g3-2s2026/udesa-x-platform/issues/121)).
+
 El Ingress comparte el ALB mediante `group.name: tds-shared`, usa `group.order: "203"`
 y solo recibe tráfico para `tds-group-3.tds-linar.udesa.edu.ar`.
 No cambiar el grupo compartido ni agregar reglas sin host: eso puede crear otro ALB
