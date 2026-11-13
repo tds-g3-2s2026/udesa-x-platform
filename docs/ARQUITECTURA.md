@@ -731,7 +731,7 @@ Mantine sobre shadcn porque trae formularios y gráficos en el mismo monorepo co
 | Secretos     | **GitHub Secrets**, volcados por `deploy.yml` | Cero pods extra en el cluster. El pipeline arma el Secret de cada servicio                         |
 | Registry     | Amazon ECR                                    | Sin ADR propio. Se publica con el commit como tag y se despliega por digest (`${ECR_IMAGE}`)   |
 | Identidad    | OIDC + IRSA                                   | Vista en la clase de Cloud Computing I: el pod asume un IAM Role vía ServiceAccount anotado        |
-| Autoescalado | HPA por CPU en `users-api` y `posts-api`      | De 1 a 2 y de 1 a 3 réplicas, dentro de la cuota del namespace (README de platform). KEDA para `notifications-api` espera a que la cátedra lo instale |
+| Autoescalado | HPA por CPU en `users-api` y `posts-api`      | De 1 a 2 y de 1 a 3 réplicas, dentro de la cuota del namespace (README de platform, con la prueba del 13/11). KEDA para `notifications-api` espera a que la cátedra lo instale |
 
 **Por qué cambia el ingress.** El repositorio `kubernetes/ingress-nginx` está archivado desde el 24 de marzo de 2026 y su README dice textualmente que quien no lo esté usando ya no debería desplegarlo. No va a haber más parches de seguridad, y antes de cerrar acumulaba seis CVEs en cuatro meses. Lo traicionero es que no se rompe: funcionaría perfecto los quince sprints. La API `Ingress` de Kubernetes no está deprecada: lo que murió es ese controller.
 
