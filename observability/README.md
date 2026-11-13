@@ -76,6 +76,13 @@ Un error al consultar la fuente sí conserva estado de error. El punto de contac
 reutiliza por nombre, sin cambiar el árbol global de políticas. La repetición es de cuatro
 días, igual que la política de caída: no se promete supresión indefinida.
 
+La regla `outbox · Eventos sin publicar` es la única que lee logs y no métricas. Cuenta en
+Loki las líneas `Outbox pass failed` de users-api y posts-api, que aparecen cuando una
+pasada del outbox no puede publicar, en general porque RabbitMQ no está. Se dispara después
+de diez minutos seguidos, más que un redespliegue del broker. Sin esas líneas no hay datos,
+y eso es el estado sano: `noDataState` queda en `OK`. Depende del texto del log de los dos
+servicios: si cambia allá, hay que cambiarlo acá.
+
 Para aceptar el cambio en el entorno desplegado:
 
 - Generar tráfico real y comprobar tasas, errores y percentiles por servicio y ruta.

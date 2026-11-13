@@ -14,6 +14,9 @@ class ObservabilityTests(unittest.TestCase):
         self.payloads = render(
             "metrics-uid", "tempo-uid", "logs-uid", "folder-uid", "Existing Email"
         )
+        self.slo_rules = [
+            rule for rule in self.payloads["alerts"] if rule["ruleGroup"] == "UdeSA-X SLO"
+        ]
 
     def test_render_uses_existing_resources_and_keeps_query_variables(self):
         dashboard = self.payloads["dashboard"]
@@ -25,6 +28,7 @@ class ObservabilityTests(unittest.TestCase):
         for rule in self.payloads["alerts"]:
             self.assertEqual(rule["notification_settings"]["receiver"], "Existing Email")
             self.assertEqual(rule["folderUID"], "folder-uid")
+        for rule in self.slo_rules:
             self.assertEqual(rule["data"][0]["datasourceUid"], "metrics-uid")
 
     def test_deployment_requires_concrete_resource_identifiers(self):
@@ -42,7 +46,7 @@ class ObservabilityTests(unittest.TestCase):
             "search_posts": (0.8, 0.01),
             "profile": (0.4, 0.01),
         }
-        rules = self.payloads["alerts"]
+        rules = self.slo_rules
         self.assertEqual(len({rule["uid"] for rule in rules}), 12)
         for rule in rules:
             flow = rule["labels"]["flow"]
@@ -53,7 +57,7 @@ class ObservabilityTests(unittest.TestCase):
             self.assertEqual(threshold, expected[flow][kind])
 
     def test_idle_flows_do_not_raise_no_data_or_division_by_zero_alerts(self):
-        for rule in self.payloads["alerts"]:
+        for rule in self.slo_rules:
             self.assertEqual(rule["noDataState"], "OK")
             self.assertEqual(rule["execErrState"], "Error")
             self.assertEqual(rule["for"], "5m")
@@ -63,6 +67,13 @@ class ObservabilityTests(unittest.TestCase):
                 self.assertIn('http_response_status_code=~"5.."', expr)
                 self.assertIn("clamp_min", expr)
                 self.assertIn("or vector(0)", expr)
+
+    def test_outbox_alert_reads_service_logs_and_treats_silence_as_healthy(self):
+        rule = next(r for r in self.payloads["alerts"] if r["uid"] == "udesa-outbox-unpublished")
+        self.assertEqual(rule["data"][0]["datasourceUid"], "logs-uid")
+        # No "Outbox pass failed" lines is the healthy state, not missing data.
+        self.assertEqual(rule["noDataState"], "OK")
+        self.assertEqual(rule["execErrState"], "Error")
 
     def test_replica_buckets_are_combined_before_quantiles(self):
         for rule in self.payloads["alerts"]:
@@ -98,7 +109,7 @@ class ObservabilityTests(unittest.TestCase):
 
     @unittest.skipUnless(os.getenv("PROMETHEUS_URL"), "requires an isolated Prometheus")
     def test_all_queries_are_accepted_by_prometheus(self):
-        expressions = [rule["data"][0]["model"]["expr"] for rule in self.payloads["alerts"]]
+        expressions = [rule["data"][0]["model"]["expr"] for rule in self.slo_rules]
         for panel in self.payloads["dashboard"]["dashboard"]["panels"]:
             expressions.extend(
                 target["expr"]

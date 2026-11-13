@@ -339,6 +339,16 @@ Redis: es tráfico dentro del namespace.
   `rabbitmq.conf`.
 - **Corre como el usuario `rabbitmq` (100:101).** Como root, el broker no puede leer su propia
   cookie de Erlang y no arranca.
+- **Sin el plugin de management y fijada por digest.** En el cluster nadie llega a la consola: el
+  Service solo expone `5672` y el usuario del equipo no puede hacer `port-forward`. El plugin
+  solo sumaba estadísticas en memoria contra el tope de `512Mi`. La consola sigue en el compose
+  de desarrollo. El digest hace que un pod nuevo traiga siempre la misma versión: actualizarla es
+  cambiar la línea `image:`. KEDA (`udesa-x-notifications-api#46`) lee el largo de la cola con
+  `protocol: amqp`, que no necesita el plugin.
+- **Si falta el broker, avisa la alerta `outbox · Eventos sin publicar`** de
+  `observability/alerts.yaml`. Sin broker, users-api y posts-api escriben `Outbox pass failed`
+  en cada pasada, y la regla se dispara si eso dura diez minutos. Hace falta porque el primer
+  despliegue falló el 1/11 y nadie lo notó hasta el 13/11.
 - **Rotar la clave** es cambiar `RABBITMQ_PASSWORD` y el `RABBITMQ_URL` de cada servicio,
   correr el workflow y redesplegar los servicios. El usuario se crea solo en un nodo nuevo, y
   con `emptyDir` cada pod nuevo lo es: si el manifiesto no cambió, hay que reiniciar el pod.

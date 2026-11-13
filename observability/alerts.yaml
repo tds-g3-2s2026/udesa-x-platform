@@ -1055,6 +1055,89 @@
           }
         }
       ]
+    },
+    {
+      "uid": "udesa-outbox-unpublished",
+      "title": "outbox · Eventos sin publicar",
+      "ruleGroup": "UdeSA-X Plataforma",
+      "folderUID": "${FOLDER_UID}",
+      "condition": "B",
+      "for": "10m",
+      "noDataState": "OK",
+      "execErrState": "Error",
+      "isPaused": false,
+      "labels": {
+        "severity": "warning"
+      },
+      "annotations": {
+        "summary": "{{ $labels.service_name }} no puede publicar los eventos de su outbox",
+        "description": "Cada pasada del outbox falla desde hace diez minutos o más, así que los eventos entre servicios no viajan. Lo más probable es que RabbitMQ no esté en el namespace: revisar kubectl get deploy rabbitmq -n tds-group-3 y, si falta, correr deploy-rabbitmq.yml. El log del servicio dice el tipo de error de cada pasada."
+      },
+      "notification_settings": {
+        "receiver": "${CONTACT_POINT}",
+        "group_by": [
+          "alertname",
+          "service_name"
+        ],
+        "group_wait": "30s",
+        "group_interval": "5m",
+        "repeat_interval": "96h"
+      },
+      "data": [
+        {
+          "refId": "A",
+          "queryType": "",
+          "relativeTimeRange": {
+            "from": 300,
+            "to": 0
+          },
+          "datasourceUid": "${LOKI_UID}",
+          "model": {
+            "expr": "sum by (service_name) (count_over_time({service_name=~\"users-api|posts-api\"} |= \"Outbox pass failed\" [5m]))",
+            "queryType": "instant",
+            "refId": "A",
+            "intervalMs": 1000,
+            "maxDataPoints": 43200
+          }
+        },
+        {
+          "refId": "B",
+          "queryType": "",
+          "relativeTimeRange": {
+            "from": 0,
+            "to": 0
+          },
+          "datasourceUid": "__expr__",
+          "model": {
+            "refId": "B",
+            "type": "threshold",
+            "expression": "A",
+            "conditions": [
+              {
+                "type": "query",
+                "query": {
+                  "params": [
+                    "B"
+                  ]
+                },
+                "reducer": {
+                  "type": "last",
+                  "params": []
+                },
+                "operator": {
+                  "type": "and"
+                },
+                "evaluator": {
+                  "type": "gt",
+                  "params": [
+                    0
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      ]
     }
   ]
 }
