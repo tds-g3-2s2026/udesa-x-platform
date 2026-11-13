@@ -296,6 +296,7 @@ que exigir TLS en su URL de conexión, no solo permitirlo:
 | Destino | Qué usar |
 |---|---|
 | PostgreSQL | Va cifrado con TLS exigido, no solo permitido. Estas APIs usan SQLAlchemy + asyncpg, así que va `?ssl=require` en la URL y no el parámetro libpq `sslmode`, que asyncpg no acepta y hace fallar la conexión. `PGSSLROOTCERT` apunta a las raíces de RDS que trae cada imagen (`/etc/ssl/certs/rds-ca-us-east-2.pem`), y con eso asyncpg verifica que el certificado lo firmó RDS; no verifica el hostname (ADR-021). Apuntarlo al bundle del sistema hace fallar la conexión |
+| MongoDB (DocumentDB) | TLS con la misma CA de RDS: `?tls=true&tlsCAFile=/etc/ssl/certs/rds-ca-us-east-2.pem` en la URL, con las raíces que trae la imagen de `notifications-api`. El driver verifica el certificado y el hostname |
 | Redis | Va dentro del cluster, no sale del namespace: `redis://`. Si alguna vez pasa a ser gestionado, `rediss://` |
 | RabbitMQ, si queda fuera del cluster | esquema `amqps://` |
 
@@ -311,12 +312,22 @@ sola instancia, con una base y un rol por servicio.
 |---|---|---|---|
 | Base `users`, rol `users` | RDS `tds-group-3-db`, `us-east-2` | `users-api` | Secret `DATABASE_URL` del repo `udesa-x-users-api` |
 | Base `posts`, rol `posts` | RDS `tds-group-3-db`, `us-east-2` | `posts-api` | Secret `DATABASE_URL` del repo `udesa-x-posts-api` |
+| Base `notifications`, usuario `notifications` | DocumentDB `tds-group-3-docdb`, `us-east-2` | `notifications-api` | Secret `MONGODB_URL` del repo `udesa-x-notifications-api` |
 | Redis compartido | Pod del namespace `tds-group-3`, manifiesto `k8s/redis.yaml` de este repo | `users-api` con `/0`; `posts-api` con `/1`, y lee las revocaciones de `/0` (ADR-014) | Secret `REDIS_URL` de cada repo de servicio, más `AUTH_REDIS_URL` en `posts-api` |
 
 La instancia solo acepta el 5432 desde los pods del cluster. Las bases y los roles los crea el
 workflow manual `crear-bases-postgres.yml`, y cada base tiene `CONNECT` revocado a `PUBLIC`. Se
 arrancó con las bases vacías: los datos de Neon no se migraron y sus proyectos no se borraron. El
 manifiesto del Redis está en `k8s/redis.yaml` y lo aplica `deploy-redis.yml`.
+
+MongoDB es Amazon DocumentDB 8.0: el cluster `tds-group-3-docdb`, con una instancia
+`db.t4g.medium` en la misma VPC, que acepta el 27017 solo desde los pods del cluster (security
+group `tds-rds-sg`). El usuario maestro es `tdsadming3`, con la clave en el secret
+`DOCDB_ADMIN_PASSWORD` de este repositorio, y ninguna aplicación lo usa. El usuario
+`notifications`, con `readWrite` solo sobre la base `notifications`, lo crea el workflow manual e
+idempotente `crear-usuario-documentdb.yml`, con la clave de `NOTIFICATIONS_DB_PASSWORD`. Para
+rotarla: cambiar ese secret y el `MONGODB_URL` de `udesa-x-notifications-api`, correr el workflow y
+redesplegar el servicio.
 
 Ninguna URL se escribe en un archivo del repositorio: van como GitHub Secret del repositorio
 que las usa, y `k8s/secret.yaml` sigue en `.gitignore`. El `DATABASE_URL` de cada servicio es
@@ -401,11 +412,11 @@ cluster, VPC, ALB, certificados y zona DNS.
 | `EKS_CLUSTER_NAME` | Nombre del cluster que usa el pipeline al preparar kubeconfig: `tds-cluster`. | Cluster compartido de la cátedra; se confirma en EKS > Clusters y en ADR-008. |
 | `S3_BUCKET` | Nombre del bucket de los archivos del backoffice, sin `s3://` ni una URL. | Bucket propio del grupo, con los cuatro bloqueos de acceso público activos: quien lo sirve es CloudFront por OAC, no el bucket. |
 | `CLOUDFRONT_DISTRIBUTION_ID` | ID de la distribución `tds-group-3-frontend`, que usa el deploy del backoffice para invalidar la caché después de publicar. | Distribución propia del grupo, creada en la Parte 4 de la guía. La policy `tds-group-3-deploy-policy` permite invalidar solo esa distribución. |
-| `ECR_URI_PREFIX` | Prefijo de URI de las imágenes, con la forma `<account-id>.dkr.ecr.us-east-2.amazonaws.com/tds-group-3`; sin `https://` ni tag. **Ya incluye el prefijo del grupo**, así que la referencia se arma como `${ECR_URI_PREFIX}/<servicio>:<tag>` y no repite `tds-group-3`. | Tres repositorios propios del grupo, uno por servicio con código: `tds-group-3/api-gateway`, `tds-group-3/users-api` y `tds-group-3/posts-api`, los tres con tags mutables. |
+| `ECR_URI_PREFIX` | Prefijo de URI de las imágenes, con la forma `<account-id>.dkr.ecr.us-east-2.amazonaws.com/tds-group-3`; sin `https://` ni tag. **Ya incluye el prefijo del grupo**, así que la referencia se arma como `${ECR_URI_PREFIX}/<servicio>:<tag>` y no repite `tds-group-3`. | Cuatro repositorios propios del grupo, uno por servicio con código: `tds-group-3/api-gateway`, `tds-group-3/users-api`, `tds-group-3/posts-api` y `tds-group-3/notifications-api`, los cuatro con tags mutables. |
 
 El pipeline arma **`ECR_IMAGE`** como `${ECR_URI_PREFIX}/<servicio>@sha256:<digest>`: la
 imagen se publica con el commit como tag, pero se despliega por digest, que es lo que la
-hace inmutable aunque los repositorios de ECR acepten retaggear. Los tres Deployment usan
+hace inmutable aunque los repositorios de ECR acepten retaggear. Los cuatro Deployment usan
 únicamente `${ECR_IMAGE}` como marcador. Kubernetes no lo expande: el pipeline lo sustituye
 y corta el despliegue si queda cualquier otro `${...}` sin resolver.
 
@@ -438,10 +449,10 @@ token de OIDC.
 | `users-api` | `DATABASE_URL REDIS_URL RABBITMQ_URL JWT_PRIVATE_KEY INTERNAL_API_TOKEN OTEL_EXPORTER_OTLP_HEADERS SUPERADMIN_EMAIL SUPERADMIN_PASSWORD` | `alembic upgrade head && python -m users_api.seed_superadmin` |
 | `posts-api` | `DATABASE_URL REDIS_URL RABBITMQ_URL AUTH_REDIS_URL JWT_PUBLIC_KEY INTERNAL_API_TOKEN OTEL_EXPORTER_OTLP_HEADERS` | `alembic upgrade head` |
 | `api-gateway` | `OTEL_EXPORTER_OTLP_HEADERS` | ninguna |
+| `notifications-api` | `MONGODB_URL RABBITMQ_URL JWT_PUBLIC_KEY RESEND_API_KEY FIREBASE_SERVICE_ACCOUNT OTEL_EXPORTER_OTLP_HEADERS` | ninguna |
 
-`notifications-api` todavía no llama a este workflow: no tiene manifiestos ni job de despliegue en
-`main`. El backoffice tampoco, porque no corre en el cluster: su `ci.yml` publica en S3 e invalida
-la caché de CloudFront.
+El backoffice no llama a este workflow, porque no corre en el cluster: su `ci.yml` publica en S3 e
+invalida la caché de CloudFront.
 
 Qué hace, en orden:
 
@@ -476,13 +487,13 @@ pods extra del `maxSurge` comparten la cuota.
 Lo que el pipeline no hace es aplicar el Ingress, que es del docente. El primer superadmin sí sale
 del pipeline: lo crea la migración de `users-api`, que no hace nada si la cuenta ya existe.
 
-Users firma con una clave privada Ed25519 estable; posts recibe su pública correspondiente.
-Ambos validan `JWT_ISSUER=users-api`. No hay descubrimiento JWKS ni rotación automática.
-Agregar la validación de issuer invalida tokens antiguos que no tengan ese claim: los
-usuarios deben iniciar sesión otra vez. Una rotación de clave también requiere coordinar
-ambos servicios; no generar una clave nueva en cada deploy. El par de producción se generó
-el 2026-09-27 y existe solo como GitHub Secret: `JWT_PRIVATE_KEY` en `udesa-x-users-api` y
-`JWT_PUBLIC_KEY` en `udesa-x-posts-api`.
+Users firma con una clave privada Ed25519 estable; posts y notifications reciben su pública
+correspondiente. Los tres validan `JWT_ISSUER=users-api`. No hay descubrimiento JWKS ni rotación
+automática. Agregar la validación de issuer invalida tokens antiguos que no tengan ese claim: los
+usuarios deben iniciar sesión otra vez. Una rotación de clave también requiere coordinar los
+tres servicios; no generar una clave nueva en cada deploy. El par de producción se rotó el
+2026-11-13 y existe solo como GitHub Secret: `JWT_PRIVATE_KEY` en `udesa-x-users-api` y
+`JWT_PUBLIC_KEY` en `udesa-x-posts-api` y `udesa-x-notifications-api`.
 
 Los valores de `envFrom` se leen al crear el contenedor. Cambiar Secret o ConfigMap no
 actualiza los pods existentes: por eso el pipeline pone el hash de la configuración en el pod
