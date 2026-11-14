@@ -802,7 +802,7 @@ Registro vivo. Se revisa cada lunes en el planning, no una vez por mes.
 | R13 | **Un integrante llega a noviembre sin acumular sus 15 puntos optativos** | Media | Alto | Tabla de acumulación de optativas por integrante, revisada en los tres hitos de control. El Bloque 1 es el más expuesto porque sus optativas dependen del modelo de post. Si al 26 de octubre alguien está por debajo de 6 puntos optativos aceptados, se le reasigna una historia de otro integrante. | 26 oct |
 | R14 | **Se llega al 7 de diciembre con deuda y el recuperatorio exige una funcionalidad extra** | Baja | Alto | S13 y S14 no llevan puntos nuevos. Cualquier historia que se corra a esas semanas se recorta en vez de correrse. | S12 |
 | R15 | **La cuenta de AWS del free plan se cierra a los 6 meses o al agotar los 200 USD de crédito**, lo que ocurra primero, y el cuatrimestre dura más | Alta | Muy alto | Abrir cuentas con plan pago, una por integrante (800 USD en total), rotando quién hostea, con la infraestructura en código (`T-61`). | S1 |
-| R16 | El techo de 100 operaciones/seg de MongoDB Atlas M0 hace que las pruebas de carga de S6 y S12 contra `notifications-api` choquen contra el free tier, no contra el sistema | Media | Medio | Decidir antes de S6 si se acota el alcance de esa prueba o se corre contra una instancia local. | S6 |
+| R16 | El techo de 100 operaciones/seg de MongoDB Atlas M0 hace que las pruebas de carga de S6 y S12 contra `notifications-api` choquen contra el free tier, no contra el sistema | Media | Medio | **Cerrado en `notifications-api#47`**: producción usa Amazon DocumentDB, sin ese techo. | S6 |
 
 ## Decisiones abiertas
 

@@ -1,0 +1,183 @@
+# Creates, in the DocumentDB cluster of notifications-api, the user
+# `notifications` with readWrite on the database `notifications` and nothing
+# else. Manual and idempotent: a second run only resets the password to the
+# current GitHub Secret, which is how it gets rotated.
+#
+# mongosh runs as a Job inside the namespace because the cluster only accepts
+# connections from the pods' security group. The master password travels in a
+# temporary Secret that this workflow deletes on the way out, as in
+# crear-bases-postgres.yml: the namespace never keeps the master credential,
+# and the Secret quota is only borrowed. The script goes inline in the Job and
+# not in a ConfigMap, whose quota is nearly full.
+#
+# Secrets of this repository: DOCDB_ADMIN_PASSWORD and NOTIFICATIONS_DB_PASSWORD.
+# The second one is the password inside the MONGODB_URL of
+# udesa-x-notifications-api.
+
+name: Crear usuario de DocumentDB
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: crear-usuario-documentdb
+  cancel-in-progress: false
+
+jobs:
+  crear:
+    name: Crear el usuario notifications en DocumentDB
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      NAMESPACE: tds-group-3
+      DOCDB_HOST: tds-group-3-docdb.cluster-cze2woweg3po.us-east-2.docdb.amazonaws.com
+      DOCDB_ADMIN_USER: tdsadming3
+      # DocumentDB keeps and authenticates every user in admin. The CA is the
+      # one of RDS, the same roots the service images carry.
+      DOCDB_URL_OPTIONS: tls=true&tlsCAFile=/tmp/ca.pem&replicaSet=rs0&authSource=admin
+      CA_URL: https://truststore.pki.rds.amazonaws.com/us-east-2/us-east-2-bundle.pem
+      TIMEOUT: 180
+      AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      EKS_CLUSTER_NAME: ${{ secrets.EKS_CLUSTER_NAME }}
+      DOCDB_ADMIN_PASSWORD: ${{ secrets.DOCDB_ADMIN_PASSWORD }}
+      NOTIFICATIONS_DB_PASSWORD: ${{ secrets.NOTIFICATIONS_DB_PASSWORD }}
+
+    steps:
+      - name: Verificar el entorno
+        run: |
+          faltan=()
+          for nombre in AWS_ROLE_ARN AWS_REGION EKS_CLUSTER_NAME DOCDB_ADMIN_PASSWORD NOTIFICATIONS_DB_PASSWORD; do
+            [ -n "${!nombre}" ] || faltan+=("$nombre")
+          done
+          if [ ${#faltan[@]} -gt 0 ]; then
+            for falta in "${faltan[@]}"; do echo "::error::Falta el secret $falta."; done
+            exit 1
+          fi
+
+      - name: Asumir el rol de AWS por OIDC
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          role-session-name: crear-usuario-documentdb-${{ github.run_id }}
+
+      - name: Conectar con el cluster
+        run: aws eks update-kubeconfig --name "$EKS_CLUSTER_NAME" --region "$AWS_REGION"
+
+      - name: Crear el usuario
+        run: |
+          SECRETO="crear-usuario-documentdb-$GITHUB_RUN_ID"
+          JOB="crear-usuario-documentdb-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          VALORES=$(mktemp -d)
+          trap 'rm -rf "$VALORES"; kubectl delete secret "$SECRETO" -n "$NAMESPACE" --ignore-not-found' EXIT
+
+          CA_PEM=$(curl -fsSL "$CA_URL")
+
+          # From files and not --from-literal, so the values never show up in
+          # the runner's process list.
+          printf '%s' "$DOCDB_ADMIN_PASSWORD" > "$VALORES/DOCDB_ADMIN_PASSWORD"
+          printf '%s' "$NOTIFICATIONS_DB_PASSWORD" > "$VALORES/NOTIFICATIONS_DB_PASSWORD"
+          kubectl create secret generic "$SECRETO" -n "$NAMESPACE" \
+            --from-file="$VALORES/DOCDB_ADMIN_PASSWORD" \
+            --from-file="$VALORES/NOTIFICATIONS_DB_PASSWORD"
+
+          # The passwords are read from the environment inside mongosh, never
+          # passed as arguments. runCommand throws on any error, which ends
+          # mongosh with a non-zero code and fails the Job.
+          read -r -d '' SCRIPT_JS <<'JS' || true
+          const url = (user, password, db) =>
+            `mongodb://${encodeURIComponent(user)}:${encodeURIComponent(password)}` +
+            `@${process.env.DOCDB_HOST}:27017/${db}?${process.env.DOCDB_URL_OPTIONS}`;
+          const pwd = process.env.NOTIFICATIONS_DB_PASSWORD;
+          const roles = [{ role: 'readWrite', db: 'notifications' }];
+
+          const admin = connect(url(process.env.DOCDB_ADMIN_USER, process.env.DOCDB_ADMIN_PASSWORD, 'admin'));
+          if (admin.runCommand({ usersInfo: 'notifications' }).users.length === 0) {
+            admin.runCommand({ createUser: 'notifications', pwd, roles });
+            print('ok usuario notifications creado');
+          } else {
+            admin.runCommand({ updateUser: 'notifications', pwd, roles });
+            print('ok usuario notifications actualizado');
+          }
+
+          const own = connect(url('notifications', pwd, 'notifications'));
+          own.getCollection('crear_usuario_verificacion').insertOne({ at: new Date() });
+          own.getCollection('crear_usuario_verificacion').drop();
+          print('ok notifications escribe en notifications, version ' + own.version());
+
+          let entered = true;
+          try {
+            own.getSiblingDB('otra').getCollection('x').findOne();
+          } catch (error) {
+            entered = false;
+          }
+          if (entered) {
+            print('notifications puede leer otra base y no deberia');
+            quit(1);
+          }
+          print('ok notifications no entra a otra base');
+          JS
+
+          # The pod label is not app=<servicio>: that one is a Service selector.
+          jq -n \
+            --arg job "$JOB" --arg ns "$NAMESPACE" --arg secreto "$SECRETO" \
+            --arg host "$DOCDB_HOST" --arg admin "$DOCDB_ADMIN_USER" \
+            --arg opciones "$DOCDB_URL_OPTIONS" --arg ca "$CA_PEM" --arg js "$SCRIPT_JS" \
+            --argjson limite "$TIMEOUT" '
+            {
+              apiVersion: "batch/v1", kind: "Job",
+              metadata: {name: $job, namespace: $ns, labels: {app: "crear-usuario-documentdb"}},
+              spec: {
+                backoffLimit: 0,
+                activeDeadlineSeconds: $limite,
+                ttlSecondsAfterFinished: 3600,
+                template: {
+                  metadata: {labels: {app: "crear-usuario-documentdb"}},
+                  spec: {
+                    restartPolicy: "Never",
+                    containers: [{
+                      name: "mongosh",
+                      image: "mongo:8.0",
+                      command: ["sh", "-c", "printf \"%s\" \"$CA_PEM\" > /tmp/ca.pem && exec mongosh --nodb --quiet --eval \"$SCRIPT_JS\""],
+                      env: [
+                        {name: "DOCDB_HOST", value: $host},
+                        {name: "DOCDB_ADMIN_USER", value: $admin},
+                        {name: "DOCDB_URL_OPTIONS", value: $opciones},
+                        {name: "CA_PEM", value: $ca},
+                        {name: "SCRIPT_JS", value: $js}
+                      ],
+                      envFrom: [{secretRef: {name: $secreto}}],
+                      # The namespace LimitRange rejects any container below
+                      # 100m / 128Mi of request. mongosh is a Node process and
+                      # needs more than the 256Mi that psql gets.
+                      resources: {
+                        requests: {cpu: "100m", memory: "128Mi"},
+                        limits: {cpu: "500m", memory: "512Mi"}
+                      }
+                    }]
+                  }
+                }
+              }
+            }' | kubectl apply -f -
+
+          resultado=""
+          fin=$((SECONDS + TIMEOUT + 30))
+          while [ -z "$resultado" ] && [ "$SECONDS" -lt "$fin" ]; do
+            sleep 5
+            if [ "$(kubectl get job "$JOB" -n "$NAMESPACE" -o jsonpath='{.status.conditions[?(@.type=="Complete")].status}')" = "True" ]; then
+              resultado=ok
+            elif [ "$(kubectl get job "$JOB" -n "$NAMESPACE" -o jsonpath='{.status.conditions[?(@.type=="Failed")].status}')" = "True" ]; then
+              resultado=fallo
+            fi
+          done
+          kubectl logs "job/$JOB" -n "$NAMESPACE" --all-containers || true
+          if [ "$resultado" != ok ]; then
+            kubectl describe job "$JOB" -n "$NAMESPACE" || true
+            echo "::error::No se pudo crear el usuario (${resultado:-sin respuesta en ${TIMEOUT}s})."
+            exit 1
+          fi
