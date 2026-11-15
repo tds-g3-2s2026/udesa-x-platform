@@ -556,6 +556,7 @@ RabbitMQ 4.x desplegado en el cluster, con exchange de tipo topic. Elegido sobre
 | `preferences.changed`          | users        | posts (filtro de idioma del feed)          |
 | `feedback.submitted`           | users        | notifications                              |
 | `invitation.accepted`          | users        | posts (follow del invitado al invitador)   |
+| `mention.created`              | posts        | notifications (menciones)                  |
 | `follow.created`               | posts        | notifications                              |
 | `interaction.created`          | posts        | notifications                              |
 | `admin.action_recorded`        | posts        | users (auditoría)                          |
@@ -580,7 +581,7 @@ flowchart LR
     end
 
     U -->|"user.registered · email_verification.requested<br/>password.reset_requested · password.changed<br/>user.deleted · preferences.changed<br/>feedback.submitted · invitation.accepted"| EX
-    P -->|"follow.created · interaction.created<br/>admin.action_recorded"| EX
+    P -->|"mention.created · follow.created<br/>interaction.created · admin.action_recorded"| EX
     EX -->|"casi todos"| N
     EX -->|"user.deleted · preferences.changed<br/>invitation.accepted"| P2
     EX -->|"admin.action_recorded"| U2
