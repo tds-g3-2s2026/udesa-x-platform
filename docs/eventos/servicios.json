@@ -18,6 +18,7 @@
     "publica": [
       "follow.created.v1",
       "interaction.created.v1",
+      "mention.created.v1",
       "admin.action_recorded.v1"
     ],
     "consume": [
@@ -36,7 +37,8 @@
       "user.deleted.v1",
       "feedback.submitted.v1",
       "follow.created.v1",
-      "interaction.created.v1"
+      "interaction.created.v1",
+      "mention.created.v1"
     ]
   }
 }

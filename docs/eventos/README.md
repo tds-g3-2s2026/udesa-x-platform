@@ -30,6 +30,7 @@ checks están en el [ADR-017](../adr/ADR-017-forma-y-versionado-de-eventos.md).
 | `invitation.accepted.v1` | users-api | posts-api |
 | `follow.created.v1` | posts-api | notifications-api |
 | `interaction.created.v1` | posts-api | notifications-api |
+| `mention.created.v1` | posts-api | notifications-api |
 
 El resto de la tabla de eventos de `ARQUITECTURA.md` se suma cuando su publicador lo necesite.
 
