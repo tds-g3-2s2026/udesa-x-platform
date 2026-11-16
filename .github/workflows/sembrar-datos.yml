@@ -6,11 +6,6 @@
 # on the way out. It borrows one of the namespace's four Secret slots, so it must
 # not run while crear-bases-postgres does. The seed code goes inline in the Job
 # and not in a ConfigMap, whose quota is full.
-#
-# An empty volume input leaves the seed's own default. The seed is idempotent:
-# the same seed and volumes only insert the rows that are missing.
-#
-# Secrets of this repository: USERS_DB_PASSWORD and POSTS_DB_PASSWORD.
 
 name: Sembrar datos de prueba
 
@@ -22,33 +17,19 @@ on:
         required: true
         default: "42"
       users:
-        description: "Usuarios. Vacío usa el valor por defecto del seed."
-        required: false
-        default: ""
+        description: "Usuarios. Vacío, en este y en los demás volúmenes, usa el valor por defecto del seed."
       follows:
-        description: "Relaciones de seguimiento. Vacío usa el valor por defecto del seed."
-        required: false
-        default: ""
+        description: "Relaciones de seguimiento."
       posts:
-        description: "Posts originales. Vacío usa el valor por defecto del seed."
-        required: false
-        default: ""
+        description: "Posts originales."
       replies:
-        description: "Respuestas. Vacío usa el valor por defecto del seed."
-        required: false
-        default: ""
+        description: "Respuestas."
       likes:
-        description: "Likes. Vacío usa el valor por defecto del seed."
-        required: false
-        default: ""
+        description: "Likes."
       retweets:
-        description: "Retweets. Vacío usa el valor por defecto del seed."
-        required: false
-        default: ""
+        description: "Retweets."
       deleted_posts:
-        description: "Posts originales eliminados. Vacío usa el valor por defecto del seed."
-        required: false
-        default: ""
+        description: "Posts originales eliminados."
 
 permissions:
   contents: read
@@ -96,9 +77,13 @@ jobs:
           fi
           # The values reach the Job's command line, so only digits get through.
           [[ "$SEED" =~ ^[0-9]+$ ]] || { echo "::error::SEED debe ser un entero no negativo."; exit 1; }
+          argumentos="--seed $SEED"
           for nombre in USERS FOLLOWS POSTS REPLIES LIKES RETWEETS DELETED_POSTS; do
             [[ "${!nombre}" =~ ^[0-9]*$ ]] || { echo "::error::$nombre debe ser un entero no negativo."; exit 1; }
+            bandera=$(printf '%s' "$nombre" | tr 'A-Z_' 'a-z-')
+            [ -z "${!nombre}" ] || argumentos="$argumentos --$bandera ${!nombre}"
           done
+          echo "ARGUMENTOS=$argumentos" >> "$GITHUB_ENV"
 
       - name: Asumir el rol de AWS por OIDC
         uses: aws-actions/configure-aws-credentials@v6
@@ -125,14 +110,6 @@ jobs:
             --from-file="$VALORES/USERS_DB_PASSWORD" \
             --from-file="$VALORES/POSTS_DB_PASSWORD"
 
-          ARGUMENTOS="--seed $SEED"
-          for par in users:USERS follows:FOLLOWS posts:POSTS replies:REPLIES likes:LIKES retweets:RETWEETS deleted-posts:DELETED_POSTS; do
-            bandera="${par%%:*}"
-            variable="${par#*:}"
-            if [ -n "${!variable}" ]; then ARGUMENTOS="$ARGUMENTOS --$bandera ${!variable}"; fi
-          done
-          echo "Argumentos del seed: $ARGUMENTOS"
-
           # The passwords are percent-encoded inside the Job: the seed takes
           # connection URLs and a password may hold any character.
           # PGSSLROOTCERT is what makes asyncpg verify the RDS certificate (ADR-021).
@@ -152,8 +129,7 @@ jobs:
           exec uv run /work/seed.py $SEED_ARGS
           SH
 
-          # Requests respect the namespace LimitRange; the limits match a service
-          # pod, which keeps the quota arithmetic of the README valid.
+          # Requests respect the namespace LimitRange; the limits match a service pod.
           jq -n \
             --arg job "$JOB" --arg ns "$NAMESPACE" --arg secreto "$SECRETO" \
             --arg host "$RDS_HOST" --arg script "$SCRIPT" --arg argumentos "$ARGUMENTOS" \
@@ -163,13 +139,12 @@ jobs:
             --argjson limite "$TIMEOUT" '
             {
               apiVersion: "batch/v1", kind: "Job",
-              metadata: {name: $job, namespace: $ns, labels: {app: "sembrar-datos"}},
+              metadata: {name: $job, namespace: $ns},
               spec: {
                 backoffLimit: 0,
                 activeDeadlineSeconds: $limite,
                 ttlSecondsAfterFinished: 3600,
                 template: {
-                  metadata: {labels: {app: "sembrar-datos"}},
                   spec: {
                     restartPolicy: "Never",
                     containers: [{
@@ -198,11 +173,11 @@ jobs:
           fin=$((SECONDS + TIMEOUT + 30))
           while [ -z "$resultado" ] && [ "$SECONDS" -lt "$fin" ]; do
             sleep 10
-            if [ "$(kubectl get job "$JOB" -n "$NAMESPACE" -o jsonpath='{.status.conditions[?(@.type=="Complete")].status}')" = "True" ]; then
-              resultado=ok
-            elif [ "$(kubectl get job "$JOB" -n "$NAMESPACE" -o jsonpath='{.status.conditions[?(@.type=="Failed")].status}')" = "True" ]; then
-              resultado=fallo
-            fi
+            condiciones=$(kubectl get job "$JOB" -n "$NAMESPACE" -o jsonpath='{.status.conditions[?(@.status=="True")].type}')
+            case "$condiciones" in
+              *Complete*) resultado=ok ;;
+              *Failed*) resultado=fallo ;;
+            esac
           done
           kubectl logs "job/$JOB" -n "$NAMESPACE" --all-containers || true
           if [ "$resultado" != ok ]; then
