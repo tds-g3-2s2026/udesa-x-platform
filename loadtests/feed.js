@@ -1,11 +1,11 @@
-import http from "k6/http";
-import exec from "k6/execution";
 import { sleep } from "k6";
 import { Counter, Rate, Trend } from "k6/metrics";
 import {
-  assertSessionsLast,
+  currentSession,
+  getAuthed,
+  isPage,
   jsonBody,
-  openSession,
+  openSessions,
   positiveInteger,
   readConfig,
   runOptions,
@@ -29,22 +29,15 @@ export const options = runOptions(config, "feed", {
 });
 
 function readPage(token, cursor, phase) {
-  const response = http.get(
-    `${config.baseUrl}/feed${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`,
-    {
-      headers: { Authorization: `Bearer ${token}` },
-      tags: { name: cursor ? "feed_next_page" : "feed_first_page", phase },
-      redirects: 0,
-      timeout: "10s",
-    },
+  const response = getAuthed(
+    config,
+    `/feed${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`,
+    token,
+    cursor ? "feed_next_page" : "feed_first_page",
+    phase,
   );
   const body = jsonBody(response);
-  const valid =
-    response.status === 200 &&
-    body !== null &&
-    Array.isArray(body.items) &&
-    (body.nextCursor === null ||
-      (typeof body.nextCursor === "string" && body.nextCursor.length > 0));
+  const valid = isPage(response, body);
   if (phase === "load") {
     feedRequests.add(1);
     feedDuration.add(response.timings.duration);
@@ -58,26 +51,20 @@ function readPage(token, cursor, phase) {
 }
 
 export function setup() {
-  const sessions = [];
-  for (let i = 0; i < config.vus; i++) {
-    const session = openSession(config, i);
+  const sessions = openSessions(config);
+  sessions.forEach((session, i) => {
     const page = readPage(session.token, null, "setup");
     if (!page.valid || page.body.items.length === 0) {
       throw new Error(
         `Feed de cuenta ${i} inválido o vacío (HTTP ${page.status}).`,
       );
     }
-    sessions.push(session);
-  }
-  assertSessionsLast(config, sessions);
+  });
   return sessions;
 }
 
 export default function (sessions) {
-  const session = sessions[exec.vu.idInTest - 1];
-  if (!session || Date.now() >= session.expiresAt) {
-    exec.test.abort("Cuenta sin sesión vigente; la corrida no mide el feed.");
-  }
+  const session = currentSession(sessions, "el feed");
   let cursor = null;
   for (let page = 0; page < pages; page++) {
     const result = readPage(session.token, cursor, "load");

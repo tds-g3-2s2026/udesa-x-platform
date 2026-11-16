@@ -3,11 +3,13 @@ import exec from "k6/execution";
 import { sleep } from "k6";
 import { Counter, Rate, Trend } from "k6/metrics";
 import {
+  currentSession,
   jsonBody,
   openSessions,
   positiveInteger,
   readConfig,
   runOptions,
+  runSeconds,
   summaryOf,
 } from "./lib.js";
 
@@ -15,9 +17,7 @@ const config = readConfig(100);
 const thinkSeconds = positiveInteger("THINK_SECONDS", 10);
 // posts-api caps the posts per account and hour; a run past the cap measures 429s.
 const postsPerHour = positiveInteger("POST_RATE_LIMIT", 30);
-const postsPerAccount = Math.ceil(
-  (2 * config.rampSeconds + config.durationSeconds) / thinkSeconds,
-);
+const postsPerAccount = Math.ceil(runSeconds(config) / thinkSeconds);
 if (postsPerAccount > postsPerHour) {
   throw new Error(
     `La corrida publicaría hasta ${postsPerAccount} posts por cuenta y el límite es ${postsPerHour} por hora; subí THINK_SECONDS o reducí la corrida.`,
@@ -39,10 +39,7 @@ export function setup() {
 }
 
 export default function (sessions) {
-  const session = sessions[exec.vu.idInTest - 1];
-  if (!session || Date.now() >= session.expiresAt) {
-    exec.test.abort("Cuenta sin sesión vigente; la corrida no mide la publicación.");
-  }
+  const session = currentSession(sessions, "la publicación");
   const response = http.post(
     `${config.baseUrl}/posts`,
     JSON.stringify({

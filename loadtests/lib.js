@@ -1,4 +1,5 @@
 import http from "k6/http";
+import exec from "k6/execution";
 
 export function positiveInteger(name, fallback) {
   const value = Number(__ENV[name] || fallback);
@@ -55,12 +56,17 @@ export function runOptions(config, scenario, thresholds) {
   };
 }
 
-export function stagesOf(config) {
+function stagesOf(config) {
   return [
     { duration: `${config.rampSeconds}s`, target: config.vus },
     { duration: `${config.durationSeconds}s`, target: config.vus },
     { duration: `${config.rampSeconds}s`, target: 0 },
   ];
+}
+
+/** Seconds from the first virtual user starting to the last one stopping. */
+export function runSeconds(config) {
+  return 2 * config.rampSeconds + config.durationSeconds;
 }
 
 export function jsonBody(response) {
@@ -71,8 +77,33 @@ export function jsonBody(response) {
   }
 }
 
-export function accountEmail(config, index) {
-  return `seed.${config.seed}.${String(index).padStart(10, "0")}@example.com`;
+/** The list contract of the API: `items` plus an opaque `nextCursor` that is null at the end. */
+export function isPage(response, body) {
+  return (
+    response.status === 200 &&
+    body !== null &&
+    Array.isArray(body.items) &&
+    (body.nextCursor === null ||
+      (typeof body.nextCursor === "string" && body.nextCursor.length > 0))
+  );
+}
+
+export function getAuthed(config, path, token, name, phase) {
+  return http.get(`${config.baseUrl}${path}`, {
+    headers: { Authorization: `Bearer ${token}` },
+    tags: { name, phase },
+    redirects: 0,
+    timeout: "10s",
+  });
+}
+
+/** The virtual user's own session; a run without a live one measures nothing. */
+export function currentSession(sessions, measured) {
+  const session = sessions[exec.vu.idInTest - 1];
+  if (!session || Date.now() >= session.expiresAt) {
+    exec.test.abort(`Cuenta sin sesión vigente; la corrida no mide ${measured}.`);
+  }
+  return session;
 }
 
 /** Logs the seed account `index` in; the caller decides what a valid answer is. */
@@ -80,7 +111,7 @@ export function login(config, index, phase) {
   return http.post(
     `${config.baseUrl}/auth/login`,
     JSON.stringify({
-      identifier: accountEmail(config, index),
+      identifier: `seed.${config.seed}.${String(index).padStart(10, "0")}@example.com`,
       password: __ENV.SEED_PASSWORD,
     }),
     {
@@ -93,7 +124,7 @@ export function login(config, index, phase) {
 }
 
 /** Logs the account in during setup; a session that cannot be opened stops the run. */
-export function openSession(config, index) {
+function openSession(config, index) {
   const started = Date.now();
   const response = login(config, index, "setup");
   const session = jsonBody(response);
@@ -111,9 +142,8 @@ export function openSession(config, index) {
 }
 
 /** Tokens are never renewed during the load, so they must outlive the whole run. */
-export function assertSessionsLast(config, sessions) {
-  const requiredUntil =
-    Date.now() + (2 * config.rampSeconds + config.durationSeconds + 30) * 1000;
+function assertSessionsLast(config, sessions) {
+  const requiredUntil = Date.now() + (runSeconds(config) + 30) * 1000;
   if (sessions.some((session) => session.expiresAt <= requiredUntil)) {
     throw new Error("La duración supera la vigencia de los tokens; reducí la corrida.");
   }

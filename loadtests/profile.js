@@ -1,11 +1,12 @@
-import http from "k6/http";
 import exec from "k6/execution";
 import { sleep } from "k6";
 import { Counter, Rate, Trend } from "k6/metrics";
 import {
-  assertSessionsLast,
+  currentSession,
+  getAuthed,
+  isPage,
   jsonBody,
-  openSession,
+  openSessions,
   readConfig,
   runOptions,
   summaryOf,
@@ -27,36 +28,19 @@ export const options = runOptions(config, "profile", {
   profile_posts_errors: ["rate<0.01"],
 });
 
-function get(path, name, token) {
-  return http.get(`${config.baseUrl}${path}`, {
-    headers: { Authorization: `Bearer ${token}` },
-    tags: { name, phase: "load" },
-    redirects: 0,
-    timeout: "10s",
-  });
-}
-
 export function setup() {
-  const sessions = [];
+  const sessions = openSessions(config);
   const authors = new Set();
-  for (let i = 0; i < config.vus; i++) {
-    const session = openSession(config, i);
-    const response = http.get(`${config.baseUrl}/feed`, {
-      headers: { Authorization: `Bearer ${session.token}` },
-      tags: { name: "feed_first_page", phase: "setup" },
-      redirects: 0,
-      timeout: "10s",
-    });
+  sessions.forEach((session, i) => {
+    const response = getAuthed(config, "/feed", session.token, "feed_first_page", "setup");
     const body = jsonBody(response);
-    if (response.status !== 200 || !body || !Array.isArray(body.items)) {
+    if (!isPage(response, body)) {
       throw new Error(`Feed de cuenta ${i} inválido (HTTP ${response.status}).`);
     }
     for (const item of body.items) {
       if (!item.authorDeleted) authors.add(item.authorId);
     }
-    sessions.push(session);
-  }
-  assertSessionsLast(config, sessions);
+  });
   // The profiles to open are the authors seen in the accounts' own feeds, so the
   // run depends on the data and not on how the seed derives its identifiers.
   if (authors.size === 0) {
@@ -66,13 +50,10 @@ export function setup() {
 }
 
 export default function ({ sessions, authors }) {
-  const session = sessions[exec.vu.idInTest - 1];
-  if (!session || Date.now() >= session.expiresAt) {
-    exec.test.abort("Cuenta sin sesión vigente; la corrida no mide el perfil.");
-  }
+  const session = currentSession(sessions, "el perfil");
   const author = authors[exec.scenario.iterationInTest % authors.length];
 
-  const header = get(`/users/${author}`, "profile_header", session.token);
+  const header = getAuthed(config, `/users/${author}`, session.token, "profile_header", "load");
   const headerBody = jsonBody(header);
   headerRequests.add(1);
   headerDuration.add(header.timings.duration);
@@ -80,19 +61,10 @@ export default function ({ sessions, authors }) {
     !(header.status === 200 && headerBody !== null && headerBody.id === author),
   );
 
-  const posts = get(`/users/${author}/posts`, "profile_posts", session.token);
-  const postsBody = jsonBody(posts);
+  const posts = getAuthed(config, `/users/${author}/posts`, session.token, "profile_posts", "load");
   postsRequests.add(1);
   postsDuration.add(posts.timings.duration);
-  postsErrors.add(
-    !(
-      posts.status === 200 &&
-      postsBody !== null &&
-      Array.isArray(postsBody.items) &&
-      (postsBody.nextCursor === null ||
-        (typeof postsBody.nextCursor === "string" && postsBody.nextCursor.length > 0))
-    ),
-  );
+  postsErrors.add(!isPage(posts, jsonBody(posts)));
   sleep(1);
 }
 

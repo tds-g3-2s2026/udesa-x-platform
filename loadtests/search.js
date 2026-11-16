@@ -1,8 +1,16 @@
-import http from "k6/http";
 import exec from "k6/execution";
 import { sleep } from "k6";
 import { Counter, Rate, Trend } from "k6/metrics";
-import { jsonBody, openSessions, readConfig, runOptions, summaryOf } from "./lib.js";
+import {
+  currentSession,
+  getAuthed,
+  isPage,
+  jsonBody,
+  openSessions,
+  readConfig,
+  runOptions,
+  summaryOf,
+} from "./lib.js";
 
 const config = readConfig(100);
 const terms = JSON.parse(open("./search-terms.json"));
@@ -18,22 +26,15 @@ export const options = runOptions(config, "search", {
 });
 
 function search(token, term, phase) {
-  const response = http.get(
-    `${config.baseUrl}/search/posts?q=${encodeURIComponent(term)}`,
-    {
-      headers: { Authorization: `Bearer ${token}` },
-      tags: { name: "search_posts", phase },
-      redirects: 0,
-      timeout: "10s",
-    },
+  const response = getAuthed(
+    config,
+    `/search/posts?q=${encodeURIComponent(term)}`,
+    token,
+    "search_posts",
+    phase,
   );
   const body = jsonBody(response);
-  const valid =
-    response.status === 200 &&
-    body !== null &&
-    Array.isArray(body.items) &&
-    (body.nextCursor === null ||
-      (typeof body.nextCursor === "string" && body.nextCursor.length > 0));
+  const valid = isPage(response, body);
   if (phase === "load") {
     searchRequests.add(1);
     searchDuration.add(response.timings.duration);
@@ -55,10 +56,7 @@ export function setup() {
 }
 
 export default function (sessions) {
-  const session = sessions[exec.vu.idInTest - 1];
-  if (!session || Date.now() >= session.expiresAt) {
-    exec.test.abort("Cuenta sin sesión vigente; la corrida no mide la búsqueda.");
-  }
+  const session = currentSession(sessions, "la búsqueda");
   search(session.token, terms[exec.scenario.iterationInTest % terms.length], "load");
   sleep(1);
 }
