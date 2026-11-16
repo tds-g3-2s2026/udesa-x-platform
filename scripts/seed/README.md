@@ -8,7 +8,7 @@ Definir `SEED_USERS_DATABASE_URL` y `SEED_POSTS_DATABASE_URL` con conexiones dir
 `postgresql://usuario:clave@host:puerto/base`, sin el prefijo `postgresql+asyncpg://`.
 Para TLS, usar `sslmode=require` en esa URL: asyncpg recibe la URL directo y entiende el
 parámetro libpq. Contra la base de producción en RDS, `PGSSLROOTCERT` tiene que apuntar a las
-raíces de RDS (`docker/rds-ca-us-east-2.pem` de `users-api` o `posts-api`): con el bundle del
+raíces de RDS (`rds-ca-us-east-2.pem`, en esta carpeta): con el bundle del
 sistema, asyncpg rechaza el certificado (ADR-021). El rol
 necesita permisos de inserción, actualización de contadores y creación de tablas temporales.
 
@@ -29,6 +29,12 @@ más 2.000 respuestas producen 4.000 filas en `posts`. Likes, respuestas y retwe
 suman 10.000 interacciones. Los 100 eliminados son parte de los originales, dejando
 1.900 activos. El borrado no agrega filas ni interacciones. Notificaciones queda
 fuera. Se rechazan cantidades negativas y relaciones imposibles.
+
+## Cargar el RDS desde Actions
+
+El RDS no tiene acceso público: solo lo alcanzan los pods del namespace (ADR-021). Para
+cargarlo se lanza a mano el workflow `Sembrar datos de prueba` (`sembrar-datos.yml`), que
+corre el seed como Job dentro del cluster.
 
 ## Repetir la carga en un ambiente desplegado
 

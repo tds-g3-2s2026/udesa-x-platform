@@ -1,0 +1,187 @@
+# Loads scripts/seed into the RDS databases of ADR-021 from a Job in the namespace.
+# The Job runs inside the cluster because the instance only accepts connections
+# from the pods' security group.
+#
+# The database passwords travel in a temporary Secret that this workflow deletes
+# on the way out. It borrows one of the namespace's four Secret slots, so it must
+# not run while crear-bases-postgres does. The seed code goes inline in the Job
+# and not in a ConfigMap, whose quota is full.
+
+name: Sembrar datos de prueba
+
+on:
+  workflow_dispatch:
+    inputs:
+      seed:
+        description: "Semilla. La misma semilla con volúmenes mayores suma filas a la carga existente."
+        required: true
+        default: "42"
+      users:
+        description: "Usuarios. Vacío, en este y en los demás volúmenes, usa el valor por defecto del seed."
+      follows:
+        description: "Relaciones de seguimiento."
+      posts:
+        description: "Posts originales."
+      replies:
+        description: "Respuestas."
+      likes:
+        description: "Likes."
+      retweets:
+        description: "Retweets."
+      deleted_posts:
+        description: "Posts originales eliminados."
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: sembrar-datos
+  cancel-in-progress: false
+
+jobs:
+  sembrar:
+    name: Sembrar datos en RDS
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    env:
+      NAMESPACE: tds-group-3
+      RDS_HOST: tds-group-3-db.cze2woweg3po.us-east-2.rds.amazonaws.com
+      TIMEOUT: 3600
+      AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      EKS_CLUSTER_NAME: ${{ secrets.EKS_CLUSTER_NAME }}
+      USERS_DB_PASSWORD: ${{ secrets.USERS_DB_PASSWORD }}
+      POSTS_DB_PASSWORD: ${{ secrets.POSTS_DB_PASSWORD }}
+      SEED: ${{ inputs.seed }}
+      USERS: ${{ inputs.users }}
+      FOLLOWS: ${{ inputs.follows }}
+      POSTS: ${{ inputs.posts }}
+      REPLIES: ${{ inputs.replies }}
+      LIKES: ${{ inputs.likes }}
+      RETWEETS: ${{ inputs.retweets }}
+      DELETED_POSTS: ${{ inputs.deleted_posts }}
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Verificar el entorno
+        run: |
+          faltan=()
+          for nombre in AWS_ROLE_ARN AWS_REGION EKS_CLUSTER_NAME USERS_DB_PASSWORD POSTS_DB_PASSWORD; do
+            [ -n "${!nombre}" ] || faltan+=("$nombre")
+          done
+          if [ ${#faltan[@]} -gt 0 ]; then
+            for falta in "${faltan[@]}"; do echo "::error::Falta el secret $falta."; done
+            exit 1
+          fi
+          # The values reach the Job's command line, so only digits get through.
+          [[ "$SEED" =~ ^[0-9]+$ ]] || { echo "::error::SEED debe ser un entero no negativo."; exit 1; }
+          argumentos="--seed $SEED"
+          for nombre in USERS FOLLOWS POSTS REPLIES LIKES RETWEETS DELETED_POSTS; do
+            [[ "${!nombre}" =~ ^[0-9]*$ ]] || { echo "::error::$nombre debe ser un entero no negativo."; exit 1; }
+            bandera=$(printf '%s' "$nombre" | tr 'A-Z_' 'a-z-')
+            [ -z "${!nombre}" ] || argumentos="$argumentos --$bandera ${!nombre}"
+          done
+          echo "ARGUMENTOS=$argumentos" >> "$GITHUB_ENV"
+
+      - name: Asumir el rol de AWS por OIDC
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          role-session-name: sembrar-datos-${{ github.run_id }}
+
+      - name: Conectar con el cluster
+        run: aws eks update-kubeconfig --name "$EKS_CLUSTER_NAME" --region "$AWS_REGION"
+
+      - name: Sembrar
+        run: |
+          SECRETO="sembrar-datos-$GITHUB_RUN_ID"
+          JOB="sembrar-datos-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          VALORES=$(mktemp -d)
+          trap 'rm -rf "$VALORES"; kubectl delete secret "$SECRETO" -n "$NAMESPACE" --ignore-not-found' EXIT
+
+          # From files and not --from-literal, so the values never show up in
+          # the runner's process list.
+          printf '%s' "$USERS_DB_PASSWORD" > "$VALORES/USERS_DB_PASSWORD"
+          printf '%s' "$POSTS_DB_PASSWORD" > "$VALORES/POSTS_DB_PASSWORD"
+          kubectl create secret generic "$SECRETO" -n "$NAMESPACE" \
+            --from-file="$VALORES/USERS_DB_PASSWORD" \
+            --from-file="$VALORES/POSTS_DB_PASSWORD"
+
+          # The passwords are percent-encoded inside the Job: the seed takes
+          # connection URLs and a password may hold any character.
+          # PGSSLROOTCERT is what makes asyncpg verify the RDS certificate (ADR-021).
+          read -r -d '' SCRIPT <<'SH' || true
+          set -eu
+          mkdir /work
+          printf '%s' "$SEED_PY" > /work/seed.py
+          printf '%s' "$CONTENT_PY" > /work/content.py
+          printf '%s' "$CA_PEM" > /work/rds-ca-us-east-2.pem
+          codificar() {
+            python3 -c 'import os, sys, urllib.parse; print(urllib.parse.quote(os.environ[sys.argv[1]], safe=""))' "$1"
+          }
+          export PGSSLROOTCERT=/work/rds-ca-us-east-2.pem
+          export SEED_USERS_DATABASE_URL="postgresql://users:$(codificar USERS_DB_PASSWORD)@$PGHOST:5432/users?sslmode=require"
+          export SEED_POSTS_DATABASE_URL="postgresql://posts:$(codificar POSTS_DB_PASSWORD)@$PGHOST:5432/posts?sslmode=require"
+          export UV_CACHE_DIR=/tmp/uv-cache
+          exec uv run /work/seed.py $SEED_ARGS
+          SH
+
+          # Requests respect the namespace LimitRange; the limits match a service pod.
+          jq -n \
+            --arg job "$JOB" --arg ns "$NAMESPACE" --arg secreto "$SECRETO" \
+            --arg host "$RDS_HOST" --arg script "$SCRIPT" --arg argumentos "$ARGUMENTOS" \
+            --rawfile seed scripts/seed/seed.py \
+            --rawfile contenido scripts/seed/content.py \
+            --rawfile certificado scripts/seed/rds-ca-us-east-2.pem \
+            --argjson limite "$TIMEOUT" '
+            {
+              apiVersion: "batch/v1", kind: "Job",
+              metadata: {name: $job, namespace: $ns},
+              spec: {
+                backoffLimit: 0,
+                activeDeadlineSeconds: $limite,
+                ttlSecondsAfterFinished: 3600,
+                template: {
+                  spec: {
+                    restartPolicy: "Never",
+                    containers: [{
+                      name: "seed",
+                      image: "ghcr.io/astral-sh/uv:python3.13-bookworm-slim",
+                      command: ["sh", "-c", $script],
+                      env: [
+                        {name: "PGHOST", value: $host},
+                        {name: "SEED_ARGS", value: $argumentos},
+                        {name: "SEED_PY", value: $seed},
+                        {name: "CONTENT_PY", value: $contenido},
+                        {name: "CA_PEM", value: $certificado}
+                      ],
+                      envFrom: [{secretRef: {name: $secreto}}],
+                      resources: {
+                        requests: {cpu: "100m", memory: "256Mi"},
+                        limits: {cpu: "500m", memory: "512Mi"}
+                      }
+                    }]
+                  }
+                }
+              }
+            }' | kubectl apply -f -
+
+          resultado=""
+          fin=$((SECONDS + TIMEOUT + 30))
+          while [ -z "$resultado" ] && [ "$SECONDS" -lt "$fin" ]; do
+            sleep 10
+            condiciones=$(kubectl get job "$JOB" -n "$NAMESPACE" -o jsonpath='{.status.conditions[?(@.status=="True")].type}')
+            case "$condiciones" in
+              *Complete*) resultado=ok ;;
+              *Failed*) resultado=fallo ;;
+            esac
+          done
+          kubectl logs "job/$JOB" -n "$NAMESPACE" --all-containers || true
+          if [ "$resultado" != ok ]; then
+            kubectl describe job "$JOB" -n "$NAMESPACE" || true
+            echo "::error::No se pudo sembrar (${resultado:-sin respuesta en ${TIMEOUT}s})."
+            exit 1
+          fi
