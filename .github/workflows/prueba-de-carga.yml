@@ -5,7 +5,7 @@
 #
 # The services are deployed by digest, so the commit comes from the tags that ECR
 # keeps for that digest. A threshold breach does not stop the remaining flows;
-# the job fails at the end instead. "crear-post" runs last because it adds posts.
+# the job fails at the end instead. "create-post" runs last because it adds posts.
 #
 # The seed accounts must exist: run sembrar-datos.yml first.
 
@@ -15,9 +15,9 @@ on:
   workflow_dispatch:
     inputs:
       flujo:
-        description: "Flujo a medir. 'todos' corre los cinco, con crear-post al final."
+        description: "Flujo a medir. 'todos' corre los cinco, con create-post al final."
         type: choice
-        options: [todos, login, feed, busqueda, perfil, crear-post]
+        options: [todos, login, feed, search, profile, create-post]
         default: todos
       seed_users:
         description: "Cuentas del seed disponibles. Debe alcanzar para la concurrencia del flujo (200 en feed y perfil)."
@@ -87,10 +87,11 @@ jobs:
       - name: Registrar el ambiente
         run: |
           mkdir resultados
+          ./loadtests/ambiente.sh resultados/ambiente-antes.json
           for par in USERS:users-api POSTS:posts-api GATEWAY:api-gateway; do
             variable="${par%%:*}_SHA"
             servicio="${par#*:}"
-            imagen=$(kubectl get deployment "$servicio" -n "$NAMESPACE" -o jsonpath='{.spec.template.spec.containers[0].image}')
+            imagen=$(jq -r --arg servicio "$servicio" '.deployments[] | select(.name == $servicio) | .image' resultados/ambiente-antes.json)
             sha=$(aws ecr describe-images --repository-name "tds-group-3/$servicio" \
               --image-ids "imageDigest=${imagen##*@}" --query 'imageDetails[0].imageTags' --output text |
               tr '\t' '\n' | grep -E '^[0-9a-f]{40}$' | head -n 1 || true)
@@ -101,37 +102,28 @@ jobs:
             echo "$servicio: $sha"
             echo "$variable=$sha" >> "$GITHUB_ENV"
           done
-          ./loadtests/ambiente.sh resultados/ambiente-antes.json
 
       - name: Medir
         run: |
           set +e
           # The seed accounts share one password, defined once in the seed.
           SEED_PASSWORD=$(sed -n 's/^PASSWORD = "\(.*\)"$/\1/p' scripts/seed/seed.py)
+          [ -n "$SEED_PASSWORD" ] || { echo "::error::No se encontró PASSWORD en scripts/seed/seed.py."; exit 1; }
           export SEED_PASSWORD
-          if [ "$FLUJO" = todos ]; then flujos="login feed busqueda perfil crear-post"; else flujos="$FLUJO"; fi
-          vus=()
-          if [ -n "$VUS" ]; then vus=(-e "VUS=$VUS"); fi
+          if [ "$FLUJO" = todos ]; then flujos="login feed search profile create-post"; else flujos="$FLUJO"; fi
           fallo=0
           {
             echo "| Flujo | Resultado |"
             echo "|---|---|"
           } >> "$GITHUB_STEP_SUMMARY"
           for flujo in $flujos; do
-            case "$flujo" in
-              login) script=login ;;
-              feed) script=feed ;;
-              busqueda) script=search ;;
-              perfil) script=profile ;;
-              crear-post) script=create-post ;;
-            esac
             echo "::group::$flujo"
             docker run --rm --user "$(id -u):$(id -g)" \
               -v "$PWD/loadtests:/work:ro" -v "$PWD/resultados:/results" \
-              -e BASE_URL -e SEED -e SEED_USERS -e SEED_PASSWORD \
+              -e BASE_URL -e SEED -e SEED_USERS -e SEED_PASSWORD -e VUS \
               -e USERS_SHA -e POSTS_SHA -e GATEWAY_SHA \
-              "${vus[@]}" -e "SUMMARY_PATH=/results/$flujo.json" \
-              grafana/k6:1.3.0 run "/work/$script.js"
+              -e "SUMMARY_PATH=/results/$flujo.json" \
+              grafana/k6:1.3.0 run "/work/$flujo.js"
             codigo=$?
             echo "::endgroup::"
             case "$codigo" in

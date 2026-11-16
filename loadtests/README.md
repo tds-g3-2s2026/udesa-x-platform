@@ -22,7 +22,7 @@ del mismo lugar y se puede comparar con la anterior. Guarda como artifact un JSO
 flujo y el estado del ambiente antes y después: SHA desplegados, réplicas, recursos y
 autoscaler. Los SHA salen de los tags que ECR guarda para el digest de cada deployment,
 porque el despliegue es por digest. El resumen del job dice, por flujo, si cumple los
-umbrales. Con `todos`, crear-post corre al final porque agrega posts.
+umbrales. Con `todos`, create-post corre al final porque agrega posts.
 
 ## Correr a mano
 
@@ -31,7 +31,7 @@ con un usuario y tiempos cortos:
 
 ```bash
 export BASE_URL=https://tds-group-3.tds-linar.udesa.edu.ar/api
-export SEED=42 SEED_USERS=200 SEED_PASSWORD='CampusSeed42!'
+export SEED=42 SEED_USERS=200 SEED_PASSWORD='<PASSWORD de scripts/seed/seed.py>'
 export USERS_SHA=REEMPLAZAR_SHA_DESPLEGADO_USERS
 export POSTS_SHA=REEMPLAZAR_SHA_DESPLEGADO_POSTS
 export GATEWAY_SHA=REEMPLAZAR_SHA_DESPLEGADO_GATEWAY
@@ -102,10 +102,6 @@ preparación fallida no constituye una medición. El informe va en
 `loadtests/RESULTADOS.md`, con réplicas, recursos, ubicación del generador e
 interrupciones observadas.
 
-La salida se genera con [`handleSummary`](https://grafana.com/docs/k6/latest/results-output/end-of-test/custom-summary/),
-la carga usa [rampas de usuarios virtuales](https://grafana.com/docs/k6/latest/using-k6/scenarios/executors/ramping-vus/)
-y los umbrales son [thresholds](https://grafana.com/docs/k6/latest/using-k6/thresholds/).
-
 ## Validar los scripts sin EKS
 
 Con Python 3 y Docker Desktop activos, desde la raíz:
@@ -114,9 +110,5 @@ Con Python 3 y Docker Desktop activos, desde la raíz:
 python3 -B -m unittest discover -s loadtests -v
 ```
 
-La suite ejecuta k6 contra un servidor HTTP descartable en la máquina local. Comprueba
-cuentas distintas, el contrato de cada endpoint, cursores opacos, fin de paginación,
-exclusión de la preparación de las métricas y registro de errores HTTP y de contrato.
-También verifica que los umbrales fallen con código 99 y que configuración inválida,
-login fallido, datos vacíos o sesiones demasiado cortas impidan comenzar la carga. No
-accede al cluster ni reemplaza una prueba con los servicios reales.
+La suite ejecuta k6 contra un servidor HTTP descartable en la máquina local. No accede al
+cluster ni reemplaza una prueba con los servicios reales.
