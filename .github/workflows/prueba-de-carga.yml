@@ -1,0 +1,158 @@
+# Runs the k6 flows of loadtests/ against the public ingress from a runner outside
+# the cluster, so the generator sits in the same place on every run and the runs
+# can be compared. The cluster is only read: the deployed commit of each service,
+# its replicas, resources and autoscaler state are saved next to each result.
+#
+# The services are deployed by digest, so the commit comes from the tags that ECR
+# keeps for that digest. A threshold breach does not stop the remaining flows;
+# the job fails at the end instead. "crear-post" runs last because it adds posts.
+#
+# The seed accounts must exist: run sembrar-datos.yml first.
+
+name: Prueba de carga
+
+on:
+  workflow_dispatch:
+    inputs:
+      flujo:
+        description: "Flujo a medir. 'todos' corre los cinco, con crear-post al final."
+        type: choice
+        options: [todos, login, feed, busqueda, perfil, crear-post]
+        default: todos
+      seed_users:
+        description: "Cuentas del seed disponibles. Debe alcanzar para la concurrencia del flujo (200 en feed y perfil)."
+        required: true
+        default: "200"
+      seed:
+        description: "Semilla con la que se cargaron los datos."
+        required: true
+        default: "42"
+      vus:
+        description: "Usuarios virtuales. Vacío usa la concurrencia de cada flujo."
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: prueba-de-carga
+  cancel-in-progress: false
+
+jobs:
+  medir:
+    name: Medir contra el ingreso público
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      NAMESPACE: tds-group-3
+      BASE_URL: https://tds-group-3.tds-linar.udesa.edu.ar/api
+      AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      EKS_CLUSTER_NAME: ${{ secrets.EKS_CLUSTER_NAME }}
+      FLUJO: ${{ inputs.flujo }}
+      SEED_USERS: ${{ inputs.seed_users }}
+      SEED: ${{ inputs.seed }}
+      VUS: ${{ inputs.vus }}
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Verificar el entorno
+        run: |
+          faltan=()
+          for nombre in AWS_ROLE_ARN AWS_REGION EKS_CLUSTER_NAME; do
+            [ -n "${!nombre}" ] || faltan+=("$nombre")
+          done
+          if [ ${#faltan[@]} -gt 0 ]; then
+            for falta in "${faltan[@]}"; do echo "::error::Falta el secret $falta."; done
+            exit 1
+          fi
+          for nombre in SEED_USERS SEED; do
+            [[ "${!nombre}" =~ ^[0-9]+$ ]] || { echo "::error::$nombre debe ser un entero no negativo."; exit 1; }
+          done
+          [[ "$VUS" =~ ^[0-9]*$ ]] || { echo "::error::VUS debe ser un entero no negativo."; exit 1; }
+
+      - name: Asumir el rol de AWS por OIDC
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          role-session-name: prueba-de-carga-${{ github.run_id }}
+
+      - name: Conectar con el cluster
+        run: aws eks update-kubeconfig --name "$EKS_CLUSTER_NAME" --region "$AWS_REGION"
+
+      - name: Registrar el ambiente
+        run: |
+          mkdir resultados
+          for par in USERS:users-api POSTS:posts-api GATEWAY:api-gateway; do
+            variable="${par%%:*}_SHA"
+            servicio="${par#*:}"
+            imagen=$(kubectl get deployment "$servicio" -n "$NAMESPACE" -o jsonpath='{.spec.template.spec.containers[0].image}')
+            sha=$(aws ecr describe-images --repository-name "tds-group-3/$servicio" \
+              --image-ids "imageDigest=${imagen##*@}" --query 'imageDetails[0].imageTags' --output text |
+              tr '\t' '\n' | grep -E '^[0-9a-f]{40}$' | head -n 1 || true)
+            if [ -z "$sha" ]; then
+              echo "::error::No se encontró el commit de $servicio ($imagen) entre los tags de ECR."
+              exit 1
+            fi
+            echo "$servicio: $sha"
+            echo "$variable=$sha" >> "$GITHUB_ENV"
+          done
+          ./loadtests/ambiente.sh resultados/ambiente-antes.json
+
+      - name: Medir
+        run: |
+          set +e
+          # The seed accounts share one password, defined once in the seed.
+          SEED_PASSWORD=$(sed -n 's/^PASSWORD = "\(.*\)"$/\1/p' scripts/seed/seed.py)
+          export SEED_PASSWORD
+          if [ "$FLUJO" = todos ]; then flujos="login feed busqueda perfil crear-post"; else flujos="$FLUJO"; fi
+          vus=()
+          if [ -n "$VUS" ]; then vus=(-e "VUS=$VUS"); fi
+          fallo=0
+          {
+            echo "| Flujo | Resultado |"
+            echo "|---|---|"
+          } >> "$GITHUB_STEP_SUMMARY"
+          for flujo in $flujos; do
+            case "$flujo" in
+              login) script=login ;;
+              feed) script=feed ;;
+              busqueda) script=search ;;
+              perfil) script=profile ;;
+              crear-post) script=create-post ;;
+            esac
+            echo "::group::$flujo"
+            docker run --rm --user "$(id -u):$(id -g)" \
+              -v "$PWD/loadtests:/work:ro" -v "$PWD/resultados:/results" \
+              -e BASE_URL -e SEED -e SEED_USERS -e SEED_PASSWORD \
+              -e USERS_SHA -e POSTS_SHA -e GATEWAY_SHA \
+              "${vus[@]}" -e "SUMMARY_PATH=/results/$flujo.json" \
+              grafana/k6:1.3.0 run "/work/$script.js"
+            codigo=$?
+            echo "::endgroup::"
+            case "$codigo" in
+              0) resultado="cumple los umbrales" ;;
+              99) resultado="no cumple los umbrales"; fallo=1 ;;
+              *) resultado="falló la corrida (código $codigo)"; fallo=1 ;;
+            esac
+            echo "| $flujo | $resultado |" >> "$GITHUB_STEP_SUMMARY"
+          done
+          exit "$fallo"
+
+      - name: Registrar el ambiente al terminar
+        if: always()
+        run: |
+          mkdir -p resultados
+          ./loadtests/ambiente.sh resultados/ambiente-despues.json
+
+      - name: Guardar los resultados
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prueba-de-carga-${{ github.run_id }}
+          path: resultados/
+          if-no-files-found: warn

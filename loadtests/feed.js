@@ -12,7 +12,7 @@ import {
   summaryOf,
 } from "./lib.js";
 
-const config = readConfig(20);
+const config = readConfig(200);
 const pages = positiveInteger("PAGES", 5);
 
 const feedDuration = new Trend("feed_duration", true);
@@ -22,7 +22,11 @@ const feedErrors = new Rate("feed_errors");
 const feedRequests = new Counter("feed_requests");
 const emptyPages = new Counter("feed_empty_pages");
 
-export const options = runOptions(config, "feed");
+export const options = runOptions(config, "feed", {
+  feed_first_page_duration: ["p(95)<500"],
+  feed_next_page_duration: ["p(95)<300"],
+  feed_errors: ["rate<0.01"],
+});
 
 function readPage(token, cursor, phase) {
   const response = http.get(

@@ -36,7 +36,8 @@ export function readConfig(defaultVus) {
   return { baseUrl, seed, users, vus, rampSeconds, durationSeconds, serviceShas };
 }
 
-export function runOptions(config, scenario) {
+/** `thresholds` are the flow's service-level objectives; a breach exits with code 99. */
+export function runOptions(config, scenario, thresholds) {
   return {
     scenarios: {
       [scenario]: {
@@ -47,6 +48,7 @@ export function runOptions(config, scenario) {
         gracefulStop: "30s",
       },
     },
+    thresholds,
     setupTimeout: "5m",
     summaryTrendStats: ["avg", "min", "p(50)", "p(95)", "max"],
     systemTags: ["status", "method", "name", "scenario", "expected_response"],
@@ -115,6 +117,14 @@ export function assertSessionsLast(config, sessions) {
   if (sessions.some((session) => session.expiresAt <= requiredUntil)) {
     throw new Error("La duración supera la vigencia de los tokens; reducí la corrida.");
   }
+}
+
+/** One session per virtual user, each on its own seed account. */
+export function openSessions(config) {
+  const sessions = [];
+  for (let i = 0; i < config.vus; i++) sessions.push(openSession(config, i));
+  assertSessionsLast(config, sessions);
+  return sessions;
 }
 
 /** Builds handleSummary's output: `fields` maps a summary key to a metric name. */

@@ -75,11 +75,11 @@ class FeedTests(unittest.TestCase):
         self.assertNotIn("fixture-password", json.dumps(summary))
         self.assertNotIn("Bearer", json.dumps(summary))
 
-    def test_server_and_contract_errors_are_recorded_without_performance_thresholds(self):
+    def test_server_and_contract_errors_are_recorded_and_cross_the_error_threshold(self):
         for mode in ("server_error", "bad_contract"):
             with self.subTest(mode=mode):
                 result, summary, _, reads = self.run_feed(mode)
-                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(result.returncode, 99, result.stderr)
                 expected_errors = sum(cursor is not None for _, cursor, _ in reads)
                 self.assertGreater(expected_errors, 0)
                 self.assertAlmostEqual(
