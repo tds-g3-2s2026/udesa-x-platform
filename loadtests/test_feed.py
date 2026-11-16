@@ -1,14 +1,10 @@
 """Exercise the real k6 runtime against a disposable HTTP contract fixture."""
 
 import json
-import os
-import subprocess
-import tempfile
-import threading
 import unittest
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
+
+from harness import JsonHandler, run_k6
 
 CURSOR = "opaque/+?&="
 
@@ -17,18 +13,7 @@ class FeedTests(unittest.TestCase):
     def run_feed(self, mode="ok", **overrides):
         logins, reads = [], []
 
-        class Handler(BaseHTTPRequestHandler):
-            def log_message(self, *_):
-                pass
-
-            def respond(self, status, body):
-                data = json.dumps(body).encode()
-                self.send_response(status)
-                self.send_header("Content-Type", "application/json")
-                self.send_header("Content-Length", str(len(data)))
-                self.end_headers()
-                self.wfile.write(data)
-
+        class Handler(JsonHandler):
             def do_POST(self):
                 body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
                 logins.append((self.path, body))
@@ -60,51 +45,8 @@ class FeedTests(unittest.TestCase):
                         },
                     )
 
-        server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
-        thread = threading.Thread(target=server.serve_forever, daemon=True)
-        thread.start()
-        try:
-            with tempfile.TemporaryDirectory() as directory:
-                env = {
-                    "BASE_URL": f"http://host.docker.internal:{server.server_port}/api",
-                    "SEED_PASSWORD": "fixture-password",
-                    "USERS_SHA": "a" * 40,
-                    "POSTS_SHA": "b" * 40,
-                    "GATEWAY_SHA": "c" * 40,
-                    "VUS": "2",
-                    "RAMP_SECONDS": "1",
-                    "DURATION_SECONDS": "1",
-                    "ENVIRONMENT": "contract-test",
-                    "SUMMARY_PATH": "/results/summary.json",
-                    **overrides,
-                }
-                command = [
-                    "docker",
-                    "run",
-                    "--rm",
-                    "--user",
-                    f"{os.getuid()}:{os.getgid()}",
-                    "-v",
-                    f"{Path(__file__).resolve().parent}:/work:ro",
-                    "-v",
-                    f"{directory}:/results",
-                ]
-                for name, value in env.items():
-                    command.extend(["-e", f"{name}={value}"])
-                result = subprocess.run(
-                    [*command, "grafana/k6:1.3.0", "run", "/work/feed.js"],
-                    capture_output=True,
-                    text=True,
-                    timeout=45,
-                    check=False,
-                )
-                path = Path(directory) / "summary.json"
-                summary = json.loads(path.read_text()) if path.exists() else None
-                return result, summary, logins, reads
-        finally:
-            server.shutdown()
-            server.server_close()
-            thread.join()
+        result, summary = run_k6("feed.js", Handler, **overrides)
+        return result, summary, logins, reads
 
     def test_pagination_uses_distinct_accounts_and_excludes_setup_from_feed_metrics(self):
         result, summary, logins, reads = self.run_feed()
