@@ -30,6 +30,14 @@ suman 10.000 interacciones. Los 100 eliminados son parte de los originales, deja
 1.900 activos. El borrado no agrega filas ni interacciones. Notificaciones queda
 fuera. Se rechazan cantidades negativas y relaciones imposibles.
 
+## Cargar el RDS desde Actions
+
+El RDS no tiene acceso público: solo lo alcanzan los pods del namespace (ADR-021). Para
+cargarlo se lanza a mano el workflow `Sembrar datos de prueba` (`sembrar-datos.yml`), que
+corre el seed como Job dentro del cluster. Cada cantidad es un input; vacío, usa el valor
+por defecto del seed. La salida JSON del seed (`counts`, `inserted`, `totals`) queda en el
+log del workflow.
+
 ## Repetir la carga en un ambiente desplegado
 
 Con las mismas versiones, semilla y volúmenes se generan las mismas claves.
