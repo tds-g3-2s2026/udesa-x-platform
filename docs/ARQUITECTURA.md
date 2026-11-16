@@ -346,7 +346,7 @@ Cubre E2-H1 a H14 y E3-H1 a H10 salvo mensajes directos.
 
 **Búsqueda:** coincidencia literal con `ILIKE` e índices GIN `pg_trgm`. `posts-api` busca publicaciones y respuestas; `users-api` busca nombre visible o handle en su propia base y consulta bloqueos por lote en `posts-api`. Se requieren tres caracteres, el orden es por fecha de creación e id descendentes y cada página contiene hasta veinte resultados autorizados. Un `@` inicial restringe la búsqueda de cuentas al handle. Los snippets son texto segmentado con resaltado y hasta 160 caracteres visibles. La búsqueda no aplica stemming, similitud ni normalización de acentos.
 
-**Trending:** consulta de agregación sobre hashtags de las últimas 24 horas, cacheada en Redis con TTL de 15 minutos, que es exactamente lo que exige E2-H11 CA.3.
+**Trending:** consulta de agregación sobre los hashtags de posts y respuestas de las últimas 24 horas, cacheada en Redis con TTL de 15 minutos, que es exactamente lo que exige E2-H11 CA.3. Solo cuentan los posts de cuentas públicas no eliminadas, y el ranking es único para todos los espectadores: por eso la caché es compartida y no por usuario. El endpoint es `GET /api/trending`, que el gateway enruta a `posts-api`.
 
 ### Borrado de publicaciones y retención
 

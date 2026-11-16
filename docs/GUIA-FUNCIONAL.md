@@ -422,9 +422,9 @@ Optativa · 3 puntos · S12 · Dueño: @varbelaiz
 
 | Criterio | Pantalla | Qué ve el usuario |
 |---|---|---|
-| CA.1 |  |  |
-| CA.2 |  |  |
-| CA.3 |  |  |
+| CA.1 | Buscar | Ves los hashtags con más posts de las últimas 24 horas. Las respuestas cuentan como posts y solo cuentan los de cuentas públicas. Todos ven el mismo ranking. |
+| CA.2 | Buscar | Con el buscador vacío (menos de 3 caracteres) ves los 10 hashtags más populares, cada uno con su cantidad de posts (`1 post` o `N posts`). Al tocar uno, se busca ese hashtag. |
+| CA.3 | Buscar | El ranking se actualiza como mínimo cada 15 minutos: un post nuevo puede tardar hasta ese plazo en reflejarse. |
 
 ### E2-H12. Guardar Posts
 
