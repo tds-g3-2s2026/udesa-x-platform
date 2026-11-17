@@ -885,54 +885,160 @@ y destinatarios existentes.
 
 ## Seguridad
 
+Revisión del 2026-11-17 contra el código de `main` de cada repo y contra lo que responde
+producción, no contra lo que este documento decía antes (`T-18` y la segunda revisión de `T-60`).
+La evidencia apunta a `repo/ruta:línea`. Las líneas cambian con cada merge: si una no coincide,
+buscar el nombre que la acompaña.
+
+### Threat model
+
+Siete componentes. El backoffice y la app no corren en el cluster: el backoffice se sirve desde
+S3 y CloudFront, y la app está en el teléfono. Todo el tráfico de la API entra por CloudFront y el
+ALB hasta el gateway. Las amenazas siguen STRIDE: suplantación, alteración, repudio, filtración,
+denegación de servicio y escalada de privilegios.
+
+**`api-gateway`**: la única puerta pública a `/api`. Actor principal: cualquiera en internet.
+
+| Amenaza | Mitigación actual | Evidencia | Lo que falta |
+|---|---|---|---|
+| Llegar a rutas internas de los servicios (escalada) | Solo reenvía los prefijos de su tabla; `/internal` no está en ella y responde 404 | `api-gateway/src/routing.ts:5`, `src/app.ts:68` | — |
+| Saturarlo con pedidos (denegación de servicio) | Ninguna propia | — | Límite por IP y timeout en el proxy, que hoy espera sin tope (`src/app.ts:84`) |
+| Filtrar errores internos por la ruta de salud | Devuelve solo `status` y `version` | `src/app.ts:19` | — |
+
+**`users-api`**: credenciales, clave privada de los JWT, refresh tokens, datos personales y la
+auditoría. Actores: usuario, atacante con credenciales robadas, administrador.
+
+| Amenaza | Mitigación actual | Evidencia | Lo que falta |
+|---|---|---|---|
+| Adivinar contraseñas (suplantación) | 5 intentos y 15 min de bloqueo en la app; 3 y 30 min en el backoffice; mensaje genérico | `users-api/src/users_api/app/services/auth.py:273`, `:281`, `:33` | — |
+| Reusar un refresh token robado (suplantación) | Rotación en cada uso; un token ya usado revoca la familia. Se guarda su digest, no el token | `app/services/auth.py:406`, `:419`, `:451` | — |
+| Un moderador administrando cuentas de administrador (escalada) | Rol en el token y dependencia de superadmin en el backend | `src/users_api/api/deps.py:221` | — |
+| Llamar a `/internal` sin ser un servicio (suplantación) | Secreto compartido comparado en tiempo constante | `api/deps.py:255` | — |
+| Borrar el rastro de una acción administrativa (repudio) | La tabla de auditoría rechaza UPDATE, DELETE y TRUNCATE con un trigger | `migrations/versions/0006_admin_audit.py:32` | — |
+| Filtrar datos por los logs | El log de cada request lleva el path, nunca la query | `src/users_api/infrastructure/telemetry.py:95` | — |
+
+**`posts-api`**: posts, grafo social, imágenes y denuncias. Actores: usuario, cuenta bloqueada o
+sin permiso, atacante con un token revocado.
+
+| Amenaza | Mitigación actual | Evidencia | Lo que falta |
+|---|---|---|---|
+| Ver posts de una cuenta protegida o que te bloqueó (filtración) | Una sola regla de visibilidad para feed, detalle y búsqueda, con el mismo 404 | `posts-api/src/posts_api/app/repositories/post_visibility.py:18`, `repositories/posts.py:158` | — |
+| Borrar un post ajeno (alteración) | Solo el autor | `app/services/posts.py:228` | — |
+| Usar un token revocado en un logout (suplantación) | Lee las marcas de `users-api` y, si Redis no responde, rechaza | `src/posts_api/api/deps.py:167` | — |
+| Subir un archivo malicioso | Formato por magic numbers, 1 MB por imagen, URLs firmadas por una hora | `app/image_rules.py:39`, `:15`, `config/settings.py:63` | — |
+| Spam de posts, follows o denuncias (denegación de servicio) | Límites por usuario en Redis | `app/services/posts.py:286`, `follows.py:154`, `reports.py:111` | — |
+| HTML en un post (alteración) | Se borran las etiquetas con una expresión regular | `app/services/posts.py:53` | Una etiqueta sin cerrar no se borra: `users-api` usa `nh3`, más robusto |
+
+**`notifications-api`**: device tokens, historial de notificaciones, preferencias de notificación y
+el envío de correos. Se despliega desde el 2026-11-13, con DocumentDB.
+
+| Amenaza | Mitigación actual | Evidencia | Lo que falta |
+|---|---|---|---|
+| Leer notificaciones ajenas (filtración) | Toda consulta filtra por la cuenta del token | `notifications-api/src/infrastructure/notification-store.ts:50` | — |
+| Usar un token revocado (suplantación) | Ninguna: no lee las marcas. Ventana aceptada de hasta 15 minutos | `src/api/auth.ts:28` | — |
+| Un evento malformado o repetido en la cola (alteración) | El inválido va a la dead letter; el repetido se descarta por su id | `src/infrastructure/event-consumer.ts:80`, `processed-event-store.ts:8` | — |
+| Inyectar HTML en un correo | Los correos van en texto plano | `src/app/email-templates.ts:5` | — |
+| Saturar sus endpoints (denegación de servicio) | Ninguna propia | — | Un límite por cuenta, como en los servicios de Python |
+
+**`assistant-api`**: la cuota de Bedrock, que se paga por token, y el texto que dicta el usuario.
+Actores: usuario, alguien que escribe un post pensado para manipular al modelo.
+
+| Amenaza | Mitigación actual | Evidencia | Lo que falta |
+|---|---|---|---|
+| Prompt injection desde el texto de un post en pantalla (escalada) | El modelo solo elige acciones de un catálogo cerrado y validado; la app las ejecuta con los permisos del usuario; publicar, responder, retuitear y seguir piden confirmación; tope de 8 pasos | `udesa-x-assistant-api/README.md` ("Cómo funciona"), `src/assistant_api/turns.py:80` | — |
+| Gastar la cuota (denegación de servicio) | 160 pasos por hora por usuario, y si Redis no responde se rechaza; `maxTokens` 400 y sin reintentos; tope al tamaño del pedido; interruptor sin deploy | `src/assistant_api/guards.py:162`, `agent/bedrock.py:33`, `:43`, `turns.py:22`, `guards.py:95` | — |
+| Usar un token revocado o de administrador | Solo cuentas de la app; no lee las marcas de revocación: cada acción la ejecuta después `posts-api`, que sí las lee | `guards.py:127` | — |
+| Credenciales de AWS filtradas | No hay claves: el pod toma un rol por su ServiceAccount | `README.md` ("Despliegue") | — |
+
+**App mobile**: los tokens de la sesión en el teléfono.
+
+| Amenaza | Mitigación actual | Evidencia | Lo que falta |
+|---|---|---|---|
+| Robo de tokens del dispositivo (filtración) | Se guardan en `expo-secure-store` y se borran al cerrar sesión | `udesa-x-mobile/src/stores/authStore.ts:33`, `:131` | — |
+| Tráfico interceptado | El build que se distribuye apunta a la URL HTTPS | `eas.json` (perfil `preview`) | — |
+
+`google-services.json` está versionado con la API key de Firebase: es una clave de cliente,
+pública por diseño, y no da acceso al servidor.
+
+**Backoffice**: la sesión de los administradores.
+
+| Amenaza | Mitigación actual | Evidencia | Lo que falta |
+|---|---|---|---|
+| Robo del token de un administrador por XSS (filtración) | React escapa lo que muestra y no hay `dangerouslySetInnerHTML` | `udesa-x-backoffice/src` | El token vive en `localStorage` (`src/stores/authStore.ts:78`) y producción no manda CSP: un XSS podría leerlo |
+| Un moderador entrando a pantallas de superadmin (escalada) | El panel esconde las pantallas, y el backend lo rechaza igual | `src/router.tsx:100`, `users-api/src/users_api/api/deps.py:221` | — |
+
 ### Mapeo contra OWASP Top 10:2025
 
-Se mapea contra la edición **2025**, vigente desde enero de 2026. Cambió bastante respecto de 2021: la configuración incorrecta subió al segundo puesto, componentes vulnerables se expandió a toda la cadena de suministro, SSRF desapareció como categoría propia y se absorbió en A01, y apareció A10, manejo de condiciones excepcionales.
+Edición **2025**, vigente desde enero de 2026.
 
-| Riesgo                                        | Cómo se mitiga                                                                                                                                                                                                                    |
-| --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| A01 Control de acceso roto                    | Autorización en cada servicio, no solo en el Gateway. Verificación de propiedad en E2-H3 CA.1. 404 en lugar de 403 ante bloqueo, como exige E3-H4 CA.4. Tests específicos de autorización. Ninguna URL provista por el usuario se consume desde el servidor, que es el SSRF ahora absorbido acá. |
-| A02 Configuración incorrecta                  | CORS restringido. Cabeceras de seguridad en el Gateway. NetworkPolicies entre pods. Pod Security Admission `restricted`. Imágenes base mínimas, contenedores sin root.                                                             |
-| A03 Fallas de la cadena de suministro         | Dependabot en los seis repos. Escaneo de imágenes con Trivy. **Actions fijadas por SHA**. SBOM con syft y attestations de build en el pipeline.                                                                                   |
-| A04 Fallas criptográficas                     | Argon2id con `m=19456, t=2, p=1`. TLS en todo tránsito. SOPS con age, nunca secretos en claro en el repo.                                                                                                                          |
-| A05 Inyección                                 | ORM con consultas parametrizadas. Sanitización de HTML en E1-H6 CA.4 y E2-H1 CA.3. Validación de esquema en cada endpoint.                                                                                                        |
-| A06 Diseño inseguro                           | Threat model en S7. Rate limiting. Tokens de un solo uso con expiración. Mensajes genéricos en E1-H2 CA.3 y E1-H5 CA.4 para evitar enumeración.                                                                                    |
-| A07 Fallas de autenticación                   | Lockout tras intentos fallidos. Tokens de vida corta con refresh y rotación. Revocación en cambio de contraseña, exigida por E1-H5 CA.7 y E1-H13 CA.3.                                                                            |
-| A08 Integridad de software y datos            | Imágenes etiquetadas por SHA, nunca `latest`. Migraciones versionadas. Patrón outbox.                                                                                                                                             |
-| A09 Fallas de registro y alertas              | Logs estructurados, trazas, alertas. Auditoría de acciones administrativas en E5-H6.                                                                                                                                              |
-| A10 Manejo de condiciones excepcionales       | Categoría nueva. Timeout y comportamiento definido ante fallo de cada dependencia. Sin stack traces al cliente: errores en formato Problem Details, ver "Formato de error". Si el asistente de IA falla, la app sigue funcionando sin él.                                   |
+| Riesgo | Estado | Qué hay hoy | Evidencia |
+|---|---|---|---|
+| A01 Control de acceso roto | Cumple | Autorización en cada servicio: visibilidad de posts, solo el autor borra, roles de administración, secreto en `/internal`. El gateway no expone rutas internas. Ningún servicio pide una URL que mande el usuario, que es el SSRF absorbido acá | `posts-api/.../post_visibility.py:18`, `posts.py:228`, `users-api/.../deps.py:221`, `api-gateway/src/routing.ts:5` |
+| A02 Configuración incorrecta | Parcial | Cumple: CORS rechaza orígenes ajenos (probado contra producción) y las imágenes corren sin root. Falta: producción no manda HSTS, CSP, `X-Content-Type-Options` ni `X-Frame-Options`; las NetworkPolicies existen pero el cluster no las aplica; los pods no declaran `securityContext` y el namespace no tiene Pod Security Admission | `docker/Dockerfile` (`USER`) de cada servicio, `k8s/namespace.yaml`, `README.md` ("Aislamiento de red") |
+| A03 Fallas de la cadena de suministro | Parcial | Cumple: lockfiles en todos los repos y despliegue por digest. Falta: casi todas las actions van por tag (2 de 73 por SHA), no hay Dependabot, ni escaneo de imágenes, ni SBOM | `.github/workflows/` de cada repo, `.github/workflows/deploy.yml:139` |
+| A04 Fallas criptográficas | Cumple | Argon2id con los parámetros de `argon2-cffi` 25.1.0 (RFC 9106, 64 MiB, `t=3`, `p=4`). JWT con EdDSA. HTTPS obligatorio: por HTTP CloudFront responde 403. TLS a PostgreSQL y DocumentDB con la CA de RDS, sin verificar el nombre del host. Ningún secreto en los repos | `users-api/src/users_api/app/security.py:16`, `:23`, `README.md` ("Cifrado en tránsito") |
+| A05 Inyección | Cumple | SQLAlchemy con parámetros y ningún SQL armado con texto. La búsqueda escapa los comodines. `nh3` limpia el perfil; los posts usan una expresión regular más débil (hallazgo) | `posts-api/.../repositories/posts.py:125`, `users-api/.../schemas/profile.py:30`, `posts-api/.../services/posts.py:53` |
+| A06 Diseño inseguro | Parcial | Threat model de arriba, límites por usuario, tokens de un solo uso con expiración y mensajes genéricos. Falta un límite global en el gateway y uno en `notifications-api` (hallazgos 2 y 9) | `users-api/.../services/auth.py:33`, `posts-api/.../services/posts.py:286` |
+| A07 Fallas de autenticación | Cumple | Bloqueo por intentos, access token de 15 minutos, refresh con rotación y detección de reuso. Cambio de contraseña y bloqueo por admin revocan todo. `notifications-api` y `assistant-api` no leen la revocación, con la ventana de 15 minutos aceptada | `users-api/.../services/auth.py:273`, `:451`, `password_change.py:72`, `account_block.py:68` |
+| A08 Integridad de software y datos | Parcial | Cumple: imágenes por digest, migraciones versionadas, outbox, contratos de eventos verificados en el CI y mensajes inválidos a dead letter. Falta firmar el build (attestations) | `.github/workflows/deploy.yml:139`, `notifications-api/.../event-consumer.ts:80` |
+| A09 Fallas de registro y alertas | Parcial | Logs estructurados sin query string, trazas, auditoría inmutable de acciones administrativas, alertas de latencia, errores 5xx y outbox. Ninguna alerta mira señales de ataque, como muchos bloqueos o reusos de refresh token | `users-api/.../telemetry.py:95`, `migrations/versions/0006_admin_audit.py:32`, `observability/alerts.yaml` |
+| A10 Manejo de condiciones excepcionales | Parcial | Errores en Problem Details y 500 genérico sin stack trace. Fallan cerrado `posts-api` y `assistant-api` si Redis no responde. Las llamadas entre servicios tienen timeout de 2 s y Bedrock no reintenta. Falta un timeout en el proxy del gateway | `notifications-api/src/api/errors.ts:46`, `posts-api/.../api/deps.py:167`, `api-gateway/src/app.ts:84` |
 
-El nivel L1 de OWASP ASVS 5.0 se usa como checklist manual antes de cada entrega grande.
+### Hallazgos
+
+Lo que quedó parcial o no existe, con dónde se atiende. No se abren todas las issues ahora.
+
+| # | Hallazgo | Riesgo | Dónde se atiende |
+|---|---|---|---|
+| 1 | Producción no manda cabeceras de seguridad (HSTS, CSP, `nosniff`, `X-Frame-Options`), y el backoffice guarda el token en `localStorage` | Medio | Issue a crear: una política de cabeceras en CloudFront |
+| 2 | El gateway no limita pedidos por IP y su proxy no tiene timeout | Medio | Issue a crear en `udesa-x-api-gateway` |
+| 3 | Las NetworkPolicies no se aplican en el cluster | Medio | `T-60` (#145) |
+| 4 | Actions por tag, sin SBOM ni attestations | Medio | `T-62` (#146) |
+| 5 | Sin Dependabot ni escaneo de imágenes | Medio | Issue a crear, o sumarlo a `T-62` |
+| 6 | Pods sin `securityContext` y namespace sin Pod Security Admission | Bajo | Junto con `T-60`, porque toca los mismos manifiestos |
+| 7 | Los posts limpian el HTML con una expresión regular, no con `nh3` | Bajo | Issue a crear en `udesa-x-posts-api` |
+| 8 | Sin alertas de seguridad: bloqueos por intentos y reuso de refresh tokens | Bajo | Issue a crear, sobre `observability/alerts.yaml` |
+| 9 | `notifications-api` no limita pedidos por cuenta | Bajo | Issue a crear en `udesa-x-notifications-api` |
 
 ### Manejo de tokens
 
-- Access token JWT de 15 minutos, con `sub`, `role` y `jti`. Algoritmo asimétrico (EdDSA o ES256), nunca HS256 compartido ni `alg:none`.
-- Refresh token de 7 días, en `expo-secure-store` en mobile, **con rotación en cada uso y detección de reuso**: si aparece un refresh token ya usado, se asume comprometido y se revoca la familia entera de sesiones del usuario.
-- Revocación por `jti` en Redis, guardando el hash SHA-256 del token y no el token crudo, con TTL igual a la vida restante.
+- Access token JWT de 15 minutos, con `sub`, `role`, `jti` e `iat`, firmado con **EdDSA sobre
+  Ed25519**. Nunca HS256 compartido ni `alg:none`.
+- Refresh token de 7 días, en `expo-secure-store` en mobile, **con rotación en cada uso y detección
+  de reuso**: si aparece uno ya usado, se revoca la familia entera de sesiones. La base guarda su
+  digest, no el token.
+- Revocación de un access token: la marca `revoked:jti:<jti>` en Redis, con TTL igual a la vida que
+  le queda. Revocación de una cuenta: `revoked:user:<id>` con el instante de corte.
 - Cambio de contraseña, bloqueo por admin y cuenta en revisión revocan todas las sesiones.
-- `posts-api` no tiene su propia lista: en cada request autenticado lee en una sola consulta las marcas `revoked:jti:<jti>` y `revoked:user:<id>` que `users-api` escribe en su base `/0` (token revocado si existe la marca del `jti`, o si `iat <=` corte de la cuenta). Si ese Redis no responde, rechaza el request. Ver el ADR-014.
+- `posts-api` lee esas marcas en cada request autenticado, y si ese Redis no responde, rechaza
+  (ADR-014). `notifications-api` y `assistant-api` no las leen: aceptan una ventana de hasta 15
+  minutos para un token revocado.
 
-**Cerrada el 2026-08-30 al implementar E1-H2.** La discusión era JWT con lista de revocación contra token opaco con la sesión en Redis: las dos hacen round-trip a Redis, así que el argumento clásico a favor del JWT se caía. La resuelve la consigna, no el equipo: `E1-H2 CA.1` exige literalmente *"un token JWT con un tiempo de expiración definido"*, y el token opaco reprobaría el criterio.
+**Cerrada el 2026-08-30 al implementar E1-H2.** La discusión era JWT con lista de revocación contra
+token opaco con la sesión en Redis: las dos hacen round-trip a Redis, así que el argumento clásico a
+favor del JWT se caía. La resuelve la consigna, no el equipo: `E1-H2 CA.1` exige literalmente *"un
+token JWT con un tiempo de expiración definido"*, y el token opaco reprobaría el criterio.
 
-El access token se firma con **EdDSA sobre Ed25519**. La clave privada llega por entorno; en desarrollo, si falta, el servicio genera un par efímero y lo avisa por log, de modo que no hay ninguna clave privada versionada.
+La clave privada llega por entorno. En desarrollo, si falta, el servicio genera un par efímero y lo
+avisa por log, de modo que no hay ninguna clave privada versionada.
 
 ### Rate limiting
 
-| Ámbito                     | Dónde         | Límite                                     |
-| -------------------------- | ------------- | ------------------------------------------ |
-| Por IP                     | Gateway       | Global, primera línea de defensa           |
-| Login por cuenta           | users-api     | 5 intentos, bloqueo de 15 min (E1-H2 CA.2) |
-| Login de admin             | users-api     | 3 intentos, bloqueo de 30 min (E5-H2 CA.3) |
-| Recuperación de contraseña | users-api     | Limitado por correo (E1-H5 CA.8)           |
-| Creación de posts          | posts-api     | 30 por hora por usuario (E2-H1 CA.5)       |
-| Solicitudes de seguimiento | posts-api     | 50 por hora por usuario (E3-H1 CA.5)       |
-| Feedback                   | users-api     | 2 por hora por usuario (E1-H11 CA.4)       |
-| Invitaciones               | posts-api     | 10 links por día por usuario (E3-H9 CA.3)  |
-| Asistente por voz          | assistant-api | Por usuario, el número sale del spike (ADR-023) |
+| Ámbito | Dónde | Límite |
+|---|---|---|
+| Por IP | Gateway | **No existe** (hallazgo 2) |
+| Login por cuenta | users-api | 5 intentos, bloqueo de 15 min (E1-H2 CA.2) |
+| Login de admin | users-api | 3 intentos, bloqueo de 30 min (E5-H2 CA.3) |
+| Recuperación de contraseña | users-api | 3 pedidos por hora por usuario o correo (E1-H5 CA.8) |
+| Creación de posts | posts-api | 30 por hora por usuario (E2-H1 CA.5) |
+| Solicitudes de seguimiento | posts-api | 50 por hora por usuario (E3-H1 CA.5) |
+| Denuncias | posts-api | Una por cuenta denunciada cada 24 horas (E3-H5 CA.3) |
+| Feedback | users-api | 2 por hora por usuario (E1-H11 CA.4) |
+| Invitaciones | — | No hace falta: cada cuenta tiene un solo link fijo (`users-api#110`), así que nunca pasa de 10 por día (E3-H9 CA.3) |
+| Asistente por voz | assistant-api | 160 pasos por hora por usuario (ADR-023) |
 
-El middleware se implementa una vez en Python con contadores en Redis, y se copia entre `users-api`, `posts-api` y `assistant-api`, como el módulo de subida: `limits` sobre FastAPI, en vez de escribir scripts Lua a mano. `notifications-api` expone `/api/notifications` desde E4-H1, pero por ahora solo recibe un device token por login, así que no tiene límite propio; se revisa cuando llegue el centro in-app.
-
-Un matiz que conviene documentar y que suma en la defensa: el rate limit del Gateway es local a cada pod de NGINX, así que con tres réplicas el límite efectivo se triplica. Se corre una sola réplica para la demo y se explica por qué. La alternativa realmente distribuida exige Redis más el servicio de rate limit de Envoy, que son más piezas de las que este proyecto necesita.
+Cada servicio en Python tiene su propio contador sobre Redis (`INCR` y `EXPIRE`) detrás de una
+interfaz, sin librería de rate limiting. `notifications-api` no tiene límite propio.
 
 ## Estrategia de pruebas
 
