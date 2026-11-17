@@ -2,14 +2,14 @@
 
 ## Estado de este documento
 
-Propuesta de arquitectura. Dos decisiones las respondió el tutor por Slack el 2026-08-19, una tercera se apoya en una mención suya al pasar y falta confirmarla, y la cuarta la impone el calendario de la materia:
+Arrancó como propuesta. Dos decisiones las respondió el tutor por Slack el 2026-08-19, una tercera se apoya en una mención suya al pasar y falta confirmarla, y la cuarta la impone el calendario de la materia:
 
 1. **Un repositorio por servicio.** Cada repo lleva sus tests y coverage, su pipeline de CI, sus scripts, su Docker y compose de desarrollo, y sus manifiestos de Kubernetes.
-2. **Kubernetes** como plataforma de despliegue. Sin cerrar: el tutor lo nombró al listar qué lleva cada repo de servicio, no como respuesta a una pregunta sobre despliegue. Hay que confirmarlo antes de escribir el primer manifiesto, en S5.
+2. **Kubernetes** como plataforma de despliegue. Cerrado en el [ADR-008](./adr/ADR-008-plataforma-de-despliegue.md).
 3. **Los contratos de eventos se copian** entre repos. Recomendación textual del tutor: copiar en lugar de armar librerías, para no pelear con empaquetado y publicación.
 4. **AWS con EKS sobre el cluster de la cátedra.** Cerrado el 2026-09-14 en el [ADR-008](./adr/ADR-008-plataforma-de-despliegue.md): el cluster `tds-cluster` lo provisiona la cátedra en `us-east-2` y cada grupo recibe un namespace propio. Dejó sin efecto el plan B con ECS.
 
-El resto sigue sujeto a validación en S1. Cada decisión relevante debe quedar como ADR en el repositorio de plataforma.
+Las decisiones que se tomaron después están en [`docs/adr/`](./adr/README.md).
 
 **Decisiones del equipo del 2026-08-20**, incorporadas a todo el documento:
 
@@ -31,9 +31,9 @@ El criterio que gobierna el documento: **elegir lo más simple que cumpla el req
 | ------------------------------------------- | ------------------------------------------------------------------------- |
 | App principal exclusivamente mobile         | React Native con Expo                                                     |
 | Backoffice como aplicación web              | React + Vite, SPA                                                         |
-| Arquitectura de microservicios              | 4 servicios backend, un repositorio cada uno, despliegue independiente    |
-| Al menos dos tipos de base de datos         | PostgreSQL (relacional), MongoDB (documental), Redis (clave-valor)      |
-| Backend en más de una tecnología            | Python con FastAPI en `users` y `posts`; TypeScript con Bun y Hono en `api-gateway` y `notifications` |
+| Arquitectura de microservicios              | 5 servicios backend (`users-api`, `posts-api`, `notifications-api`, `assistant-api` y `api-gateway`), un repositorio cada uno, despliegue independiente |
+| Al menos dos tipos de base de datos         | PostgreSQL (relacional), MongoDB sobre DocumentDB (documental), Redis (clave-valor) |
+| Backend en más de una tecnología            | Python con FastAPI en `users`, `posts` y `assistant`; TypeScript con Bun y Hono en `api-gateway` y `notifications` |
 | Desplegada en entorno productivo en la nube | Kubernetes gestionado                                                     |
 | Cada microservicio contenedorizado          | Dockerfile en cada repo, imágenes versionadas en el registry              |
 | Buenas prácticas de seguridad, OWASP Top 10 | Sección "Seguridad"                                                       |
@@ -42,13 +42,13 @@ El criterio que gobierna el documento: **elegir lo más simple que cumpla el req
 | Cobertura mínima del 85% ejecutada en CI    | Gate en el workflow de cada repo. Backend desde S3, clientes desde S5     |
 | Pipeline de CD con GitHub Actions           | Build, push al registry y `kubectl apply` por servicio                    |
 | Observabilidad con métricas, logs y trazas  | OpenTelemetry hacia Grafana Cloud                                         |
-| Rate limiting en al menos un microservicio  | `users-api` y `posts-api` por usuario. Por IP en la entrada: dónde exactamente (`Ingress` compartido o `api-gateway`) sigue sin confirmar con el tutor |
+| Rate limiting en al menos un microservicio  | `users-api`, `posts-api` y `assistant-api`, por usuario. No hay límite por IP en la entrada (ver "Seguridad") |
 | Al menos una cola entre dos microservicios  | RabbitMQ, `posts-api` y `users-api` publican, `notifications-api` consume |
 | Buena experiencia de usuario                | Sistema de diseño compartido, revisión de UX en S13                       |
 
 ## Mapa de repositorios
 
-Ocho repositorios en `tds-g3-2s2026`, todos **públicos**. Siete existen desde agosto y septiembre; `udesa-x-assistant-api` se crea con `AI-03` (ADR-023). La visibilidad no es cosmética: en el plan gratuito, GitHub habilita ramas protegidas, reglas de repositorio, secrets de organización y minutos de Actions ilimitados solo en repos públicos.
+Ocho repositorios en `tds-g3-2s2026`, todos **públicos**. `udesa-x-assistant-api` se sumó con el asistente por voz (ADR-023). La visibilidad no es cosmética: en el plan gratuito, GitHub habilita ramas protegidas, reglas de repositorio, secrets de organización y minutos de Actions ilimitados solo en repos públicos.
 
 | Repositorio                 | Estado    | Contenido                                          | Stack                      |
 | --------------------------- | --------- | -------------------------------------------------- | -------------------------- |
@@ -57,7 +57,7 @@ Ocho repositorios en `tds-g3-2s2026`, todos **públicos**. Siete existen desde a
 | `udesa-x-users-api`         | existe    | Identidad, perfiles, administradores               | FastAPI + Python           |
 | `udesa-x-posts-api`         | existe    | Contenido, grafo social, feed, búsqueda, imágenes y fotos de perfil | FastAPI + Python           |
 | `udesa-x-notifications-api` | existe    | Push, centro in-app, emails                        | Hono + Bun + TypeScript    |
-| `udesa-x-assistant-api`     | a crear   | Asistente por voz: relay hacia Bedrock, evaluaciones y playground | FastAPI + Python |
+| `udesa-x-assistant-api`     | existe    | Asistente por voz: relay hacia Bedrock, evaluaciones y playground | FastAPI + Python |
 | `udesa-x-api-gateway`       | existe    | Ruteo interno de `/api` hacia `users-api`, `posts-api`, `notifications-api` y `assistant-api` | Hono + Bun + TypeScript    |
 | `udesa-x-platform`          | existe    | Gestión, documentación, infraestructura compartida | YAML plano, GitHub Actions, docs |
 
@@ -80,26 +80,23 @@ udesa-x-<servicio>/
 ├── tests/
 │   ├── unit/
 │   └── integration/
+├── migrations/             # Alembic, en los servicios con PostgreSQL
 ├── contracts/              # esquemas de eventos, copiados desde platform
 │   └── events/
 ├── docker/
 │   ├── Dockerfile
 │   └── docker-compose.dev.yml     # el servicio y sus dependencias
-├── k8s/
-│   ├── base/                      # deployment, service, configmap, hpa
-│   └── overlays/
-│       ├── staging/
-│       └── production/
-├── scripts/
-│   ├── test.sh
-│   ├── lint.sh
-│   └── migrate.sh
+├── k8s/                           # YAML plano: deployment, service, configmap, secret.template, hpa
 ├── .github/
-│   ├── workflows/                 # ci.yml y cd.yml, tres líneas cada uno
+│   ├── workflows/                 # ci.yml, que llama a los workflows de platform
 │   ├── copilot-instructions.md    # sincronizado desde platform
 │   └── PULL_REQUEST_TEMPLATE.md   # sincronizado desde platform
 └── README.md
 ```
+
+La plantilla de `templates/repo-servicio/` es el punto de partida en Python: trae el esqueleto, el
+Docker, el CI y los archivos comunes, sin `k8s/` ni `migrations/`, que cada servicio suma cuando
+los necesita.
 
 ### Qué contiene `udesa-x-platform`
 
@@ -136,16 +133,18 @@ udesa-x-platform/
 │   └── repo-servicio/       # plantilla de repositorio, incluye AGENTS.md
 ├── scripts/
 │   ├── sync-contracts.sh    # copia los esquemas a los repos de servicio
-│   └── sync-comunes.sh      # copia editorconfig, skills, plantillas y bloque común
+│   ├── sync-comunes.sh      # copia editorconfig, skills, plantillas y bloque común
+│   ├── validar-esquemas.sh  # valida los esquemas de docs/eventos/
+│   └── seed/                # generador de datos para las pruebas de carga
 └── .github/
     ├── workflows/           # reusable workflows de CI y CD
     ├── copilot-instructions.md
     └── PULL_REQUEST_TEMPLATE.md
 ```
 
-Acá viven las issues **transversales**: infraestructura, documentación y decisiones. Las issues de historias de usuario viven en el repositorio donde vive su código, no acá. El tutor lo pidió explícitamente: toda rama lleva su issue asociada, y el milestone semanal se cierra con el tag del repo que efectivamente se tocó. El Project de la organización toma issues de los seis repos, así que el tablero funciona igual.
+Acá viven las issues **transversales**: infraestructura, documentación y decisiones. Las issues de historias de usuario viven en el repositorio donde vive su código, no acá. El tutor lo pidió explícitamente: toda rama lleva su issue asociada, y el milestone semanal se cierra con el tag del repo que efectivamente se tocó. El Project de la organización toma issues de todos los repos, así que el tablero funciona igual.
 
-Los milestones se crean solo en los repos que tienen trabajo esa semana. Quince milestones por seis repos serían noventa y no aportarían nada; el campo Iteration del Project ya da la vista de los quince sprints.
+Los milestones se crean solo en los repos que tienen trabajo esa semana. Quince milestones por ocho repos serían ciento veinte y no aportarían nada; el campo Iteration del Project ya da la vista de los quince sprints.
 
 ### Cómo se relacionan los repositorios
 
@@ -158,7 +157,8 @@ flowchart LR
         R1["udesa-x-users-api<br/>Python"]
         R2["udesa-x-posts-api<br/>Python"]
         R3["udesa-x-notifications-api<br/>TypeScript"]
-        R4["udesa-x-assistant-api<br/>Python · a crear"]
+        R4["udesa-x-assistant-api<br/>Python"]
+        R7["udesa-x-api-gateway<br/>TypeScript"]
     end
 
     subgraph cli["Repos de cliente"]
@@ -176,7 +176,7 @@ flowchart LR
     classDef hub fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#0f172a
     classDef repo fill:#dcfce7,stroke:#16a34a,stroke-width:1.5px,color:#0f172a
     class PLAT hub
-    class R1,R2,R3,R4,R5,R6 repo
+    class R1,R2,R3,R4,R5,R6,R7 repo
 ```
 
 Cada repo lleva sus propias issues y sus propios milestones semanales. `udesa-x-platform` solo concentra lo transversal y lo que se sincroniza hacia los demás.
@@ -195,7 +195,7 @@ flowchart TB
         MOB["App Mobile<br/>React Native + Expo"]
         BO["Backoffice Web<br/>React + Vite<br/>SPA estática"]
     end
-    CDN["CloudFront + S3<br/>hosting estático del backoffice"]
+    CDN["CloudFront<br/>dominio único: /api al ALB,<br/>el resto al backoffice en S3"]
     subgraph cluster["tds-cluster · EKS, provisionado por la cátedra"]
         ING["Ingress · AWS Load Balancer Controller<br/>una sola regla: /api → api-gateway<br/>IngressGroup compartido con otros equipos"]
         GW["api-gateway<br/>Bun + Hono<br/>ruteo interno hacia /api/*"]
@@ -210,13 +210,13 @@ flowchart TB
         direction LR
         PGU[("PostgreSQL<br/>users")]
         PGP[("PostgreSQL<br/>posts")]
-        MDB[("MongoDB<br/>notifications")]
+        MDB[("DocumentDB<br/>notifications")]
         OBJ[("S3<br/>media")]
     end
     LLM["Amazon Bedrock<br/>modelo del asistente"]
-    BO -->|"build estático"| CDN
-    BO -.->|"llamadas a la API,<br/>desde el navegador"| ING
-    MOB -->|HTTPS| ING
+    BO -->|HTTPS| CDN
+    MOB -->|HTTPS| CDN
+    CDN -->|"/api/*"| ING
     ING --> GW
     GW --> USR
     GW --> PST
@@ -228,7 +228,6 @@ flowchart TB
     MQ --> NTF
     USR --> PGU
     USR --> RED
-    USR --> OBJ
     PST --> PGP
     PST --> RED
     PST --> OBJ
@@ -255,22 +254,22 @@ el resto de los equipos de la cátedra**, no propio — el `Ingress` usa un `Ing
 todos los grupos compartan un único Application Load Balancer, y quien aplica `namespace.yaml` e
 `ingress.yaml` es el docente, no el equipo. `api-gateway` es quien decide a qué servicio va cada
 request; el `Ingress` ya no rutea directo a `users-api`/`posts-api` por path, tiene una sola
-regla y apunta siempre a `api-gateway`. **El backoffice no se sirve a través del cluster**: es
-una SPA que se compila a estático y se publica en S3 detrás de CloudFront; lo único que cruza el
-`Ingress` es el tráfico que el JavaScript ya cargado en el navegador del administrador le hace a
-la API. `mobile`, al no tener un paso de "servido", habla directo con el `Ingress`. Las bases
+regla y apunta siempre a `api-gateway`. **Todo entra por CloudFront**, con un solo dominio: `/api/*`
+va al ALB y de ahí al `Ingress`, y el resto al bucket de S3 del backoffice. El backoffice no se
+sirve a través del cluster, y la app y el navegador del administrador le hablan a la API por ese
+mismo dominio. Las bases
 persistentes están fuera del cluster, mientras que Redis corre adentro porque sus datos son
 efímeros y perderlos no cuesta nada. Las llamadas HTTP internas permiten leer perfiles y poner cuentas en revisión desde
 `posts-api`, y consultar bloqueos por lote desde `users-api`. La consulta de bloqueos se
 resuelve únicamente con el grafo local, para evitar una cadena circular de llamadas. Cada
-servicio verifica el JWT contra la clave pública de `users-api`; `posts-api` además lee del Redis de `users-api` las marcas de revocación (ADR-014). El resto entre servicios cruza por la cola, y **los dos servicios de
-Python escriben al mismo bucket de S3 con prefijos distintos** (`avatars/` y `posts/`), cada uno
-dueño de lo suyo.
+servicio verifica el JWT contra la clave pública de `users-api`; `posts-api` además lee del Redis de `users-api` las marcas de revocación (ADR-014). El resto entre servicios cruza por la cola, y **`posts-api` es el único que
+escribe en S3**: las imágenes de los posts bajo `posts/` y las fotos de perfil y portada bajo
+`profiles/`.
 
 Lo que deliberadamente **no** dibuja, para que se entienda: los eventos concretos que viajan por
 la cola están en el diagrama de "Comunicación entre servicios", la telemetría en el de
 "Observabilidad", y los proveedores externos que consume `notifications-api` son FCM para push y
-el proveedor de email.
+Resend para el email.
 
 ### Correspondencia con la nube
 
@@ -282,11 +281,10 @@ el proveedor de email.
 | Redis                       | Dentro del cluster, uno solo                    | Cerrado en el ADR-009. Datos efímeros, separación por base lógica: `/0` para users, `/1` para posts                     |
 | Almacenamiento de media     | S3 con bucket privado y URLs firmadas           | Cerrado                                                                                                                  |
 | Modelo de IA                | Amazon Bedrock, inferencia dentro de EE. UU.    | Cerrado en el ADR-023: Claude Haiku 5.5 sin razonamiento, elegido con el spike de `AI-03` (`SPIKE-IA.md`) |
-| Registry de imágenes        | Amazon ECR                                      | Sin ADR propio todavía. Los manifiestos en revisión (`platform#51`, `users-api#42`, `posts-api#37`, `api-gateway#3`) usan `${ECR_IMAGE}` y probaron imágenes reales contra ECR |
+| Registry de imágenes        | Amazon ECR                                      | Sin ADR propio. Se publica con el commit como tag y se despliega por digest (`${ECR_IMAGE}`)                              |
 | DNS y certificados          | Los resuelve la cátedra sobre el ingress        | Cerrado en el ADR-008. El equipo no administra la entrada del cluster                                                    |
 | Región                      | `us-east-2`                                     | Cerrado en el ADR-008 (Ohio)                                                                                             |
 
-Mantener el registry y los certificados fuera de AWS es deliberado: si el plan B de `ECS con Fargate` se activa, o si se acaban los créditos, lo único que hay que rehacer es el despliegue, no el pipeline entero.
 
 ## Servicios
 
@@ -297,27 +295,26 @@ Versiones fijadas en la revisión del 2026-08-20. Se fijan una vez y no se persi
 | Python, tres servicios | Python 3.13, FastAPI, SQLAlchemy 2 async con asyncpg, Alembic, uv, Ruff y pytest | Es el stack principal del backend: `users-api`, `posts-api` y `assistant-api`, este último sin base de datos. **No** usar 3.14 con free-threading: el ecosistema todavía no tiene wheels estables y un servicio web es I/O-bound, así que no hay nada que ganar |
 | TypeScript, dos servicios | Bun 1.4, Hono, Vitest | `api-gateway` y `notifications-api`, con la misma versión de Bun que mobile y backoffice. En `notifications-api`, sin ORM: MongoDB con el driver oficial, que alcanza para documentos de forma variable. Ver el [ADR-015](./adr/ADR-015-notifications-api-en-bun-y-hono.md) |
 | Servidor ASGI | Uvicorn con **un worker por pod** | La escala la da el HPA, no `--workers`. Con varios workers adentro del pod, uno colgado no lo detecta ningún probe |
-| Imágenes | `python:3.13-slim` y `oven/bun`, multi-stage, arm64 | Distroless recién en S13, cuando el pipeline esté aburrido: sin shell, depurar un pod cuesta el doble |
-| Subida de archivos | `python-multipart` con streaming a S3 vía `aioboto3`, validación por magic numbers, miniaturas con Pillow | Escrito una vez en `users-api`, copiado a `posts-api` |
+| Imágenes | `python:3.13-slim` y `oven/bun`, multi-stage, sin root | Distroless recién en S13, cuando el pipeline esté aburrido: sin shell, depurar un pod cuesta el doble |
+| Subida de archivos | `python-multipart` con streaming a S3 vía `aioboto3`, validación por magic numbers | Vive solo en `posts-api` |
 
 ### `users-api`
 
-**FastAPI sobre Python. PostgreSQL, Redis y S3.**
+**FastAPI sobre Python. PostgreSQL y Redis.**
 
 Es el primer servicio en arrancar y el que desbloquea a todos los demás. Concentra todo lo que gira alrededor de la identidad.
 
-- Registro, verificación de email, login, logout.
-- Emisión y revocación de JWT, con lista de revocación en Redis y TTL igual a la expiración del token.
+- Registro, verificación de email, login, logout y baja de cuenta.
+- Emisión y revocación de JWT, con marcas de revocación en Redis y TTL igual a la expiración del token.
 - Lockout por intentos fallidos.
 - Recuperación y cambio de contraseña.
 - Registro de aceptación de términos.
-- Perfiles: display name, biografía, avatar, portada, fecha de registro.
-- Preferencias: visibilidad, idioma, presencia, tema.
-- Administradores, roles y contraseñas temporales.
-- Última conexión.
-- Subida de avatar y portada a S3, con streaming, validación por magic numbers y miniaturas.
+- Perfiles: display name, biografía y fecha de registro. La foto de perfil y la portada viven en `posts-api`.
+- Preferencias: visibilidad e idioma del feed. El tema se guarda solo en el teléfono.
+- Búsqueda de cuentas, feedback de los usuarios e invitaciones.
+- Administradores, roles, contraseñas temporales, última conexión y auditoría.
 
-Cubre E1-H1 a H14, más E5-H1, E5-H2 y E5-H9.
+Cubre casi toda E.1 y la administración de cuentas de E.5.
 
 **Por qué identidad y perfil juntos:** el handle, el display name y el avatar aparecen en cada post, cada notificación y cada listado. Separarlos genera una llamada cruzada en casi toda lectura del sistema.
 
@@ -327,16 +324,16 @@ Cubre E1-H1 a H14, más E5-H1, E5-H2 y E5-H9.
 
 Concentra contenido, grafo social, feed y búsqueda. Es el servicio más grande del sistema.
 
-- Posts, respuestas, citas, eliminación lógica.
+- Posts, respuestas y eliminación lógica.
 - Likes y retweets con idempotencia garantizada.
-- Hashtags, menciones y posts guardados.
+- Hashtags y posts guardados. Las menciones (E2-H9) siguen abiertas.
 - Relaciones de seguimiento, solicitudes pendientes, contadores.
 - Bloqueos, silenciados y listas personalizadas.
 - Feed cronológico paginado por cursor.
 - Búsqueda de posts y usuarios.
 - Trending topics sobre ventana de 24 horas.
-- Denuncias e invitaciones.
-- Subida de imágenes de post a S3, con el mismo módulo copiado desde `users-api`.
+- Denuncias, y el follow automático de una invitación.
+- Subida a S3 de las imágenes de los posts y de las fotos de perfil y portada.
 
 Cubre E2-H1 a H14 y E3-H1 a H10 salvo mensajes directos.
 
@@ -375,57 +372,46 @@ no implica aprobación del tutor ni resuelve la política general de privacidad.
 
 ### `notifications-api`
 
-**Bun y Hono sobre TypeScript. MongoDB.** Mismo stack que el gateway ([ADR-015](./adr/ADR-015-notifications-api-en-bun-y-hono.md)). Es deliberado que este servicio aporte el segundo lenguaje junto al gateway: es acotado, no tiene lógica de dominio propia, y el cliente oficial de FCM, `firebase-admin`, funciona sobre Bun.
+**Bun y Hono sobre TypeScript. MongoDB, sobre DocumentDB.** Se despliega desde el 2026-11-13. Mismo stack que el gateway ([ADR-015](./adr/ADR-015-notifications-api-en-bun-y-hono.md)). Es deliberado que este servicio aporte el segundo lenguaje junto al gateway: es acotado, no tiene lógica de dominio propia, y el cliente oficial de FCM, `firebase-admin`, funciona sobre Bun.
 
 Es el consumidor principal de la cola y el que justifica la segunda base de datos.
 
 - Consume eventos y decide qué notificar.
 - Consulta preferencias antes de enviar, como exige E4-H5 CA.2.
 - Envía push por FCM, gestiona y depura device tokens.
-- Expone `/api/notifications` detrás del gateway, para lo que la app le pide directo: hoy el registro del device token después de cada login (`POST /api/notifications/device-tokens`, E4-H1 CA.3), y más adelante el centro in-app. Valida el JWT de `users-api` con la clave pública (firma, vencimiento y emisor) y no lee las revocaciones: un token cerrado sirve hasta que vence. Es la decisión D1 de E4-H1; el ADR-014 sigue aplicando solo a `posts-api`.
+- Expone `/api/notifications` detrás del gateway, para lo que la app le pide directo: el registro del device token después de cada login (`POST /api/notifications/device-tokens`, E4-H1 CA.3), el centro in-app y las preferencias de notificación. Valida el JWT de `users-api` con la clave pública (firma, vencimiento y emisor) y no lee las revocaciones: un token cerrado sirve hasta que vence. Es la decisión D1 de E4-H1; el ADR-014 sigue aplicando solo a `posts-api`.
 - Persiste el historial in-app, paginado y con borrado lógico.
-- Envía todos los emails salientes: verificación, recuperación, cambio de contraseña, feedback, alerta de servicio caído.
+- Envía todos los emails salientes: verificación, recuperación, cambio de contraseña y feedback. La alerta de servicio caído la manda Grafana (ADR-012).
 
-Cubre E4-H1 a H5, más el envío de emails de E1-H1, H5, H11, H13 y E5-H11.
+Cubre E.4, más el envío de emails de E1-H1, H5, H11 y H13.
 
 MongoDB encaja porque las notificaciones tienen forma variable según el tipo, se escriben mucho, se leen paginadas por usuario y se archivan.
 
 ### `assistant-api`
 
-**FastAPI sobre Python, sin base de datos.** El asistente por voz ([ADR-023](./adr/ADR-023-bedrock-para-el-asistente-por-voz.md)): recibe el pedido y la pantalla de la app, llama al modelo en Amazon Bedrock y devuelve la próxima acción del catálogo. En el repo viven también las evaluaciones, los tests con un modelo falso y el playground. El detalle está en "Integración de Inteligencia Artificial". Se crea con `AI-03`.
+**FastAPI sobre Python, sin base de datos.** El asistente por voz ([ADR-023](./adr/ADR-023-bedrock-para-el-asistente-por-voz.md)): recibe el pedido y la pantalla de la app, llama al modelo en Amazon Bedrock y devuelve la próxima acción del catálogo. En el repo viven también las evaluaciones, los tests con un modelo falso y el playground. El detalle está en "Integración de Inteligencia Artificial".
 
-### Subida de archivos: módulo copiado, no servicio
-
-La subida vive en el servicio dueño del dato:
+### Subida de archivos: dentro de `posts-api`, no en un servicio aparte
 
 | Qué | Dónde | Prefijo en S3 |
 | --- | --- | --- |
-| Avatar y portada | `users-api` | `avatars/`, `covers/` |
+| Foto de perfil y portada | `posts-api` | `profiles/` |
 | Imágenes de post | `posts-api` | `posts/` |
 
-El módulo se escribe una vez en `users-api` y se copia a `posts-api`. Es el mismo criterio
-que el tutor dio para los contratos de eventos, y acá es literal porque los dos servicios
-están en Python.
+El plan era que cada servicio subiera lo suyo, con el módulo escrito en `users-api` y copiado a
+`posts-api`. Terminó todo en `posts-api`, que ya manejaba las imágenes y sus URLs firmadas.
 
-Qué hace el módulo, que es lo que exigen los criterios de aceptación:
+Qué hace, que es lo que exigen los criterios de aceptación:
 
 - Recibe por stream, sin cargar el archivo en memoria: E1-H8 CA.7.
 - Valida el tipo real por magic numbers, no por extensión: E1-H8 CA.3 y E2-H7 CA.3.
-- Valida tamaño según destino: 5 MB avatar, 10 MB portada, 1 MB por imagen de post.
-- Genera miniaturas en AVIF con Pillow.
-- Elimina el archivo anterior al reemplazar, en la misma operación que actualiza el
-  registro: E1-H8 CA.4.
+- Valida tamaño según destino: 5 MB foto de perfil, 10 MB portada, 1 MB por imagen de post.
+- Borra el archivo anterior al reemplazar, después de confirmar el cambio en la base: E1-H8 CA.4.
+  Si S3 falla en ese paso, el archivo queda suelto y se registra un aviso.
 
-Ese último punto es la ganancia concreta de haber sacado el servicio. Antes hacía falta un
-evento `media.orphaned` y un consumidor que limpiara asincrónicamente, con la ventana de
-inconsistencia que eso implica. Ahora borrar el archivo viejo y actualizar la fila del perfil
-ocurren en el mismo caso de uso.
-
-**Decisión pendiente, con fecha en S6.** La práctica recomendada hoy es una URL prefirmada de
-S3 para que el cliente suba directo, sin que el servicio proxee los bytes. Es más barato y
-más robusto, pero entonces el servidor nunca ve el archivo y ni E1-H8 CA.7 ni CA.3 se cumplen
-como están redactados. Se arranca con el diseño de arriba, que cumple la consigna al pie de
-la letra, y se evalúa el cambio en S13 si sobra tiempo.
+**Se mantuvo el stream por el servicio.** La alternativa era una URL prefirmada para que el
+cliente suba directo a S3, más barata, pero entonces el servidor nunca ve el archivo y ni E1-H8
+CA.7 ni CA.3 se cumplen como están redactados.
 
 ## Comunicación entre servicios
 
@@ -434,12 +420,13 @@ la letra, y se evalúa el cambio en S13 si sobra tiempo.
 REST sobre HTTP con JSON, solo cuando la respuesta se necesita dentro del request. Se limita al mínimo:
 
 - El Gateway a cualquier servicio.
-- `posts-api` a `users-api` para hidratar datos de autor.
+- `posts-api` a `users-api` para leer el perfil público de una cuenta y la identidad de un administrador.
 - `posts-api` a `users-api` para poner una cuenta en revisión cuando junta denuncias de 6 cuentas distintas (`E3-H5`). Va a una ruta interna fuera de `/api` con el header `X-Internal-Token`; ver el ADR-011.
 - `posts-api` a `users-api` para levantar esa revisión cuando el backoffice descarta o resuelve el caso (`E5-H7`). Misma ruta interna con `DELETE` y el mismo header; ver el ADR-020.
-- `backoffice` a los healthchecks de los tres servicios, para E5-H11. Pasa por el Gateway: `/api/health/<servicio>` se traduce al `/healthcheck` de cada uno, que vive fuera de `/api` y no se alcanza desde afuera del cluster.
+- `users-api` a `posts-api` para consultar bloqueos por lote al buscar cuentas.
+- `backoffice` a los healthchecks de `users-api` y `posts-api`, para E5-H11. Pasa por el Gateway: `/api/health/<servicio>` se traduce al `/healthcheck` de cada uno, que vive fuera de `/api` y no se alcanza desde afuera del cluster.
 
-Toda llamada sincrónica lleva timeout, reintento con backoff y comportamiento definido ante fallo del destino. En Kubernetes esto se apoya en los probes: un servicio sin `readinessProbe` en verde no recibe tráfico.
+Toda llamada sincrónica entre servicios lleva un timeout de 2 segundos y un reintento, con comportamiento definido ante fallo del destino. En Kubernetes esto se apoya en los probes: un servicio sin `readinessProbe` en verde no recibe tráfico.
 
 ### Formato de error
 
@@ -480,8 +467,8 @@ detalle real va al log con el mismo `traceId`.
 - **Las respuestas exitosas tampoco.** Problem Details describe errores; un `200` devuelve el
   recurso y nada más.
 
-Se implementa una vez como manejador de excepciones y se copia entre `users-api` y `posts-api`,
-igual que el módulo de subida. En `notifications-api` es el `onError` de Hono, equivalente.
+Se implementa una vez como manejador de excepciones y se repite en `users-api`, `posts-api` y
+`assistant-api`. En `notifications-api` es el `onError` de Hono, equivalente.
 
 ### Paginación por cursor
 
@@ -553,7 +540,7 @@ política completa está en [`docs/eventos/`](./eventos/README.md) y en el
 
 ### Asincrónica
 
-RabbitMQ 4.x desplegado en el cluster, con exchange de tipo topic. Elegido sobre Kafka porque es mucho más simple de operar, tiene interfaz de administración que sirve para demostrar el requisito, y tiene clientes maduros en Node y en Python. NATS JetStream es operativamente más simple, pero su interfaz de administración no iguala al management plugin de RabbitMQ, y acá el requisito es demostrar la cola.
+RabbitMQ 4.x desplegado en el cluster, con exchange de tipo topic. Elegido sobre Kafka porque es mucho más simple de operar, tiene interfaz de administración que sirve para demostrar el requisito, y tiene clientes maduros en Node y en Python. NATS JetStream es operativamente más simple, pero su interfaz de administración no iguala al management plugin de RabbitMQ, y acá el requisito es demostrar la cola. En el cluster corre la imagen sin el plugin, para ahorrar memoria (`platform#135`); la consola queda en el compose local.
 
 **Las colas se declaran `quorum` explícitamente**, junto con la dead letter queue vía `x-dead-letter-exchange`. RabbitMQ 4.0 removió las classic mirrored queues: si nadie declara el tipo, se termina con colas sin replicación sin que nadie lo note.
 
@@ -563,17 +550,15 @@ RabbitMQ 4.x desplegado en el cluster, con exchange de tipo topic. Elegido sobre
 | ------------------------------ | ------------ | ------------------------------------------ |
 | `user.registered`              | users        | notifications (email de verificación)      |
 | `email_verification.requested` | users        | notifications (reenvío de la verificación) |
-| `user.deleted`                 | users        | posts, notifications                       |
-| `user.profile_updated`         | users        | posts                                      |
-| `preferences.changed`          | users        | posts (filtro de idioma del feed)          |
 | `password.reset_requested`     | users        | notifications                              |
 | `password.changed`             | users        | notifications                              |
+| `user.deleted`                 | users        | posts, notifications                       |
+| `preferences.changed`          | users        | posts (filtro de idioma del feed)          |
 | `feedback.submitted`           | users        | notifications                              |
 | `invitation.accepted`          | users        | posts (follow del invitado al invitador)   |
-| `post.created`                 | posts        | notifications (menciones)                  |
 | `follow.created`               | posts        | notifications                              |
 | `interaction.created`          | posts        | notifications                              |
-| `report.created`               | posts        | notifications                              |
+| `admin.action_recorded`        | posts        | users (auditoría)                          |
 
 La tabla nombra los eventos sin versión. El contrato de cada uno, con su versión, vive en
 [`docs/eventos/`](./eventos/README.md) desde que tiene publicador; `servicios.json` declara qué
@@ -591,20 +576,22 @@ flowchart LR
         direction TB
         N["notifications-api"]
         P2["posts-api<br/>como consumidor"]
+        U2["users-api<br/>como consumidor"]
     end
 
-    U -->|"user.registered · email_verification.requested<br/>user.deleted · user.profile_updated<br/>password.reset_requested<br/>password.changed · feedback.submitted"| EX
-    P -->|"post.created · follow.created<br/>interaction.created · report.created"| EX
+    U -->|"user.registered · email_verification.requested<br/>password.reset_requested · password.changed<br/>user.deleted · preferences.changed<br/>feedback.submitted · invitation.accepted"| EX
+    P -->|"follow.created · interaction.created<br/>admin.action_recorded"| EX
     EX -->|"casi todos"| N
-    EX -->|"user.deleted<br/>user.profile_updated"| P2
+    EX -->|"user.deleted · preferences.changed<br/>invitation.accepted"| P2
+    EX -->|"admin.action_recorded"| U2
 
     classDef svc fill:#dcfce7,stroke:#16a34a,stroke-width:1.5px,color:#0f172a
     classDef bus fill:#f5d0fe,stroke:#a21caf,stroke-width:1.5px,color:#0f172a
-    class U,P,N,P2 svc
+    class U,P,N,P2,U2 svc
     class EX bus
 ```
 
-`posts-api` aparece dos veces a propósito: publica y consume. Necesita reaccionar a `user.deleted` y `user.profile_updated` para mantener consistente el autor denormalizado en cada post.
+`posts-api` y `users-api` aparecen dos veces a propósito: publican y consumen. `posts-api` reacciona a la baja de una cuenta, al cambio de idioma del feed y a una invitación aceptada; `users-api` guarda en su auditoría las acciones administrativas que pasan en `posts-api`.
 
 **Patrón outbox:** los servicios que publican escriben el evento en una tabla `outbox` dentro de la misma transacción que el cambio de estado, y un proceso aparte lo publica. Sin esto, un crash entre el commit y el publish deja el sistema inconsistente en silencio.
 
@@ -621,14 +608,14 @@ sequenceDiagram
 
     rect rgb(236, 253, 245)
     Note over API,DB: una sola transacción
-    API->>DB: INSERT denuncia
+    API->>DB: INSERT follow
     API->>DB: INSERT evento en tabla outbox
     API->>DB: COMMIT
     end
     Note over API,DB: el cambio de estado y el evento<br/>sobreviven o caen juntos
     loop cada pocos segundos
         REL->>DB: SELECT eventos sin publicar
-        REL->>MQ: publish report.created
+        REL->>MQ: publish follow.created
         MQ-->>REL: ack
         REL->>DB: marcar como publicado
     end
@@ -637,7 +624,7 @@ sequenceDiagram
     Note over CON: la entrega es al menos una vez,<br/>por eso el consumidor deduplica<br/>por id de evento
 ```
 
-Sin outbox, un crash entre el `COMMIT` y el `publish` deja una denuncia persistida que nadie va a notificar, y el sistema queda inconsistente en silencio. Con outbox el peor caso es publicar dos veces, que el consumidor idempotente absorbe.
+Sin outbox, un crash entre el `COMMIT` y el `publish` deja un follow persistido que nadie va a notificar, y el sistema queda inconsistente en silencio. Con outbox el peor caso es publicar dos veces, que el consumidor idempotente absorbe.
 
 Tres detalles de implementación que no son opcionales:
 
@@ -649,15 +636,15 @@ Tres detalles de implementación que no son opcionales:
 
 Por indicación del tutor, los esquemas se copian en lugar de publicarse como librería. El esquema fuente vive en `udesa-x-platform/docs/eventos/`, y `scripts/sync-contracts.sh` lo copia a `contracts/events/` de cada repo de servicio.
 
-El riesgo real de copiar no es duplicar, es **divergir en silencio**. Se mitiga sin empaquetar nada: cada servicio tiene un test de contrato que valida su copia local contra el esquema, y el CI de `udesa-x-platform` verifica que las copias en los tres repos de servicio coincidan con la fuente. Si alguien edita su copia sin propagar, el pipeline lo detecta. Es la mitad del beneficio de una librería compartida sin nada del costo de publicación.
+El riesgo real de copiar no es duplicar, es **divergir en silencio**. Se mitiga sin empaquetar nada: cada servicio tiene un test de contrato que valida su copia local contra el esquema, y el CI de cada servicio compara su copia con `docs/eventos/` de platform (`ci-python.yml` y `ci-node.yml`). Si alguien edita su copia sin propagar, el pipeline lo detecta. Es la mitad del beneficio de una librería compartida sin nada del costo de publicación.
 
 ## Bases de datos
 
 | Base       | Tipo        | Servicios     | Por qué                                                                                     |
 | ---------- | ----------- | ------------- | ------------------------------------------------------------------------------------------- |
 | PostgreSQL | Relacional  | users, posts  | Integridad referencial, transacciones, contadores atómicos, búsqueda de texto con `pg_trgm` |
-| MongoDB    | Documental  | notifications | Documentos de forma variable por tipo, escritura intensiva, lectura paginada por usuario    |
-| Redis      | Clave-valor | users, posts  | Revocación de JWT, contadores de rate limit, presencia con TTL, caché de trending           |
+| MongoDB    | Documental  | notifications | Documentos de forma variable por tipo, escritura intensiva, lectura paginada por usuario. Corre sobre DocumentDB |
+| Redis      | Clave-valor | users, posts, assistant | Revocación de JWT, contadores de rate limit, caché de trending                    |
 
 **PostgreSQL 18**, que es la versión de la instancia de RDS (18.3). Trae `uuidv7()` como función nativa, y esa es la clave primaria de `posts`: mantiene los inserts append-mostly en el índice, da cursor cronológico implícito y no expone IDs adivinables en un feed público, que es lo que pasaría con `bigserial`. Hay que fijarlo antes de la primera migración, después cuesta mucho más.
 
@@ -665,7 +652,7 @@ El riesgo real de copiar no es duplicar, es **divergir en silencio**. Se mitiga 
 
 Cada servicio es dueño exclusivo de su esquema y **ningún servicio consulta la base de otro**. Esto no es purismo: es lo que hace que el desacoplamiento sea real y no solo estructura de carpetas.
 
-Las bases persistentes corren **fuera del cluster**, como servicios gestionados: una instancia de RDS con una base y un rol por servicio, según el ADR-021, y un cluster de DocumentDB para `notifications-api`. Operar PostgreSQL con estado dentro de Kubernetes agrega volúmenes persistentes, backups y failover, que es una materia entera y no aporta nada a la nota. **Redis es la excepción y corre adentro**, uno solo para los dos servicios, con la base lógica `/0` para users y `/1` para posts (con una sola excepción, de solo lectura: `posts-api` consulta en `/0` las marcas de revocación, ADR-014): guarda revocación de JWT, contadores de rate limit y caché, todo efímero y con TTL, así que perderlo ante un reinicio no rompe nada y no justifica pagar un servicio gestionado. La correspondencia concreta con los servicios de AWS está en la tabla de la sección "Vista general".
+Las bases persistentes corren **fuera del cluster**, como servicios gestionados: una instancia de RDS con una base y un rol por servicio, según el ADR-021, y un cluster de DocumentDB para `notifications-api`. Operar PostgreSQL con estado dentro de Kubernetes agrega volúmenes persistentes, backups y failover, que es una materia entera y no aporta nada a la nota. **Redis es la excepción y corre adentro**, uno solo para los dos servicios, con la base lógica `/0` para users, `/1` para posts y `/2` para assistant (con una sola excepción, de solo lectura: `posts-api` consulta en `/0` las marcas de revocación, ADR-014): guarda revocación de JWT, contadores de rate limit y caché, todo efímero y con TTL, así que perderlo ante un reinicio no rompe nada y no justifica pagar un servicio gestionado. La correspondencia concreta con los servicios de AWS está en la tabla de la sección "Vista general".
 
 Migraciones versionadas y ejecutadas como Job de Kubernetes antes del rollout: **Alembic en los dos servicios de Python**. `notifications-api` usa MongoDB y no lleva migraciones de esquema. Una sola herramienta de migraciones en todo el proyecto es una consecuencia directa de haber concentrado el backend relacional en Python, y ahorra mantener dos flujos distintos.
 
@@ -673,7 +660,7 @@ Migraciones versionadas y ejecutadas como Job de Kubernetes antes del rollout: *
 
 Los dos servicios ya están ahí. `users-api` trae Alembic desde S2, `posts-api` lo incorporó con su `0001_esquema_actual.py`, y los `conftest.py` de ambos levantan el esquema con `alembic upgrade head`: no queda una llamada a `create_all` en `src/` ni en `tests/`. La `0001` de cada servicio queda congelada con el primer deploy, y desde ahí editarla o correr `alembic stamp` contra una base con datos queda prohibido. Lo que ya rige hoy es que un cambio de modelo llega con su migración en el mismo PR: `alembic check` lo detecta y los tests de integración lo prueban.
 
-El Job toma un `pg_advisory_lock` durante toda la migración, para que dos rollouts en carrera no migren a la vez. Los cambios van en expand y contract, en deploys separados: primero lo aditivo, el `DROP` o el `NOT NULL` en un deploy posterior. El rollback es forward-only: las down-migrations casi nunca se prueban y fallan justo cuando se las necesita.
+`deploy.yml` corre un despliegue por servicio a la vez, así que dos migraciones del mismo servicio no se pisan. Los cambios van en expand y contract, en deploys separados: primero lo aditivo, el `DROP` o el `NOT NULL` en un deploy posterior. El rollback es forward-only: las down-migrations casi nunca se prueban y fallan justo cuando se las necesita.
 
 ## Aplicaciones cliente
 
@@ -683,17 +670,15 @@ El Job toma un `pg_advisory_lock` durante toda la migración, para que dos rollo
 
 | Aspecto            | Elección                                                        |
 | ------------------ | --------------------------------------------------------------- |
-| SDK                | Expo 57, con React Native 0.86 y React 19.2                     |
+| SDK                | Expo 54, con React Native 0.81 y React 19.1                     |
 | Navegación         | Expo Router                                                     |
 | Estado de servidor | TanStack Query v5, con scroll infinito nativo                   |
 | Estado global      | Zustand                                                         |
 | JWT                | `expo-secure-store`                                             |
 | Push               | `expo-notifications` sobre FCM                                  |
-| Tests              | Jest y React Native Testing Library **14**                      |
-| E2E                | **Maestro**                                                     |
-| Distribución       | EAS Build, APK para Android y TestFlight si hay cuenta de Apple |
-
-Dos cosas que hay que fijar antes del primer test, porque cambiarlas después obliga a reescribir: **RNTL 14** pasó todas las APIs core a asíncronas, y arrancar en la 13 significa migrar a mitad de cuatrimestre. Y **Maestro, no Detox**: Detox lleva meses sin commits y tiene un bug abierto que rompe la sincronización con la New Architecture, que desde el SDK 55 es el único modo que existe.
+| Tests              | Jest y React Native Testing Library 13                          |
+| E2E                | Ninguno: se descartó en `udesa-x-platform#89`                   |
+| Distribución       | EAS Build, APK para Android. Sin build de iOS                   |
 
 Expo resuelve tres cosas que el proyecto necesita y que en React Native puro cuestan semanas: build en la nube sin Xcode ni Android Studio, distribución al tutor y configuración de push.
 
@@ -706,8 +691,6 @@ Expo resuelve tres cosas que el proyecto necesita y que en React Native puro cue
 | Estado de servidor | TanStack Query v5                            |
 | Ruteo              | TanStack Router                              |
 | Componentes        | Mantine                                      |
-| Tablas             | TanStack Table                               |
-| Gráficos           | Recharts, para E5-H3                         |
 | Tests              | Vitest 4 y Testing Library                   |
 | Compilador         | React Compiler activado desde S1              |
 
@@ -784,14 +767,13 @@ Palancas, por impacto:
 | ------------------------- | ---------------------------------------------------------------------------- | --------------------------------------------- |
 | Desarrollo de un servicio | `docker compose -f docker/docker-compose.dev.yml up` en su repo              | Trabajar en ese servicio con sus dependencias |
 | Sistema completo local    | `docker compose -f compose/docker-compose.full.yml up` en `udesa-x-platform` | Probar la cola y los correos de punta a punta |
-| Staging                   | Automático al mergear a `main` de cualquier repo de servicio                 | Aceptación de historias, pruebas de carga     |
-| Producción                | Manual con aprobación                                                        | Entrega final y defensa                       |
+| Producción                | Automático al mergear a `main` de cada repo, con `deploy.yml`                | Un solo entorno, en el namespace del grupo    |
 
 El compose construye las imágenes desde los repos hermanos, así que `udesa-x-users-api` y `udesa-x-notifications-api` tienen que estar clonados al lado de `udesa-x-platform`. Levanta esos dos servicios con sus dependencias: no incluye `posts-api` ni `api-gateway`. El plan original era usar imágenes publicadas en ECR, y se descartó en `udesa-x-platform#85`.
 
 ### Pipeline por repositorio de servicio
 
-Los seis repos usan el mismo par de workflows, que viven **una sola vez** en `udesa-x-platform/.github/workflows/` como reusable workflows. Cada repo de servicio queda con tres líneas:
+Los siete repos con código usan los mismos workflows, que viven **una sola vez** en `udesa-x-platform/.github/workflows/` como reusable workflows. Cada repo de servicio queda con tres líneas:
 
 ```yaml
 jobs:
@@ -800,68 +782,62 @@ jobs:
     secrets: inherit
 ```
 
-No se copian, a diferencia de los contratos de eventos: copiar los contratos fue una indicación explícita del tutor, y para los workflows GitHub ya resuelve el problema de fábrica, en el plan gratuito. Elimina la clase de bug "el CI de un repo quedó atrás y nadie se dio cuenta", que con seis repos y quince semanas es cuestión de tiempo. Los *required workflows* a nivel organización sí exigen Enterprise, pero no hacen falta: alcanza con branch protection por repo.
+No se copian, a diferencia de los contratos de eventos: copiar los contratos fue una indicación explícita del tutor, y para los workflows GitHub ya resuelve el problema de fábrica, en el plan gratuito. Elimina la clase de bug "el CI de un repo quedó atrás y nadie se dio cuenta", que con siete repos y quince semanas es cuestión de tiempo. Los *required workflows* a nivel organización sí exigen Enterprise, pero no hacen falta: alcanza con branch protection por repo.
 
 **CI**, en cada Pull Request:
 
-1. Lint y chequeo de tipos.
-2. Tests unitarios con reporte de cobertura.
-3. **Gate: falla si la cobertura baja del 85%.** Activo desde S3 en backend y desde S5 en los clientes; antes de esa fecha el paso reporta pero no bloquea.
-4. Tests de integración contra dependencias en contenedores.
-5. Test de contrato: la copia local de los esquemas coincide con la fuente.
-6. Build de la imagen Docker.
-7. Escaneo de vulnerabilidades de dependencias.
-8. Validación de los manifiestos con `kubeconform`.
+1. Lint, formato y chequeo de tipos.
+2. Test de contrato: la copia local de los esquemas coincide con la de platform.
+3. Tests unitarios y de integración dentro de la imagen de tests, con reporte de cobertura.
+4. **Gate: falla si la cobertura baja del 85%.**
+5. Build de la imagen de producción, y verificación de que levanta.
 
 **CD**, en cada merge a `main`, autenticando contra AWS con **OIDC**, sin claves de larga vida en los secrets del repo:
 
-1. Build y push de la imagen al registry, etiquetada con el SHA del commit.
-2. Job de migraciones si el servicio tiene base.
-3. `kubectl apply -k k8s/overlays/staging`.
-4. Espera del rollout y smoke test contra el healthcheck.
-5. `kubectl rollout undo` automático si el smoke test falla.
+1. Verifica que estén los secrets y los manifiestos.
+2. Build y push de la imagen a ECR, etiquetada con el SHA del commit y desplegada por digest.
+3. ConfigMap y Secret del servicio.
+4. Job de migraciones si el servicio tiene base.
+5. NetworkPolicy y HPA si el servicio los tiene, Service y Deployment.
+6. Espera del rollout, y `kubectl rollout undo` si no converge.
 
 ```mermaid
 flowchart TD
-    PR(["Pull Request"]) --> L["Lint y chequeo de tipos"]
-    L --> UT["Tests unitarios<br/>con reporte de cobertura"]
+    PR(["Pull Request"]) --> L["Lint, formato y tipos"]
+    L --> CT["Test de contrato<br/>copia local vs esquema fuente"]
+    CT --> UT["Tests unitarios y de integración<br/>dentro de la imagen"]
     UT --> GATE{"cobertura ≥ 85%"}
-    GATE -->|no| FAIL(["PR bloqueado<br/>backend desde S3<br/>clientes desde S5"])
-    GATE -->|sí| IT["Tests de integración<br/>dependencias en contenedores"]
-    IT --> CT["Test de contrato<br/>copia local vs esquema fuente"]
-    CT --> IMG["Build de la imagen Docker"]
-    IMG --> SCAN["Escaneo de vulnerabilidades<br/>de dependencias"]
-    SCAN --> KC["kubeconform sobre los manifiestos"]
-    KC --> MERGE(["Merge a main"])
+    GATE -->|no| FAIL(["PR bloqueado"])
+    GATE -->|sí| IMG["Imagen de producción<br/>y verificación de que levanta"]
+    IMG --> MERGE(["Merge a main"])
 
-    MERGE --> PUSH["Push al registry<br/>tag = SHA del commit"]
-    PUSH --> MIG["Job de migraciones"]
-    MIG --> APPLY["kubectl apply -k overlays/staging"]
-    APPLY --> WAIT["Espera del rollout<br/>y smoke test al healthcheck"]
-    WAIT --> SMOKE{"smoke test verde"}
-    SMOKE -->|sí| OK(["Desplegado"])
-    SMOKE -->|no| RB["kubectl rollout undo"]
-    RB --> ALERT(["Alerta al equipo"])
+    MERGE --> PUSH["Push a ECR<br/>tag = SHA, deploy por digest"]
+    PUSH --> CFG["ConfigMap y Secret"]
+    CFG --> MIG["Job de migraciones"]
+    MIG --> APPLY["NetworkPolicy, HPA,<br/>Service y Deployment"]
+    APPLY --> WAIT{"rollout converge"}
+    WAIT -->|sí| OK(["Desplegado"])
+    WAIT -->|no| RB["kubectl rollout undo"]
 
     classDef ci fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#0f172a
     classDef cd fill:#dcfce7,stroke:#16a34a,stroke-width:1.5px,color:#0f172a
     classDef gate fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#0f172a
     classDef bad fill:#ffe4e6,stroke:#e11d48,stroke-width:1.5px,color:#0f172a
-    class L,UT,IT,CT,IMG,SCAN,KC ci
-    class PUSH,MIG,APPLY,WAIT,OK cd
-    class GATE,SMOKE gate
-    class FAIL,RB,ALERT bad
+    class L,CT,UT,IMG ci
+    class PUSH,CFG,MIG,APPLY,OK cd
+    class GATE,WAIT gate
+    class FAIL,RB bad
 ```
 
-El único camino a producción pasa por el gate de cobertura. Se activa en S3 para los tres servicios backend y en S5 para mobile y backoffice.
+El único camino a producción pasa por el gate de cobertura. Se activó en S3 para los servicios backend y en S5 para mobile y backoffice.
 
-**Todas las actions se fijan por SHA de commit, nunca por tag.** No es paranoia: la action `aquasecurity/trivy-action` fue comprometida en un ataque de cadena de suministro el 19 de marzo de 2026. Es A03 del OWASP Top 10:2025 aplicado al propio pipeline, y cuesta una línea por action.
+**Las actions de terceros todavía van por tag** (2 de 73 por SHA); fijarlas es `T-62` (#146). No es paranoia: la action `aquasecurity/trivy-action` fue comprometida en un ataque de cadena de suministro el 19 de marzo de 2026. Es A03 del OWASP Top 10:2025 aplicado al propio pipeline, y cuesta una línea por action.
 
 Cada servicio se despliega solo, sin tocar a los demás. Ese es el desacoplamiento que pide la consigna, y con un repo por servicio queda demostrado sin discusión posible.
 
 ## Observabilidad
 
-Los cuatro servicios exportan trazas, logs y métricas por OTLP/HTTP con protobuf directo a
+`users-api`, `posts-api`, `notifications-api` y el gateway exportan trazas, logs y métricas por OTLP/HTTP con protobuf directo a
 Grafana Cloud. El gateway propaga el contexto por HTTP y posts-api instrumenta sus llamadas
 internas a users-api. Un proceso tiene su propia identidad de instancia. Las métricas
 operativas usan rutas acotadas y los percentiles se calculan después de agregar los buckets
@@ -885,64 +861,170 @@ y destinatarios existentes.
 
 ## Seguridad
 
+Revisión del 2026-11-17 contra el código de `main` de cada repo y contra lo que responde
+producción, no contra lo que este documento decía antes (`T-18` y la segunda revisión de `T-60`).
+La evidencia apunta a `repo/ruta:línea`. Las líneas cambian con cada merge: si una no coincide,
+buscar el nombre que la acompaña.
+
+### Threat model
+
+Siete componentes. El backoffice y la app no corren en el cluster: el backoffice se sirve desde
+S3 y CloudFront, y la app está en el teléfono. Todo el tráfico de la API entra por CloudFront y el
+ALB hasta el gateway. Las amenazas siguen STRIDE: suplantación, alteración, repudio, filtración,
+denegación de servicio y escalada de privilegios.
+
+**`api-gateway`**: la única puerta pública a `/api`. Actor principal: cualquiera en internet.
+
+| Amenaza | Mitigación actual | Evidencia | Lo que falta |
+|---|---|---|---|
+| Llegar a rutas internas de los servicios (escalada) | Solo reenvía los prefijos de su tabla; `/internal` no está en ella y responde 404 | `api-gateway/src/routing.ts:5`, `src/app.ts:68` | — |
+| Saturarlo con pedidos (denegación de servicio) | Ninguna propia | — | Límite por IP y timeout en el proxy, que hoy espera sin tope (`src/app.ts:84`) |
+| Filtrar errores internos por la ruta de salud | Devuelve solo `status` y `version` | `src/app.ts:19` | — |
+
+**`users-api`**: credenciales, clave privada de los JWT, refresh tokens, datos personales y la
+auditoría. Actores: usuario, atacante con credenciales robadas, administrador.
+
+| Amenaza | Mitigación actual | Evidencia | Lo que falta |
+|---|---|---|---|
+| Adivinar contraseñas (suplantación) | 5 intentos y 15 min de bloqueo en la app; 3 y 30 min en el backoffice; mensaje genérico | `users-api/src/users_api/app/services/auth.py:273`, `:281`, `:33` | — |
+| Reusar un refresh token robado (suplantación) | Rotación en cada uso; un token ya usado revoca la familia. Se guarda su digest, no el token | `app/services/auth.py:406`, `:419`, `:451` | — |
+| Un moderador administrando cuentas de administrador (escalada) | Rol en el token y dependencia de superadmin en el backend | `src/users_api/api/deps.py:221` | — |
+| Llamar a `/internal` sin ser un servicio (suplantación) | Secreto compartido comparado en tiempo constante | `api/deps.py:255` | — |
+| Borrar el rastro de una acción administrativa (repudio) | La tabla de auditoría rechaza UPDATE, DELETE y TRUNCATE con un trigger | `migrations/versions/0006_admin_audit.py:32` | — |
+| Filtrar datos por los logs | El log de cada request lleva el path, nunca la query | `src/users_api/infrastructure/telemetry.py:95` | — |
+
+**`posts-api`**: posts, grafo social, imágenes y denuncias. Actores: usuario, cuenta bloqueada o
+sin permiso, atacante con un token revocado.
+
+| Amenaza | Mitigación actual | Evidencia | Lo que falta |
+|---|---|---|---|
+| Ver posts de una cuenta protegida o que te bloqueó (filtración) | Una sola regla de visibilidad para feed, detalle y búsqueda, con el mismo 404 | `posts-api/src/posts_api/app/repositories/post_visibility.py:18`, `repositories/posts.py:158` | — |
+| Borrar un post ajeno (alteración) | Solo el autor | `app/services/posts.py:228` | — |
+| Usar un token revocado en un logout (suplantación) | Lee las marcas de `users-api` y, si Redis no responde, rechaza | `src/posts_api/api/deps.py:167` | — |
+| Subir un archivo malicioso | Formato por magic numbers, 1 MB por imagen, URLs firmadas por una hora | `app/image_rules.py:39`, `:15`, `config/settings.py:63` | — |
+| Spam de posts, follows o denuncias (denegación de servicio) | Límites por usuario en Redis | `app/services/posts.py:286`, `follows.py:154`, `reports.py:111` | — |
+| HTML en un post (alteración) | Se borran las etiquetas con una expresión regular | `app/services/posts.py:53` | Una etiqueta sin cerrar no se borra: `users-api` usa `nh3`, más robusto |
+
+**`notifications-api`**: device tokens, historial de notificaciones, preferencias de notificación y
+el envío de correos. Se despliega desde el 2026-11-13, con DocumentDB.
+
+| Amenaza | Mitigación actual | Evidencia | Lo que falta |
+|---|---|---|---|
+| Leer notificaciones ajenas (filtración) | Toda consulta filtra por la cuenta del token | `notifications-api/src/infrastructure/notification-store.ts:50` | — |
+| Usar un token revocado (suplantación) | Ninguna: no lee las marcas. Ventana aceptada de hasta 15 minutos | `src/api/auth.ts:28` | — |
+| Un evento malformado o repetido en la cola (alteración) | El inválido va a la dead letter; el repetido se descarta por su id | `src/infrastructure/event-consumer.ts:80`, `processed-event-store.ts:8` | — |
+| Inyectar HTML en un correo | Los correos van en texto plano | `src/app/email-templates.ts:5` | — |
+| Saturar sus endpoints (denegación de servicio) | Ninguna propia | — | Un límite por cuenta, como en los servicios de Python |
+
+**`assistant-api`**: la cuota de Bedrock, que se paga por token, y el texto que dicta el usuario.
+Actores: usuario, alguien que escribe un post pensado para manipular al modelo.
+
+| Amenaza | Mitigación actual | Evidencia | Lo que falta |
+|---|---|---|---|
+| Prompt injection desde el texto de un post en pantalla (escalada) | El modelo solo elige acciones de un catálogo cerrado y validado; la app las ejecuta con los permisos del usuario; publicar, responder, retuitear y seguir piden confirmación; tope de 8 pasos | `udesa-x-assistant-api/README.md` ("Cómo funciona"), `src/assistant_api/turns.py:80` | — |
+| Gastar la cuota (denegación de servicio) | 160 pasos por hora por usuario, y si Redis no responde se rechaza; `maxTokens` 400 y sin reintentos; tope al tamaño del pedido; interruptor sin deploy | `src/assistant_api/guards.py:162`, `agent/bedrock.py:33`, `:43`, `turns.py:22`, `guards.py:95` | — |
+| Usar un token revocado o de administrador | Solo cuentas de la app; no lee las marcas de revocación: cada acción la ejecuta después `posts-api`, que sí las lee | `guards.py:127` | — |
+| Credenciales de AWS filtradas | No hay claves: el pod toma un rol por su ServiceAccount | `README.md` ("Despliegue") | — |
+
+**App mobile**: los tokens de la sesión en el teléfono.
+
+| Amenaza | Mitigación actual | Evidencia | Lo que falta |
+|---|---|---|---|
+| Robo de tokens del dispositivo (filtración) | Se guardan en `expo-secure-store` y se borran al cerrar sesión | `udesa-x-mobile/src/stores/authStore.ts:33`, `:131` | — |
+| Tráfico interceptado | El build que se distribuye apunta a la URL HTTPS | `eas.json` (perfil `preview`) | — |
+
+`google-services.json` está versionado con la API key de Firebase: es una clave de cliente,
+pública por diseño, y no da acceso al servidor.
+
+**Backoffice**: la sesión de los administradores.
+
+| Amenaza | Mitigación actual | Evidencia | Lo que falta |
+|---|---|---|---|
+| Robo del token de un administrador por XSS (filtración) | React escapa lo que muestra y no hay `dangerouslySetInnerHTML` | `udesa-x-backoffice/src` | El token vive en `localStorage` (`src/stores/authStore.ts:78`) y producción no manda CSP: un XSS podría leerlo |
+| Un moderador entrando a pantallas de superadmin (escalada) | El panel esconde las pantallas, y el backend lo rechaza igual | `src/router.tsx:100`, `users-api/src/users_api/api/deps.py:221` | — |
+
 ### Mapeo contra OWASP Top 10:2025
 
-Se mapea contra la edición **2025**, vigente desde enero de 2026. Cambió bastante respecto de 2021: la configuración incorrecta subió al segundo puesto, componentes vulnerables se expandió a toda la cadena de suministro, SSRF desapareció como categoría propia y se absorbió en A01, y apareció A10, manejo de condiciones excepcionales.
+Edición **2025**, vigente desde enero de 2026.
 
-| Riesgo                                        | Cómo se mitiga                                                                                                                                                                                                                    |
-| --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| A01 Control de acceso roto                    | Autorización en cada servicio, no solo en el Gateway. Verificación de propiedad en E2-H3 CA.1. 404 en lugar de 403 ante bloqueo, como exige E3-H4 CA.4. Tests específicos de autorización. Ninguna URL provista por el usuario se consume desde el servidor, que es el SSRF ahora absorbido acá. |
-| A02 Configuración incorrecta                  | CORS restringido. Cabeceras de seguridad en el Gateway. NetworkPolicies entre pods. Pod Security Admission `restricted`. Imágenes base mínimas, contenedores sin root.                                                             |
-| A03 Fallas de la cadena de suministro         | Dependabot en los seis repos. Escaneo de imágenes con Trivy. **Actions fijadas por SHA**. SBOM con syft y attestations de build en el pipeline.                                                                                   |
-| A04 Fallas criptográficas                     | Argon2id con `m=19456, t=2, p=1`. TLS en todo tránsito. SOPS con age, nunca secretos en claro en el repo.                                                                                                                          |
-| A05 Inyección                                 | ORM con consultas parametrizadas. Sanitización de HTML en E1-H6 CA.4 y E2-H1 CA.3. Validación de esquema en cada endpoint.                                                                                                        |
-| A06 Diseño inseguro                           | Threat model en S7. Rate limiting. Tokens de un solo uso con expiración. Mensajes genéricos en E1-H2 CA.3 y E1-H5 CA.4 para evitar enumeración.                                                                                    |
-| A07 Fallas de autenticación                   | Lockout tras intentos fallidos. Tokens de vida corta con refresh y rotación. Revocación en cambio de contraseña, exigida por E1-H5 CA.7 y E1-H13 CA.3.                                                                            |
-| A08 Integridad de software y datos            | Imágenes etiquetadas por SHA, nunca `latest`. Migraciones versionadas. Patrón outbox.                                                                                                                                             |
-| A09 Fallas de registro y alertas              | Logs estructurados, trazas, alertas. Auditoría de acciones administrativas en E5-H6.                                                                                                                                              |
-| A10 Manejo de condiciones excepcionales       | Categoría nueva. Timeout y comportamiento definido ante fallo de cada dependencia. Sin stack traces al cliente: errores en formato Problem Details, ver "Formato de error". Si el asistente de IA falla, la app sigue funcionando sin él.                                   |
+| Riesgo | Estado | Qué hay hoy | Evidencia |
+|---|---|---|---|
+| A01 Control de acceso roto | Cumple | Autorización en cada servicio: visibilidad de posts, solo el autor borra, roles de administración, secreto en `/internal`. El gateway no expone rutas internas. Ningún servicio pide una URL que mande el usuario, que es el SSRF absorbido acá | `posts-api/.../post_visibility.py:18`, `posts.py:228`, `users-api/.../deps.py:221`, `api-gateway/src/routing.ts:5` |
+| A02 Configuración incorrecta | Parcial | Cumple: CORS rechaza orígenes ajenos (probado contra producción) y las imágenes corren sin root. Falta: producción no manda HSTS, CSP, `X-Content-Type-Options` ni `X-Frame-Options`; las NetworkPolicies existen pero el cluster no las aplica; los pods no declaran `securityContext` y el namespace no tiene Pod Security Admission | `docker/Dockerfile` (`USER`) de cada servicio, `k8s/namespace.yaml`, `README.md` ("Aislamiento de red") |
+| A03 Fallas de la cadena de suministro | Parcial | Cumple: lockfiles en todos los repos y despliegue por digest. Falta: casi todas las actions van por tag (2 de 73 por SHA), no hay Dependabot, ni escaneo de imágenes, ni SBOM | `.github/workflows/` de cada repo, `.github/workflows/deploy.yml:139` |
+| A04 Fallas criptográficas | Cumple | Argon2id con los parámetros de `argon2-cffi` 25.1.0 (RFC 9106, 64 MiB, `t=3`, `p=4`). JWT con EdDSA. HTTPS obligatorio: por HTTP CloudFront responde 403. TLS a PostgreSQL y DocumentDB con la CA de RDS, sin verificar el nombre del host. Ningún secreto en los repos | `users-api/src/users_api/app/security.py:16`, `:23`, `README.md` ("Cifrado en tránsito") |
+| A05 Inyección | Cumple | SQLAlchemy con parámetros y ningún SQL armado con texto. La búsqueda escapa los comodines. `nh3` limpia el perfil; los posts usan una expresión regular más débil (hallazgo) | `posts-api/.../repositories/posts.py:125`, `users-api/.../schemas/profile.py:30`, `posts-api/.../services/posts.py:53` |
+| A06 Diseño inseguro | Parcial | Threat model de arriba, límites por usuario, tokens de un solo uso con expiración y mensajes genéricos. Falta un límite global en el gateway y uno en `notifications-api` (hallazgos 2 y 9) | `users-api/.../services/auth.py:33`, `posts-api/.../services/posts.py:286` |
+| A07 Fallas de autenticación | Cumple | Bloqueo por intentos, access token de 15 minutos, refresh con rotación y detección de reuso. Cambio de contraseña y bloqueo por admin revocan todo. `notifications-api` y `assistant-api` no leen la revocación, con la ventana de 15 minutos aceptada | `users-api/.../services/auth.py:273`, `:451`, `password_change.py:72`, `account_block.py:68` |
+| A08 Integridad de software y datos | Parcial | Cumple: imágenes por digest, migraciones versionadas, outbox, contratos de eventos verificados en el CI y mensajes inválidos a dead letter. Falta firmar el build (attestations) | `.github/workflows/deploy.yml:139`, `notifications-api/.../event-consumer.ts:80` |
+| A09 Fallas de registro y alertas | Parcial | Logs estructurados sin query string, trazas, auditoría inmutable de acciones administrativas, alertas de latencia, errores 5xx y outbox. Ninguna alerta mira señales de ataque, como muchos bloqueos o reusos de refresh token | `users-api/.../telemetry.py:95`, `migrations/versions/0006_admin_audit.py:32`, `observability/alerts.yaml` |
+| A10 Manejo de condiciones excepcionales | Parcial | Errores en Problem Details y 500 genérico sin stack trace. Fallan cerrado `posts-api` y `assistant-api` si Redis no responde. Las llamadas entre servicios tienen timeout de 2 s y Bedrock no reintenta. Falta un timeout en el proxy del gateway | `notifications-api/src/api/errors.ts:46`, `posts-api/.../api/deps.py:167`, `api-gateway/src/app.ts:84` |
 
-El nivel L1 de OWASP ASVS 5.0 se usa como checklist manual antes de cada entrega grande.
+### Hallazgos
+
+Lo que quedó parcial o no existe, con dónde se atiende. No se abren todas las issues ahora.
+
+| # | Hallazgo | Riesgo | Dónde se atiende |
+|---|---|---|---|
+| 1 | Producción no manda cabeceras de seguridad (HSTS, CSP, `nosniff`, `X-Frame-Options`), y el backoffice guarda el token en `localStorage` | Medio | Issue a crear: una política de cabeceras en CloudFront |
+| 2 | El gateway no limita pedidos por IP y su proxy no tiene timeout | Medio | Issue a crear en `udesa-x-api-gateway` |
+| 3 | Las NetworkPolicies no se aplican en el cluster | Medio | `T-60` (#145) |
+| 4 | Actions por tag, sin SBOM ni attestations | Medio | `T-62` (#146) |
+| 5 | Sin Dependabot ni escaneo de imágenes | Medio | Issue a crear, o sumarlo a `T-62` |
+| 6 | Pods sin `securityContext` y namespace sin Pod Security Admission | Bajo | Junto con `T-60`, porque toca los mismos manifiestos |
+| 7 | Los posts limpian el HTML con una expresión regular, no con `nh3` | Bajo | Issue a crear en `udesa-x-posts-api` |
+| 8 | Sin alertas de seguridad: bloqueos por intentos y reuso de refresh tokens | Bajo | Issue a crear, sobre `observability/alerts.yaml` |
+| 9 | `notifications-api` no limita pedidos por cuenta | Bajo | Issue a crear en `udesa-x-notifications-api` |
 
 ### Manejo de tokens
 
-- Access token JWT de 15 minutos, con `sub`, `role` y `jti`. Algoritmo asimétrico (EdDSA o ES256), nunca HS256 compartido ni `alg:none`.
-- Refresh token de 7 días, en `expo-secure-store` en mobile, **con rotación en cada uso y detección de reuso**: si aparece un refresh token ya usado, se asume comprometido y se revoca la familia entera de sesiones del usuario.
-- Revocación por `jti` en Redis, guardando el hash SHA-256 del token y no el token crudo, con TTL igual a la vida restante.
+- Access token JWT de 15 minutos, con `sub`, `role`, `jti` e `iat`, firmado con **EdDSA sobre
+  Ed25519**. Nunca HS256 compartido ni `alg:none`.
+- Refresh token de 7 días, en `expo-secure-store` en mobile, **con rotación en cada uso y detección
+  de reuso**: si aparece uno ya usado, se revoca la familia entera de sesiones. La base guarda su
+  digest, no el token.
+- Revocación de un access token: la marca `revoked:jti:<jti>` en Redis, con TTL igual a la vida que
+  le queda. Revocación de una cuenta: `revoked:user:<id>` con el instante de corte.
 - Cambio de contraseña, bloqueo por admin y cuenta en revisión revocan todas las sesiones.
-- `posts-api` no tiene su propia lista: en cada request autenticado lee en una sola consulta las marcas `revoked:jti:<jti>` y `revoked:user:<id>` que `users-api` escribe en su base `/0` (token revocado si existe la marca del `jti`, o si `iat <=` corte de la cuenta). Si ese Redis no responde, rechaza el request. Ver el ADR-014.
+- `posts-api` lee esas marcas en cada request autenticado, y si ese Redis no responde, rechaza
+  (ADR-014). `notifications-api` y `assistant-api` no las leen: aceptan una ventana de hasta 15
+  minutos para un token revocado.
 
-**Cerrada el 2026-08-30 al implementar E1-H2.** La discusión era JWT con lista de revocación contra token opaco con la sesión en Redis: las dos hacen round-trip a Redis, así que el argumento clásico a favor del JWT se caía. La resuelve la consigna, no el equipo: `E1-H2 CA.1` exige literalmente *"un token JWT con un tiempo de expiración definido"*, y el token opaco reprobaría el criterio.
+**Cerrada el 2026-08-30 al implementar E1-H2.** La discusión era JWT con lista de revocación contra
+token opaco con la sesión en Redis: las dos hacen round-trip a Redis, así que el argumento clásico a
+favor del JWT se caía. La resuelve la consigna, no el equipo: `E1-H2 CA.1` exige literalmente *"un
+token JWT con un tiempo de expiración definido"*, y el token opaco reprobaría el criterio.
 
-El access token se firma con **EdDSA sobre Ed25519**. La clave privada llega por entorno; en desarrollo, si falta, el servicio genera un par efímero y lo avisa por log, de modo que no hay ninguna clave privada versionada.
+La clave privada llega por entorno. En desarrollo, si falta, el servicio genera un par efímero y lo
+avisa por log, de modo que no hay ninguna clave privada versionada.
 
 ### Rate limiting
 
-| Ámbito                     | Dónde         | Límite                                     |
-| -------------------------- | ------------- | ------------------------------------------ |
-| Por IP                     | Gateway       | Global, primera línea de defensa           |
-| Login por cuenta           | users-api     | 5 intentos, bloqueo de 15 min (E1-H2 CA.2) |
-| Login de admin             | users-api     | 3 intentos, bloqueo de 30 min (E5-H2 CA.3) |
-| Recuperación de contraseña | users-api     | Limitado por correo (E1-H5 CA.8)           |
-| Creación de posts          | posts-api     | 30 por hora por usuario (E2-H1 CA.5)       |
-| Solicitudes de seguimiento | posts-api     | 50 por hora por usuario (E3-H1 CA.5)       |
-| Feedback                   | users-api     | 2 por hora por usuario (E1-H11 CA.4)       |
-| Invitaciones               | posts-api     | 10 links por día por usuario (E3-H9 CA.3)  |
-| Asistente por voz          | assistant-api | Por usuario, el número sale del spike (ADR-023) |
+| Ámbito | Dónde | Límite |
+|---|---|---|
+| Por IP | Gateway | **No existe** (hallazgo 2) |
+| Login por cuenta | users-api | 5 intentos, bloqueo de 15 min (E1-H2 CA.2) |
+| Login de admin | users-api | 3 intentos, bloqueo de 30 min (E5-H2 CA.3) |
+| Recuperación de contraseña | users-api | 3 pedidos por hora por usuario o correo (E1-H5 CA.8) |
+| Creación de posts | posts-api | 30 por hora por usuario (E2-H1 CA.5) |
+| Solicitudes de seguimiento | posts-api | 50 por hora por usuario (E3-H1 CA.5) |
+| Denuncias | posts-api | Una por cuenta denunciada cada 24 horas (E3-H5 CA.3) |
+| Feedback | users-api | 2 por hora por usuario (E1-H11 CA.4) |
+| Invitaciones | — | No hace falta: cada cuenta tiene un solo link fijo (`users-api#110`), así que nunca pasa de 10 por día (E3-H9 CA.3) |
+| Asistente por voz | assistant-api | 160 pasos por hora por usuario (ADR-023) |
 
-El middleware se implementa una vez en Python con contadores en Redis, y se copia entre `users-api`, `posts-api` y `assistant-api`, como el módulo de subida: `limits` sobre FastAPI, en vez de escribir scripts Lua a mano. `notifications-api` expone `/api/notifications` desde E4-H1, pero por ahora solo recibe un device token por login, así que no tiene límite propio; se revisa cuando llegue el centro in-app.
-
-Un matiz que conviene documentar y que suma en la defensa: el rate limit del Gateway es local a cada pod de NGINX, así que con tres réplicas el límite efectivo se triplica. Se corre una sola réplica para la demo y se explica por qué. La alternativa realmente distribuida exige Redis más el servicio de rate limit de Envoy, que son más piezas de las que este proyecto necesita.
+Cada servicio en Python tiene su propio contador sobre Redis (`INCR` y `EXPIRE`) detrás de una
+interfaz, sin librería de rate limiting. `notifications-api` no tiene límite propio.
 
 ## Estrategia de pruebas
 
 | Nivel       | Alcance                                             | Herramientas                      | Dónde corre                  |
 | ----------- | --------------------------------------------------- | --------------------------------- | ---------------------------- |
 | Unitarias   | Lógica de dominio, validaciones, hooks, componentes | pytest, Vitest, RNTL 14           | CI de cada repo              |
-| Integración | Endpoints contra base y cola reales en contenedores | pytest, Testcontainers, Supertest | CI de cada repo              |
+| Integración | Endpoints contra base y cola reales en contenedores | pytest, Vitest                    | CI de cada repo              |
 | Contrato    | La copia local de esquemas coincide con la fuente   | Validación de JSON Schema         | CI de cada repo              |
 | E2E         | Descartado (`udesa-x-platform#89`)                  | Maestro, Playwright               | `udesa-x-platform`, nocturno |
-| Carga       | Los seis flujos con SLO definido                    | k6                                | `udesa-x-platform`, S6 y S12 |
+| Carga       | Los flujos con SLO definido                         | k6                                | `udesa-x-platform/loadtests` |
 
 Los E2E y las pruebas de carga viven en `udesa-x-platform` porque cruzan servicios y ningún repo de servicio es su dueño natural.
 
@@ -952,7 +1034,7 @@ El umbral es 85% en todos los repos y se verifica en el CI de cada uno. Lo que c
 
 | Repos | Gate activo desde | Por qué |
 | --- | --- | --- |
-| `users-api`, `posts-api`, `notifications-api` | **S3**, 7 de septiembre | Es la fecha a partir de la cual la cátedra exige que todo el código que se sube esté testeado, y en S3 los servicios ya tienen forma. |
+| Servicios de backend | **S3**, 7 de septiembre | Es la fecha a partir de la cual la cátedra exige que todo el código que se sube esté testeado, y en S3 los servicios ya tienen forma. |
 | `mobile`, `backoffice` | **S5**, 21 de septiembre | En S3 la app mobile tiene navegación y sesión y poco más, y el equipo vio React recién el 24 de agosto. Un gate que bloquea PRs al 85% sobre React Native en la semana 3 se termina desactivando, y un gate desactivado no vuelve. |
 
 Cuatro consecuencias que hay que aceptar desde el primer día:
@@ -1013,7 +1095,7 @@ sequenceDiagram
 | Aspecto        | Decisión                                                                                                       |
 | -------------- | -------------------------------------------------------------------------------------------------------------- |
 | Proveedor      | Amazon Bedrock en la cuenta de la cátedra, `us-east-2`, con inferencia dentro de EE. UU.                       |
-| Modelo         | Arranca con gpt-oss-120b, de costo medio, y se ajusta con las evaluaciones hasta el más barato que cumpla        |
+| Modelo         | Claude Haiku 5.5 sin razonamiento, elegido con el spike de `AI-03` (`SPIKE-IA.md`)                            |
 | API            | Converse de Bedrock, la misma para Nova y Claude, con tool use. Cambiar de modelo es cambiar una variable      |
 | Salida         | Una acción del catálogo por paso. El servicio la valida antes de mandarla a la app                             |
 | Datos enviados | El pedido en texto y los posts visibles con referencias cortas. Nunca ids, emails, tokens ni audio             |
@@ -1052,12 +1134,12 @@ Pendientes de definir en S1:
 | A7  | Feed dentro de posts-api         | Sí, para evitar mantener una proyección del grafo sincronizada por eventos             |
 | A8  | Motor de búsqueda                | PostgreSQL con `pg_trgm`, sin Elasticsearch                                            |
 | A9  | Broker de mensajes               | RabbitMQ sobre Kafka, por simplicidad operativa                                        |
-| A10 | Plan B de despliegue             | ECS con Fargate si EKS no llega. Se decide el 20 de septiembre                         |
+| A10 | Plan B de despliegue             | **Descartada por el ADR-008**: EKS llegó y ECS no hizo falta                          |
 | A11 | Herramienta de manifiestos       | **Reemplazada por el ADR-008:** YAML plano, sin Kustomize ni Helm                      |
 | A12 | Bases dentro o fuera del cluster | **Cerrada por el ADR-009**: las persistentes fuera, Redis adentro, uno solo con bases lógicas separadas. **El ADR-021 reemplaza a Neon por RDS**, una base y un rol por servicio |
 | A13 | Observabilidad                   | Grafana Cloud, por el requisito de acceso del tutor                                    |
 | A14 | Proveedor de email               | **Cerrada por el ADR-010**: Resend con el dominio propio `udesax.app` verificado |
-| A15 | Push en iOS                      | Depende de la cuenta de Apple Developer                                                |
+| A15 | Push en iOS                      | **Cerrada: solo Android.** El push sale por FCM, y en iOS el token es de APNs         |
 | A16 | Presupuesto de AWS               | **Cerrada por el ADR-008**: el cluster lo provee la cátedra, el equipo no decide costo ni ciclo de vida |
 
 ### Nuevas, de la revisión del stack del 2026-08-20
@@ -1070,7 +1152,7 @@ Pendientes de definir en S1:
 | A20 | Motor clave-valor           | **Redis.** Revertida el 2026-08-23 en la revisión del PR #6 de `users-api`. La versión anterior elegía Valkey por precio en ElastiCache, que no aplica porque se autohospeda, y por licencia, que perdió peso desde que Redis 8 ofrece AGPLv3. Queda que Redis es más estándar y el equipo lo conoce |
 | A21 | Plantillas de CI            | **Reusable workflows**, no copiadas. Los contratos de eventos se siguen copiando, porque eso lo pidió el tutor            |
 | A22 | Manejo de tokens            | **Cerrada: JWT firmado con EdDSA.** La define `E1-H2 CA.1`, que exige un token JWT; el token opaco reprobaría el criterio |
-| A23 | Subida de media             | **Abierta, se decide en S6**: stream por el servicio, que cumple los criterios literales, o URL prefirmada con validación posterior. Ya no involucra un servicio aparte |
+| A23 | Subida de media             | **Cerrada: stream por el servicio**, en `posts-api`, que cumple los criterios literales |
 | A24 | Acceso del tutor a Grafana  | **Abierta, se decide antes de S6**: el free tier son 3 asientos y el equipo más el tutor son 5                            |
 
 ### Nuevas, de la revisión del equipo del 2026-08-20
@@ -1082,7 +1164,7 @@ Pendientes de definir en S1:
 | A27 | Ubicación de las issues     | **Cerrada por el tutor: una issue por repo, junto a su código.** `udesa-x-platform` solo lleva las transversales. Ver `CONVENCIONES.md` |
 | A28 | Activación del gate de cobertura | **Cerrada: escalonado.** 85% desde S3 en los tres servicios backend, desde S5 en mobile y backoffice |
 | A29 | AGENTS.md y skills          | **Cerrada: obligatorios desde S1.** Bloque común sincronizado desde platform, skills versionadas en el repo. Ver `CONVENCIONES.md` |
-| A30 | Sincronización de comunes   | **Cerrada:** `repo-file-sync-action` para archivos comunes, según recomendó el tutor, y reusable workflows para el CI. Plantear la diferencia en la reunión |
+| A30 | Sincronización de comunes   | **Cerrada:** `scripts/sync-comunes.sh`, que se corre a mano, y reusable workflows para el CI. `verificar-plantilla.yml` avisa si la plantilla queda atrás |
 
 ## Auditoría administrativa
 

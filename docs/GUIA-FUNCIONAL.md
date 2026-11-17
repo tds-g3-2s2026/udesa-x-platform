@@ -557,7 +557,7 @@ Permite dejar de ver a una cuenta sin dejar de seguirla.
 
 Obligatoria · 2 puntos · S10 · Dueño: @jleonalderete
 
-Avisa con un push cuando alguien te empieza a seguir. Solo en Android. Depende de `notifications-api`, que todavía no se despliega desde `main`: esto describe lo que hace el código, no lo que se ve hoy en producción.
+Avisa con un push cuando alguien te empieza a seguir. Solo en Android.
 
 | Criterio | Pantalla | Qué ve el usuario |
 |---|---|---|
@@ -579,7 +579,7 @@ Obligatoria · 2 puntos · S11 · Dueño: @jleonalderete
 
 Obligatoria · 3 puntos · S10 · Dueño: @FedeTrejo
 
-Junta las notificaciones de la cuenta en una pestaña. Depende de `notifications-api`, que todavía no se despliega desde `main`: esto describe lo que hace el código, no lo que se ve hoy en producción.
+Junta las notificaciones de la cuenta en una pestaña.
 
 | Criterio | Pantalla | Qué ve el usuario |
 |---|---|---|
