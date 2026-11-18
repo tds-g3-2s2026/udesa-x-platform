@@ -831,7 +831,7 @@ flowchart TD
 
 El único camino a producción pasa por el gate de cobertura. Se activó en S3 para los servicios backend y en S5 para mobile y backoffice.
 
-**Las actions de terceros todavía van por tag** (2 de 73 por SHA); fijarlas es `T-62` (#146). No es paranoia: la action `aquasecurity/trivy-action` fue comprometida en un ataque de cadena de suministro el 19 de marzo de 2026. Es A03 del OWASP Top 10:2025 aplicado al propio pipeline, y cuesta una línea por action.
+**Las actions de terceros se fijan por SHA de commit, nunca por tag**, con la versión en un comentario, y Dependabot abre un PR por mes cuando sale una versión nueva (`T-62`). Los workflows propios de platform quedan en `@main`: son nuestros y entran por PR revisado. No es paranoia: la action `aquasecurity/trivy-action` fue comprometida en un ataque de cadena de suministro el 19 de marzo de 2026. Es A03 del OWASP Top 10:2025 aplicado al propio pipeline, y cuesta una línea por action.
 
 Cada servicio se despliega solo, sin tocar a los demás. Ese es el desacoplamiento que pide la consigna, y con un repo por servicio queda demostrado sin discusión posible.
 
@@ -951,7 +951,7 @@ Edición **2025**, vigente desde enero de 2026.
 |---|---|---|---|
 | A01 Control de acceso roto | Cumple | Autorización en cada servicio: visibilidad de posts, solo el autor borra, roles de administración, secreto en `/internal`. El gateway no expone rutas internas. Ningún servicio pide una URL que mande el usuario, que es el SSRF absorbido acá | `posts-api/.../post_visibility.py:18`, `posts.py:228`, `users-api/.../deps.py:221`, `api-gateway/src/routing.ts:5` |
 | A02 Configuración incorrecta | Parcial | Cumple: CORS rechaza orígenes ajenos (probado contra producción) y las imágenes corren sin root. Falta: producción no manda HSTS, CSP, `X-Content-Type-Options` ni `X-Frame-Options`; las NetworkPolicies existen pero el cluster no las aplica; los pods no declaran `securityContext` y el namespace no tiene Pod Security Admission | `docker/Dockerfile` (`USER`) de cada servicio, `k8s/namespace.yaml`, `README.md` ("Aislamiento de red") |
-| A03 Fallas de la cadena de suministro | Parcial | Cumple: lockfiles en todos los repos y despliegue por digest. Falta: casi todas las actions van por tag (2 de 73 por SHA), no hay Dependabot, ni escaneo de imágenes, ni SBOM | `.github/workflows/` de cada repo, `.github/workflows/deploy.yml:139` |
+| A03 Fallas de la cadena de suministro | Parcial | Cumple: lockfiles en todos los repos y despliegue por digest. Las actions de terceros van fijadas por SHA y Dependabot las mantiene al día. Falta: escaneo de imágenes y SBOM | `.github/workflows/` de cada repo, `.github/workflows/deploy.yml:139` |
 | A04 Fallas criptográficas | Cumple | Argon2id con los parámetros de `argon2-cffi` 25.1.0 (RFC 9106, 64 MiB, `t=3`, `p=4`). JWT con EdDSA. HTTPS obligatorio: por HTTP CloudFront responde 403. TLS a PostgreSQL y DocumentDB con la CA de RDS, sin verificar el nombre del host. Ningún secreto en los repos | `users-api/src/users_api/app/security.py:16`, `:23`, `README.md` ("Cifrado en tránsito") |
 | A05 Inyección | Cumple | SQLAlchemy con parámetros y ningún SQL armado con texto. La búsqueda escapa los comodines. `nh3` limpia el perfil; los posts usan una expresión regular más débil (hallazgo) | `posts-api/.../repositories/posts.py:125`, `users-api/.../schemas/profile.py:30`, `posts-api/.../services/posts.py:53` |
 | A06 Diseño inseguro | Parcial | Threat model de arriba, límites por usuario, tokens de un solo uso con expiración y mensajes genéricos. Falta un límite global en el gateway y uno en `notifications-api` (hallazgos 2 y 9) | `users-api/.../services/auth.py:33`, `posts-api/.../services/posts.py:286` |
@@ -969,8 +969,8 @@ Lo que quedó parcial o no existe, con dónde se atiende. No se abren todas las 
 | 1 | Producción no manda cabeceras de seguridad (HSTS, CSP, `nosniff`, `X-Frame-Options`), y el backoffice guarda el token en `localStorage` | Medio | Issue a crear: una política de cabeceras en CloudFront |
 | 2 | El gateway no limita pedidos por IP y su proxy no tiene timeout | Medio | Issue a crear en `udesa-x-api-gateway` |
 | 3 | Las NetworkPolicies no se aplican en el cluster | Medio | `T-60` (#145) |
-| 4 | Actions por tag, sin SBOM ni attestations | Medio | `T-62` (#146) |
-| 5 | Sin Dependabot ni escaneo de imágenes | Medio | Issue a crear, o sumarlo a `T-62` |
+| 4 | Sin SBOM ni attestations del build | Bajo | Mejora futura: queda afuera de `T-62` porque publicaría el ID de la cuenta de AWS y solo se prueba con un deploy real |
+| 5 | Sin escaneo de imágenes | Medio | Issue a crear |
 | 6 | Pods sin `securityContext` y namespace sin Pod Security Admission | Bajo | Junto con `T-60`, porque toca los mismos manifiestos |
 | 7 | Los posts limpian el HTML con una expresión regular, no con `nh3` | Bajo | Issue a crear en `udesa-x-posts-api` |
 | 8 | Sin alertas de seguridad: bloqueos por intentos y reuso de refresh tokens | Bajo | Issue a crear, sobre `observability/alerts.yaml` |
