@@ -139,6 +139,8 @@ con evaluaciones hasta el más barato que cumpla.**
   y no la cátedra como suponía este ADR. El pod lo asume con el ServiceAccount
   `tds-group-3-bedrock-sa`. Como el pipeline no puede crear ServiceAccounts, va en
   `k8s/serviceaccount.yaml` y lo aplica el docente, junto con la cuota para el servicio nuevo.
+  Desde el 2026-11-19 ese archivo está en `udesa-x-assistant-api`, como pidió el tutor: cada
+  ServiceAccount va en el repo del servicio que lo usa.
 - **El anexo de permisos queda como registro** de lo que se pidió el 2026-10-30. Lo que rige
   es la guía de la cátedra.
 
