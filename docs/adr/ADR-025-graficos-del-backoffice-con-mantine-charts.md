@@ -1,6 +1,6 @@
 # ADR-025: `@mantine/charts` para los gráficos del backoffice
 
-**Fecha:** 2026-11-15 · **Estado:** propuesta · **Decide:** el equipo
+**Fecha:** 2026-11-15 · **Estado:** aceptada · **Decide:** el equipo
 
 ## Contexto
 
