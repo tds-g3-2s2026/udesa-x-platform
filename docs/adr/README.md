@@ -29,6 +29,7 @@ escribe una nueva que reemplaza a la anterior y se anota acá.
 | [ADR-022](./ADR-022-autoaprobacion-de-fixes-y-chores.md) | Autoaprobación de fixes y chores que no toman decisiones | 2026-10-27 | Aceptada |
 | [ADR-023](./ADR-023-bedrock-para-el-asistente-por-voz.md) | Amazon Bedrock para el asistente por voz, en un servicio propio | 2026-10-30 | Aceptada |
 | [ADR-024](./ADR-024-deteccion-de-idioma-con-lingua.md) | `lingua-language-detector` para detectar el idioma de los posts | 2026-11-05 | Aceptada |
+| [ADR-025](./ADR-025-graficos-del-backoffice-con-mantine-charts.md) | `@mantine/charts` para los gráficos del backoffice | 2026-11-15 | Aceptada |
 
 Solo se registran decisiones ya tomadas y que el equipo pueda justificar, numeradas en el
 orden en que se toman. Lo que todavía está por definirse vive como decisión abierta `Dxx` en
@@ -92,5 +93,8 @@ está en `docs/ESTIMACION-COSTOS-IA.md`.
 
 La detección de idioma de los posts quedó registrada en el ADR-024. Resuelve `D16` de
 `PLANIFICACION.md` y suma `preferences.changed` a la tabla de eventos de `ARQUITECTURA.md`.
+
+Los gráficos del backoffice quedaron registrados en el ADR-025, con el costo medido en el bundle.
+Lo pide `E5-H3 CA.2`.
 
 La [búsqueda literal y el estado de consultas en mobile](./busqueda-literal-y-cache-mobile.md) fijan la coincidencia, los límites de cada servicio y la gestión de caché por sesión.
