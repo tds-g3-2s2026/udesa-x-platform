@@ -131,7 +131,7 @@ Los manifiestos son planos, sin Kustomize ni overlays.
 | [`k8s/namespace.yaml`](./k8s/namespace.yaml): Namespace, ResourceQuota y LimitRange | El docente, después de revisar y aprobar el PR |
 | [`k8s/ingress.yaml`](./k8s/ingress.yaml): entrada HTTP del sistema | El docente, después de revisar y aprobar el PR |
 | [`k8s/networkpolicy.yaml`](./k8s/networkpolicy.yaml): los pods del namespace solo aceptan tráfico entre ellos | El docente, después de revisar y aprobar el PR |
-| [`k8s/serviceaccount.yaml`](./k8s/serviceaccount.yaml): ServiceAccount con el que `assistant-api` asume el rol de Bedrock | El docente, después de revisar y aprobar el PR |
+| [`k8s/serviceaccount.yaml` de `udesa-x-assistant-api`](https://github.com/tds-g3-2s2026/udesa-x-assistant-api/blob/main/k8s/serviceaccount.yaml): ServiceAccount con el que `assistant-api` asume el rol de Bedrock | El docente, después de revisar y aprobar el PR |
 | Deployment, Service, ConfigMap, Secret y Job de migración de cada servicio | [`deploy.yml`](./.github/workflows/deploy.yml), en cada push a `main` del servicio |
 | [`k8s/redis.yaml`](./k8s/redis.yaml): Deployment y Service del Redis compartido | [`deploy-redis.yml`](./.github/workflows/deploy-redis.yml), cuando cambia el manifiesto o a mano desde Actions |
 | [`k8s/rabbitmq.yaml`](./k8s/rabbitmq.yaml): Deployment y Service del RabbitMQ del namespace | [`deploy-rabbitmq.yml`](./.github/workflows/deploy-rabbitmq.yml), cuando cambia el manifiesto o a mano desde Actions |
@@ -158,10 +158,11 @@ Igualmente, cada Deployment debe declarar sus requests y limits explícitamente.
 `assistant-api`, RabbitMQ y Redis suman siete con una réplica cada uno. Del octavo al undécimo
 entran si alcanzan las demás cuotas; el duodécimo es rechazado.
 
-**El ServiceAccount `tds-group-3-bedrock-sa` va en su propio archivo, `serviceaccount.yaml`, y lo
-aplica el docente**, porque el rol del pipeline no puede crear ServiceAccounts. Con él,
-`assistant-api` asume `tds-group-3-bedrock-role`, cuya política de confianza solo acepta pods
-que corren con ese ServiceAccount (ADR-023).
+**El ServiceAccount `tds-group-3-bedrock-sa` va en el `k8s/` de `udesa-x-assistant-api`, junto a
+los manifiestos del servicio que lo usa, y lo aplica el docente**, porque el rol del pipeline no
+puede crear ServiceAccounts. Con él, `assistant-api` asume `tds-group-3-bedrock-role`, cuya
+política de confianza solo acepta pods que corren con ese ServiceAccount (ADR-023). Cada rol
+de IAM tiene su propio ServiceAccount, y cada uno va en el repo de su servicio.
 
 Los tres Deployment HTTP usan `maxSurge: 1` y `maxUnavailable: 0`: conservan el pod anterior
 hasta que el nuevo esté listo. Reservar capacidad para el pod adicional y los Jobs de
