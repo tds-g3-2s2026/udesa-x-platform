@@ -30,6 +30,7 @@ escribe una nueva que reemplaza a la anterior y se anota acá.
 | [ADR-023](./ADR-023-bedrock-para-el-asistente-por-voz.md) | Amazon Bedrock para el asistente por voz, en un servicio propio | 2026-10-30 | Aceptada |
 | [ADR-024](./ADR-024-deteccion-de-idioma-con-lingua.md) | `lingua-language-detector` para detectar el idioma de los posts | 2026-11-05 | Aceptada |
 | [ADR-025](./ADR-025-graficos-del-backoffice-con-mantine-charts.md) | `@mantine/charts` para los gráficos del backoffice | 2026-11-15 | Aceptada |
+| [ADR-026](./ADR-026-voz-en-la-app-con-expo.md) | `expo-speech-recognition` y `expo-speech` para la voz en la app | 2026-11-19 | Aceptada |
 
 Solo se registran decisiones ya tomadas y que el equipo pueda justificar, numeradas en el
 orden en que se toman. Lo que todavía está por definirse vive como decisión abierta `Dxx` en
@@ -96,5 +97,8 @@ La detección de idioma de los posts quedó registrada en el ADR-024. Resuelve `
 
 Los gráficos del backoffice quedaron registrados en el ADR-025, con el costo medido en el bundle.
 Lo pide `E5-H3 CA.2`.
+
+La voz en la app quedó registrada en el ADR-026: el reconocedor y la síntesis del sistema, con
+lo que el audio nunca llega a `assistant-api`, como fija el ADR-023. Lo pide `AI-05`.
 
 La [búsqueda literal y el estado de consultas en mobile](./busqueda-literal-y-cache-mobile.md) fijan la coincidencia, los límites de cada servicio y la gestión de caché por sesión.
