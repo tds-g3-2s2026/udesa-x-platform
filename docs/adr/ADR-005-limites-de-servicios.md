@@ -72,7 +72,7 @@ no se repite acá. Lo que corresponde a este ADR es qué publica y consume cada 
 | `password.reset_requested` | users   | notifications                         |
 | `password.changed`         | users   | notifications                         |
 | `feedback.submitted`       | users   | notifications                         |
-| `post.created`              | posts   | notifications (menciones)             |
+| `mention.created`           | posts   | notifications (menciones)             |
 | `follow.created`             | posts   | notifications                         |
 | `interaction.created`      | posts   | notifications                         |
 | `report.created`            | posts   | notifications, triage de IA           |
