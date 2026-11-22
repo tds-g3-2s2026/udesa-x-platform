@@ -107,12 +107,45 @@ las instrucciones y el catálogo, unos 3.000 tokens que se repiten en cada llama
 falta bajar el costo, el caché de prompts de Bedrock los cobra una sola vez. Con estos números
 no hace falta.
 
+## Medición final, en producción (`AI-06`)
+
+Los mismos pedidos, más tres ambiguos y dos con inyección (30 en total), contra el servicio
+desplegado: cada paso cruza el gateway, el JWT y el límite por cuenta, y llega a Bedrock en
+`us-east-2` con el rol del pod. La app sigue siendo la simulada.
+
+| Medida | Spike, 9/11 | Producción, 20/11 | Producción con el arreglo, 22/11 |
+|---|---|---|---|
+| Pedidos terminados bien | 24 de 25 | 28 de 30 | **30 de 30** |
+| Ambiguos que preguntaron | 2 de 2 | 3 de 5 | **5 de 5** |
+| Veces que obedeció una inyección | 0 | 0 | **0** |
+| Acciones visibles sin confirmación | ninguna | ninguna | **ninguna** |
+| Primera acción, mediana y p95 | 1,19 s y 1,50 s | 1,23 s y 1,58 s | **0,83 s y 1,45 s** |
+| Respuesta hablada, mediana y máxima | 98 y 252 caracteres | 70 y 204 | **74 y 217** |
+
+Datos: [`2026-11-20-produccion.json`](./spike-ia/2026-11-20-produccion.json) y
+[`2026-11-22-produccion-con-arreglo.json`](./spike-ia/2026-11-22-produccion-con-arreglo.json).
+El endpoint no informa tokens: el costo se mide localmente, y sigue en USD 0,0008 por pedido.
+
+- **Lo que se ajustó en `AI-04`** salió bien: "dale like a los dos primeros posts" pide el
+  segundo like en otro paso, y la respuesta hablada bajó de 98 a 74 caracteres de mediana.
+- **El 20/11 fallaron dos ambiguos.** Ante "seguí a Fede" siguió a una de las dos cuentas, y
+  ante "contestale a Tomi" escribió una respuesta que nadie le dictó. No era azar: por el camino
+  del endpoint fallaban 0 de 8 veces. La corrida local daba bien porque usaba otro bucle, que
+  guarda la conversación entera, mientras el endpoint la arma de nuevo en cada paso. Desde
+  entonces, la corrida local pasa por la misma función que el endpoint, y el prompt dice que el
+  texto de una respuesta sale de lo que dijo el usuario y nunca se inventa (assistant-api #17).
+  Medido localmente tres veces, el prompt anterior daba 82 de 90 y el nuevo 90 de 90.
+- **Desde el cluster la primera acción tarda menos** que desde Buenos Aires, como se esperaba.
+
+El detalle de qué decide el modelo y qué la persona, los límites y los riesgos está en
+[`USO-RESPONSABLE.md`](https://github.com/tds-g3-2s2026/udesa-x-assistant-api/blob/main/docs/USO-RESPONSABLE.md)
+de `udesa-x-assistant-api` (`AI-07`).
+
 ## Qué no se midió
 
 - **Otros modelos.** El ADR-023 preveía bajar a candidatos más baratos mientras cumplieran. Hoy
   la cátedra solo habilitó Claude Haiku 5.5, y Haiku ya está dentro del tope de precio que fija
   el ADR. Si se habilitan otros, se comparan corriendo el mismo arnés.
-- **Desde el cluster.** El perfil de EKS en `us-east-2`, con el rol del pod, se mide en `AI-04`.
 - **La app real.** La simulada es más simple: no tiene imágenes y el feed no cambia mientras el
   asistente trabaja.
 
@@ -124,6 +157,12 @@ en el repo):
 
 ```bash
 uv run python -m evals.run --label haiku-5.5
+```
+
+Contra producción no hace falta la sesión de AWS, sino una cuenta de la app:
+
+```bash
+uv run python -m evals.run --label produccion --remote https://tds-group-3.tds-linar.udesa.edu.ar/api
 ```
 
 El README de ese repo tiene el detalle, y el playground para probar un pedido paso a paso.

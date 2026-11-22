@@ -1104,7 +1104,7 @@ sequenceDiagram
 | Retención      | Nada del contenido se guarda ni va a logs o trazas. Solo métricas de pasos, latencia y resultado               |
 | Costo estimado | Menos de USD 9 para el proyecto entero con cualquiera de los candidatos                                        |
 | Si falla       | El asistente avisa que no pudo y la app sigue funcionando sin él                                               |
-| Evaluaciones   | Los 25 pedidos guionados en `evals/`, tests con un modelo falso en cada PR y un playground de línea de comandos |
+| Evaluaciones   | Los 30 pedidos guionados en `evals/`, también contra producción (30 de 30 el 22/11, `SPIKE-IA.md`), tests con un modelo falso en cada PR y un playground |
 
 **Restricciones no negociables:**
 - lo que ven otros (publicar, comentar, retuitear, seguir) se confirma siempre en la app, lo
@@ -1112,6 +1112,11 @@ sequenceDiagram
 - el texto de los posts es dato no confiable y nunca amplía el catálogo;
 - borrar, bloquear, denunciar, cambiar la contraseña y cerrar la cuenta quedan fuera del
   catálogo: el agente puede llevar al usuario a esa pantalla, pero la acción la hace él.
+
+Qué decide el modelo y qué la persona, los límites con sus valores, qué datos salen del teléfono
+y los sesgos y riesgos medidos están en
+[`USO-RESPONSABLE.md`](https://github.com/tds-g3-2s2026/udesa-x-assistant-api/blob/main/docs/USO-RESPONSABLE.md)
+de `udesa-x-assistant-api` (`AI-07`).
 
 ## Decisiones de arquitectura
 
