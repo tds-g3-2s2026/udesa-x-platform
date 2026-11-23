@@ -12,7 +12,7 @@ raíces de RDS (`rds-ca-us-east-2.pem`, en esta carpeta): con el bundle del
 sistema, asyncpg rechaza el certificado (ADR-021). El rol
 necesita permisos de inserción, actualización de contadores y creación de tablas temporales.
 
-Por defecto se carga el 1% del volumen objetivo. Desde la raíz de platform:
+Por defecto se carga el 10% del volumen objetivo. Desde la raíz de platform:
 
 ```bash
 uv run scripts/seed/seed.py \
@@ -21,8 +21,8 @@ uv run scripts/seed/seed.py \
   --retweets 1000 --deleted-posts 100
 ```
 
-Para el volumen completo, pasar `--users 10000 --follows 500000 --posts 200000
---replies 200000 --likes 700000 --retweets 100000 --deleted-posts 10000`.
+Para el volumen completo, pasar `--users 1000 --follows 50000 --posts 20000
+--replies 20000 --likes 70000 --retweets 10000 --deleted-posts 1000`.
 
 Los volúmenes son independientes. `--posts` cuenta originales: 2.000 originales
 más 2.000 respuestas producen 4.000 filas en `posts`. Likes, respuestas y retweets
