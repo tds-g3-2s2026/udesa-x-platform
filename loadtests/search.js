@@ -12,7 +12,7 @@ import {
   summaryOf,
 } from "./lib.js";
 
-const config = readConfig(100);
+const config = readConfig(10);
 const terms = JSON.parse(open("./search-terms.json"));
 
 const searchDuration = new Trend("search_duration", true);

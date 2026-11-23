@@ -13,7 +13,7 @@ import {
   summaryOf,
 } from "./lib.js";
 
-const config = readConfig(100);
+const config = readConfig(10);
 const thinkSeconds = positiveInteger("THINK_SECONDS", 10);
 // posts-api caps the posts per account and hour; a run past the cap measures 429s.
 const postsPerHour = positiveInteger("POST_RATE_LIMIT", 30);

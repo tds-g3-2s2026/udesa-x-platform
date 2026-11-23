@@ -20,7 +20,7 @@ on:
         options: [todos, login, feed, search, profile, create-post]
         default: todos
       seed_users:
-        description: "Cuentas del seed disponibles. Debe alcanzar para la concurrencia del flujo (200 en feed y perfil)."
+        description: "Cuentas del seed disponibles. Debe alcanzar para la concurrencia del flujo (20 en feed y perfil)."
         required: true
         default: "200"
       seed:
