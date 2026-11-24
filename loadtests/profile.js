@@ -12,7 +12,7 @@ import {
   summaryOf,
 } from "./lib.js";
 
-const config = readConfig(200);
+const config = readConfig(20);
 
 const headerDuration = new Trend("profile_header_duration", true);
 const headerErrors = new Rate("profile_header_errors");

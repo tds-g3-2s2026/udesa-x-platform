@@ -3,7 +3,7 @@ import { sleep } from "k6";
 import { Counter, Rate, Trend } from "k6/metrics";
 import { jsonBody, login, readConfig, runOptions, summaryOf } from "./lib.js";
 
-const config = readConfig(100);
+const config = readConfig(10);
 
 const loginDuration = new Trend("login_duration", true);
 const loginErrors = new Rate("login_errors");

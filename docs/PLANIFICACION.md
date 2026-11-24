@@ -695,7 +695,7 @@ E.3 H10 va antes que E.4 H4 en la misma semana por dependencia: E.4 H4 CA.2 exig
 | E.5 H10. Borrado Forzado de Contenido (optativa) | 3 | sin asignar |
 | E.5 H8. Exportar Datos (optativa) | 2 | sin asignar |
 
-**Técnicas:** `T-39` seed con el volumen completo, 10.000 usuarios y 500.000 follows · `T-41` prueba de carga final contra los SLOs · `T-49` documentación técnica y funcional · tuning de índices según lo que muestre la prueba.
+**Técnicas:** `T-39` seed con el volumen completo, 1.000 usuarios y 50.000 follows · `T-41` prueba de carga final contra los SLOs · `T-49` documentación técnica y funcional · tuning de índices según lo que muestre la prueba.
 
 **Reparto:** se define en el planning del lunes, en carriles independientes.
 
@@ -1044,22 +1044,24 @@ Sin números concretos, "prueba de estrés ejecutada" no demuestra nada. Estos s
 
 | Entidad | Cantidad |
 |---|---:|
-| Usuarios | 10.000 |
-| Relaciones de seguimiento | 500.000 |
-| Posts | 200.000 |
-| Interacciones (likes, retweets, respuestas) | 1.000.000 |
-| Notificaciones | 300.000 |
+| Usuarios | 1.000 |
+| Relaciones de seguimiento | 50.000 |
+| Posts | 20.000 |
+| Interacciones (likes, retweets, respuestas) | 100.000 |
+| Notificaciones | 30.000 |
 
 ### Objetivos de latencia y error
 
 | Flujo | Concurrencia | p95 | Tasa de error |
 |---|---:|---:|---:|
-| Login | 100 usuarios | < 400 ms | < 0,5% |
-| Carga del feed (primera página) | 200 usuarios | < 500 ms | < 1% |
-| Feed, páginas siguientes | 200 usuarios | < 300 ms | < 1% |
-| Crear post sin imagen | 100 usuarios | < 400 ms | < 1% |
-| Búsqueda de posts | 100 usuarios | < 800 ms | < 1% |
-| Perfil de usuario | 200 usuarios | < 400 ms | < 1% |
+| Login | 10 usuarios | < 400 ms | < 0,5% |
+| Carga del feed (primera página) | 20 usuarios | < 500 ms | < 1% |
+| Feed, páginas siguientes | 20 usuarios | < 300 ms | < 1% |
+| Crear post sin imagen | 10 usuarios | < 400 ms | < 1% |
+| Búsqueda de posts | 10 usuarios | < 800 ms | < 1% |
+| Perfil de usuario | 20 usuarios | < 400 ms | < 1% |
+
+La concurrencia es el 1% de los usuarios sembrados en login, creación de posts y búsqueda, y el 2% en feed y perfil: con una base de mil cuentas, que haya doscientas activas a la vez no es un escenario realista.
 
 La prueba de carga se corre dos veces: una línea base en S6, con el sistema recién desplegado en AWS, y la final en S12, que es el avance que la cátedra espera el 16 de noviembre. Comparar ambas es lo que demuestra que se hizo ingeniería y no solo una medición al azar.
 

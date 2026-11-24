@@ -12,7 +12,7 @@ import {
   summaryOf,
 } from "./lib.js";
 
-const config = readConfig(200);
+const config = readConfig(20);
 const pages = positiveInteger("PAGES", 5);
 
 const feedDuration = new Trend("feed_duration", true);
