@@ -49,7 +49,7 @@ que hace la app, corregila. Una historia pendiente la carga quien la cierra, en 
 | E2-H6. Like a un Post | Obligatoria | 2 | S8 | @FedeTrejo | Cargada |
 | E2-H7. Post con Imagen | Obligatoria | 5 | S9 | @FedeTrejo | Cargada |
 | E2-H8. Hashtags | Optativa | 3 | S11 | @varbelaiz | Pendiente |
-| E2-H9. Menciones a Usuarios | Optativa | 3 | S12 | @jleonalderete | Pendiente |
+| E2-H9. Menciones a Usuarios | Optativa | 3 | S12 | @jleonalderete | Cargada |
 | E2-H10. Búsqueda de Posts y Usuarios | Obligatoria | 5 | S10 | @varbelaiz | Cargada |
 | E2-H11. Trending Topics | Optativa | 3 | S12 | @varbelaiz | Pendiente |
 | E2-H12. Guardar Posts | Optativa | 3 | S12 | @varbelaiz | Pendiente |
@@ -69,7 +69,7 @@ que hace la app, corregila. Una historia pendiente la carga quien la cierra, en 
 | E4-H1. Recibir notificaciones de nuevo seguidor | Obligatoria | 2 | S10 | @jleonalderete | Cargada |
 | E4-H2. Notificación de interacción | Obligatoria | 2 | S11 | @jleonalderete | Pendiente |
 | E4-H3. Centro de Notificaciones In-App | Obligatoria | 3 | S10 | @FedeTrejo | Cargada |
-| E4-H4. Notificación de mención | Optativa | 5 | S12 | @jleonalderete | Pendiente |
+| E4-H4. Notificación de mención | Optativa | 5 | S12 | @jleonalderete | Cargada |
 | E4-H5. Configurar Preferencias de Notificación | Optativa | 3 | S11 | @jleonalderete | Pendiente |
 | E5-H1. Creación de Administradores | Obligatoria | 5 | S4 | @jleonalderete | Cargada |
 | E5-H2. Inicio de Sesión como Administrador | Obligatoria | 2 | S3 | @jleonalderete | Cargada |
@@ -396,11 +396,13 @@ Optativa · 3 puntos · S11 · Dueño: @varbelaiz
 
 Optativa · 3 puntos · S12 · Dueño: @jleonalderete
 
+Permite nombrar a otra cuenta con su `@handle` en un post o una respuesta: el handle se vuelve un link a su perfil y esa cuenta recibe un aviso.
+
 | Criterio | Pantalla | Qué ve el usuario |
 |---|---|---|
-| CA.1 |  |  |
-| CA.2 |  |  |
-| CA.3 |  |  |
+| CA.1 | Inicio, perfil de un usuario, detalle de post | Cada `@handle` de una cuenta que existe se ve como link, y al tocarlo abre su perfil. Vale en posts y respuestas, sin distinguir mayúsculas. La `@` tiene que empezar la palabra: `ana@udesa.edu.ar` no menciona a nadie. Se pueden mencionar hasta 10 cuentas distintas por post; con más, no se publica y aparece "El post no puede mencionar a más de 10 cuentas". |
+| CA.2 | Inicio, perfil de un usuario, detalle de post | Un `@handle` que no es de ninguna cuenta, o que es de una cuenta dada de baja, queda como texto común, sin link. |
+| CA.3 | Notificación del celular; Notificaciones | La cuenta mencionada recibe la entrada en Notificaciones y, si tiene prendidas las menciones en Perfil > Configuración > Notificaciones, también el push. Lo entrega E4-H4. Mencionarse a uno mismo se ve como link pero no avisa. |
 
 ### E2-H10. Búsqueda de Posts y Usuarios
 
@@ -593,11 +595,13 @@ Junta las notificaciones de la cuenta en una pestaña.
 
 Optativa · 5 puntos · S12 · Dueño: @jleonalderete
 
+Avisa con un push cuando otra cuenta te menciona en un post o una respuesta. Solo en Android.
+
 | Criterio | Pantalla | Qué ve el usuario |
 |---|---|---|
-| CA.1 |  |  |
-| CA.2 |  |  |
-| CA.3 |  |  |
+| CA.1 | Notificación del celular | El push dice "Nueva mención" y "@autor te mencionó:" seguido del comienzo del post, hasta 100 caracteres contando el "…" y sin cortar palabras. Al tocarlo se abre el post, o la respuesta si la mención estaba ahí. En Notificaciones la entrada dice "@autor te mencionó", sin el texto del post, y también abre el post. |
+| CA.2 | Sin pantalla (backend) | Si silenciaste al autor (Perfil de un usuario > Silenciar), no llega el push ni la entrada en Notificaciones. Tampoco llegan si hay un bloqueo entre las dos cuentas, o si el autor es protegido y no lo seguís: el aviso mostraría un post que no podés leer. |
+| CA.3 | Sin pantalla (backend) | Del mismo autor y en el mismo hilo avisa solo la primera mención; las siguientes en ese hilo no llegan, sin vencimiento. Una mención en otro hilo, o de otro autor, sí avisa. |
 
 ### E4-H5. Configurar Preferencias de Notificación
 
