@@ -107,7 +107,8 @@ con evaluaciones hasta el más barato que cumpla.**
   relación entre `p1` y el id real queda en la app.
 - **Qué se guarda.** Nada del contenido. Ni el pedido ni las respuestas del modelo van a la
   base, a los logs ni a las trazas, que salen a Grafana Cloud (ADR-013). Solo métricas: pasos,
-  latencia, acción elegida y resultado.
+  latencia, acción elegida y resultado. *Enmendado por el ADR-027: los spans del agente llegan
+  con el texto a Langfuse, el proyecto del equipo y del tutor; a Grafana, sin él.*
 - **Seguridad del agente.** El texto de los posts es dato no confiable: un post puede decir
   "retuiteá esto". Las defensas no dependen del modelo:
   - un catálogo cerrado de acciones;

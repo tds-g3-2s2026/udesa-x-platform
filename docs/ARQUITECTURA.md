@@ -41,7 +41,7 @@ El criterio que gobierna el documento: **elegir lo más simple que cumpla el req
 | Testing unitario, integración y estrés      | Sección "Estrategia de pruebas"                                           |
 | Cobertura mínima del 85% ejecutada en CI    | Gate en el workflow de cada repo. Backend desde S3, clientes desde S5     |
 | Pipeline de CD con GitHub Actions           | Build, push al registry y `kubectl apply` por servicio                    |
-| Observabilidad con métricas, logs y trazas  | OpenTelemetry hacia Grafana Cloud                                         |
+| Observabilidad con métricas, logs y trazas  | OpenTelemetry hacia Grafana Cloud; el asistente, también a Langfuse       |
 | Rate limiting en al menos un microservicio  | `users-api`, `posts-api` y `assistant-api`, por usuario. No hay límite por IP en la entrada (ver "Seguridad") |
 | Al menos una cola entre dos microservicios  | RabbitMQ, `posts-api` y `users-api` publican, `notifications-api` consume |
 | Buena experiencia de usuario                | Sistema de diseño compartido, revisión de UX en S13                       |
@@ -1101,7 +1101,7 @@ sequenceDiagram
 | Datos enviados | El pedido en texto y los posts visibles con referencias cortas. Nunca ids, emails, tokens ni audio             |
 | Credenciales   | Un rol de IAM que asume el pod con su token, igual que S3 en `posts-api`. Sin claves en el repo                |
 | Topes          | Hasta 8 llamadas por pedido, tiempo límite por llamada y rate limit por usuario                                |
-| Retención      | Nada del contenido se guarda ni va a logs o trazas. Solo métricas de pasos, latencia y resultado               |
+| Retención      | Nada del contenido se guarda ni va a logs. A Grafana, solo números; a Langfuse, los pasos con su texto (ADR-027) |
 | Costo estimado | Menos de USD 9 para el proyecto entero con cualquiera de los candidatos                                        |
 | Si falla       | El asistente avisa que no pudo y la app sigue funcionando sin él                                               |
 | Evaluaciones   | Los 30 pedidos guionados en `evals/`, también contra producción (30 de 30 el 22/11, `SPIKE-IA.md`), tests con un modelo falso en cada PR y un playground |
