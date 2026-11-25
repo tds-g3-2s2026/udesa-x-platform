@@ -31,6 +31,7 @@ escribe una nueva que reemplaza a la anterior y se anota acá.
 | [ADR-024](./ADR-024-deteccion-de-idioma-con-lingua.md) | `lingua-language-detector` para detectar el idioma de los posts | 2026-11-05 | Aceptada |
 | [ADR-025](./ADR-025-graficos-del-backoffice-con-mantine-charts.md) | `@mantine/charts` para los gráficos del backoffice | 2026-11-15 | Aceptada |
 | [ADR-026](./ADR-026-voz-en-la-app-con-expo.md) | `expo-speech-recognition` y `expo-speech` para la voz en la app | 2026-11-19 | Aceptada |
+| [ADR-027](./ADR-027-langfuse-para-el-asistente.md) | Langfuse Cloud para las trazas del asistente por voz | 2026-11-25 | Aceptada. Enmienda la retención del ADR-023 |
 
 Solo se registran decisiones ya tomadas y que el equipo pueda justificar, numeradas en el
 orden en que se toman. Lo que todavía está por definirse vive como decisión abierta `Dxx` en
@@ -100,5 +101,9 @@ Lo pide `E5-H3 CA.2`.
 
 La voz en la app quedó registrada en el ADR-026: el reconocedor y la síntesis del sistema, con
 lo que el audio nunca llega a `assistant-api`, como fija el ADR-023. Lo pide `AI-05`.
+
+Las trazas del asistente en Langfuse quedaron registradas en el ADR-027: los spans del agente
+van con el texto al proyecto del equipo y del tutor, y a Grafana sin él. Lo pide la entrega
+final.
 
 La [búsqueda literal y el estado de consultas en mobile](./busqueda-literal-y-cache-mobile.md) fijan la coincidencia, los límites de cada servicio y la gestión de caché por sesión.
