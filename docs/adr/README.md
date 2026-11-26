@@ -32,6 +32,7 @@ escribe una nueva que reemplaza a la anterior y se anota acá.
 | [ADR-025](./ADR-025-graficos-del-backoffice-con-mantine-charts.md) | `@mantine/charts` para los gráficos del backoffice | 2026-11-15 | Aceptada |
 | [ADR-026](./ADR-026-voz-en-la-app-con-expo.md) | `expo-speech-recognition` y `expo-speech` para la voz en la app | 2026-11-19 | Aceptada |
 | [ADR-027](./ADR-027-langfuse-para-el-asistente.md) | Langfuse Cloud para las trazas del asistente por voz | 2026-11-25 | Aceptada. Enmienda la retención del ADR-023 |
+| [ADR-028](./ADR-028-estado-sin-conexion-en-mobile.md) | `@react-native-community/netinfo` para el estado sin conexión en mobile | 2026-11-26 | Propuesta |
 
 Solo se registran decisiones ya tomadas y que el equipo pueda justificar, numeradas en el
 orden en que se toman. Lo que todavía está por definirse vive como decisión abierta `Dxx` en
@@ -105,5 +106,9 @@ lo que el audio nunca llega a `assistant-api`, como fija el ADR-023. Lo pide `AI
 Las trazas del asistente en Langfuse quedaron registradas en el ADR-027: los spans del agente
 van con el texto al proyecto del equipo y del tutor, y a Grafana sin él. Lo pide la entrega
 final.
+
+El estado sin conexión en mobile quedó registrado en el ADR-028: NetInfo alimenta a
+`onlineManager` de React Query, y las escrituras sin red se bloquean en vez de encolarse. Lo pide
+`T-57`.
 
 La [búsqueda literal y el estado de consultas en mobile](./busqueda-literal-y-cache-mobile.md) fijan la coincidencia, los límites de cada servicio y la gestión de caché por sesión.
