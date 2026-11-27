@@ -722,7 +722,7 @@ Optativa · 3 puntos · S12 · Dueño: @tommycass
 
 Optativa · 5 puntos · S7 · Dueño: @varbelaiz
 
-Muestra si los servicios están en línea. Lista `users-api`, `posts-api` y `api-gateway`: `notifications-api` todavía no está.
+Muestra si los servicios están en línea. Lista los cinco: `users-api`, `posts-api`, `notifications-api`, `assistant-api` y `api-gateway`. El dashboard cuenta los mismos cinco en "Microservices".
 
 | Criterio | Pantalla | Qué ve el usuario |
 |---|---|---|

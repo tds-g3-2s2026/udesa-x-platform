@@ -423,7 +423,7 @@ REST sobre HTTP con JSON, solo cuando la respuesta se necesita dentro del reques
 - `posts-api` a `users-api` para poner una cuenta en revisión cuando junta denuncias de 6 cuentas distintas (`E3-H5`). Va a una ruta interna fuera de `/api` con el header `X-Internal-Token`; ver el ADR-011.
 - `posts-api` a `users-api` para levantar esa revisión cuando el backoffice descarta o resuelve el caso (`E5-H7`). Misma ruta interna con `DELETE` y el mismo header; ver el ADR-020.
 - `users-api` a `posts-api` para consultar bloqueos por lote al buscar cuentas.
-- `backoffice` a los healthchecks de `users-api` y `posts-api`, para E5-H11. Pasa por el Gateway: `/api/health/<servicio>` se traduce al `/healthcheck` de cada uno, que vive fuera de `/api` y no se alcanza desde afuera del cluster.
+- `backoffice` a los healthchecks de `users-api`, `posts-api`, `notifications-api` y `assistant-api`, para E5-H11. Pasa por el Gateway: `/api/health/<servicio>` se traduce al `/healthcheck` de cada uno, que vive fuera de `/api` y no se alcanza desde afuera del cluster.
 
 Toda llamada sincrónica entre servicios lleva un timeout de 2 segundos y un reintento, con comportamiento definido ante fallo del destino. En Kubernetes esto se apoya en los probes: un servicio sin `readinessProbe` en verde no recibe tráfico.
 
