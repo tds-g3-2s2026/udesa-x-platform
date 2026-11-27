@@ -21,8 +21,8 @@ solicitados a la DLQ, no su inventario actual.
 
 Primero exportar desde la cuenta existente los dashboards, las fuentes de datos y las
 reglas que se van a modificar. Conservar sus UIDs, los chequeos de Synthetic Monitoring,
-el contact point de email y la política de notificación. El dashboard permite seleccionar
-los jobs reales de los chequeos de salud; no presupone sus nombres ni reemplaza sus alertas.
+el contact point de email y la política de notificación. La disponibilidad externa se mide
+sobre los jobs registrados en Synthetic Monitoring.
 
 Con los UIDs reales de las tres fuentes de datos, una carpeta existente y el nombre del
 contact point existente, generar payloads revisables:
