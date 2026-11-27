@@ -503,6 +503,12 @@ compatible con la versión anterior durante el rolling update. Volver a una imag
 **no** revierte el esquema de la base.
 No usar `alembic stamp` para adoptar una base existente sin verificar su esquema.
 
+Desde que `users-api` empieza a escribir hashes de costo reducido, cada versión
+que atienda login debe igualar el trabajo de los intentos fallidos con ambos perfiles.
+Si la versión anterior solo contempla un perfil, publicar primero una versión compatible
+que siga escribiendo el perfil anterior. Usar una versión compatible también para un
+rollback, porque los hashes ya actualizados quedan en la base.
+
 Los clientes deben usar `https://tds-group-3.tds-linar.udesa.edu.ar/api` como base, sin `/v1`,
 también para posts; los defaults locales antiguos no son configuración de producción. Si el
 backoffice se sirve desde otro origen, configurar `CORS_ALLOWED_ORIGINS` en users con ese origen real.
