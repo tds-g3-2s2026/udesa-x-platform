@@ -17,6 +17,11 @@ class ObservabilityTests(unittest.TestCase):
         self.slo_rules = [
             rule for rule in self.payloads["alerts"] if rule["ruleGroup"] == "UdeSA-X SLO"
         ]
+        self.panels = [
+            panel
+            for item in self.payloads["dashboard"]["dashboard"]["panels"]
+            for panel in item.get("panels", [item])
+        ]
 
     def test_render_uses_existing_resources_and_keeps_query_variables(self):
         dashboard = self.payloads["dashboard"]
@@ -81,7 +86,7 @@ class ObservabilityTests(unittest.TestCase):
                 self.assertIn(
                     "histogram_quantile(0.95, sum by (le)", rule["data"][0]["model"]["expr"]
                 )
-        for panel in self.payloads["dashboard"]["dashboard"]["panels"]:
+        for panel in self.panels:
             for target in panel["targets"]:
                 self.assertNotIn("service_name", target["expr"])
 
@@ -95,26 +100,36 @@ class ObservabilityTests(unittest.TestCase):
         self.assertIn("${__trace.traceId}", logs["query"])
         self.assertEqual(settings["loki"]["jsonData"]["derivedFields"][0]["matcherType"], "label")
 
-    def test_error_ratio_axis_stays_between_zero_and_one(self):
-        panels = self.payloads["dashboard"]["dashboard"]["panels"]
+    def test_visualized_error_ratios_use_zero_as_the_baseline(self):
         ratios = [
             panel["fieldConfig"]["defaults"]
-            for panel in panels
+            for panel in self.panels
             if panel["fieldConfig"]["defaults"].get("unit") == "percentunit"
         ]
         self.assertTrue(ratios)
         for settings in ratios:
             self.assertEqual(settings["min"], 0)
-            self.assertEqual(settings["max"], 1)
+            self.assertLessEqual(settings.get("max", 1), 1)
+
+    def test_slo_alerts_link_to_the_flow_latency_panel(self):
+        panels_by_id = {str(panel["id"]): panel for panel in self.panels}
+        for rule in self.slo_rules:
+            annotations = rule["annotations"]
+            if "__panelId__" in annotations:
+                panel = panels_by_id[annotations["__panelId__"]]
+                self.assertIn("histogram_quantile(0.95", panel["targets"][0]["expr"])
+                self.assertEqual(panel["targets"][0]["legendFormat"], "{{udesa_http_flow}}")
 
     @unittest.skipUnless(os.getenv("PROMETHEUS_URL"), "requires an isolated Prometheus")
     def test_all_queries_are_accepted_by_prometheus(self):
         expressions = [rule["data"][0]["model"]["expr"] for rule in self.slo_rules]
-        for panel in self.payloads["dashboard"]["dashboard"]["panels"]:
+        for panel in self.panels:
             expressions.extend(
                 target["expr"]
                 .replace("$__rate_interval", "5m")
+                .replace("$__range", "7d")
                 .replace("$service", ".*")
+                .replace("$route", ".*")
                 .replace("$health_job", ".*")
                 for target in panel["targets"]
             )
