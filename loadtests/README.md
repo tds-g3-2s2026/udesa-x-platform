@@ -56,8 +56,11 @@ docker run --rm --user "$(id -u):$(id -g)" \
 
 ## Qué mide cada flujo
 
-- **Login:** cada iteración inicia sesión con una cuenta distinta, recorriendo las del
-  seed, así que incluye el hash de la contraseña.
+- **Login:** k6 inicia sesión una vez con cada cuenta antes de medir. El servicio
+  actualiza los hashes anteriores en esa preparación. El JSON registra esos primeros
+  ingresos en `preparation_duration`.
+  Durante la carga cada usuario virtual sigue con la misma cuenta. El umbral se
+  aplica a `duration`, que mide ese login habitual. Se puede reutilizar la semilla.
 - **Feed:** `PAGES` limita las páginas consecutivas por iteración (predeterminado: 5);
   cada iteración vuelve a la primera página. La primera página y las siguientes tienen
   umbrales propios. El cursor opaco se envía como `cursor` y la respuesta debe incluir
@@ -94,8 +97,9 @@ corrida.
 - `duration`: latencia con p50 y p95 en ms. El feed la separa en `first_page_duration` y
   `next_page_duration`, y el perfil en `header_*` y `posts_*`.
 
-Estas métricas excluyen login y lecturas de preparación (salvo en el flujo de login). Las
-métricas HTTP generales de k6 sí los incluyen. Cada script falla con código 99 si algún
+El p95 y la tasa de errores de cada flujo corresponden a la carga medida. En el flujo de
+login, `preparation_duration` registra por separado los ingresos de preparación. Las
+métricas HTTP generales de k6 incluyen ambas fases. Cada script falla con código 99 si algún
 umbral de su flujo se cruza, y el JSON se escribe igual. Si faltan muestras o hay
 iteraciones interrumpidas, conservar esa limitación al interpretar el resultado: una
 preparación fallida no constituye una medición. El informe va en

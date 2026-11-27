@@ -19,16 +19,19 @@ def run_flow(script, mode="ok", **overrides):
     JSON body of a POST or the parsed query of a GET.
     """
     requests = []
+    prepared_accounts = set()
 
     class Handler(JsonHandler):
         def do_POST(self):
             body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
             requests.append(("POST", self.path, self.headers.get("Authorization"), body))
             if self.path == "/api/auth/login":
-                if mode == "bad_login":
+                account = body["identifier"]
+                if mode == "bad_setup" or (mode == "bad_login" and account in prepared_accounts):
                     self.respond(401, {})
                 else:
-                    self.respond(200, {"access_token": body["identifier"], "expires_in": 900})
+                    prepared_accounts.add(account)
+                    self.respond(200, {"access_token": account, "expires_in": 900})
             elif mode == "rate_limited":
                 self.respond(429, {})
             else:
@@ -61,16 +64,16 @@ def paths(requests, method, path):
 
 
 class LoginTests(unittest.TestCase):
-    def test_every_iteration_logs_in_a_seed_account_and_is_measured(self):
+    def test_steady_login_reuses_prewarmed_accounts_and_excludes_setup(self):
         result, summary, requests = run_flow(
             "login.js", SEED_USERS="3", DURATION_SECONDS="2"
         )
         logins = paths(requests, "POST", "/api/auth/login")
         accounts = {body["identifier"] for _, _, _, body in logins}
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertLessEqual(accounts, {f"seed.42.{i:010d}@example.com" for i in range(3)})
-        self.assertGreaterEqual(len(accounts), 2)
-        self.assertEqual(summary["requests"]["count"], len(logins))
+        self.assertEqual(accounts, {f"seed.42.{i:010d}@example.com" for i in range(2)})
+        self.assertEqual(summary["requests"]["count"], len(logins) - 2)
+        self.assertIn("p(95)", summary["preparation_duration"])
         self.assertEqual(summary["errors"]["rate"], 0)
         self.assertIn("p(95)", summary["duration"])
 
@@ -78,6 +81,17 @@ class LoginTests(unittest.TestCase):
         result, summary, _ = run_flow("login.js", "bad_login")
         self.assertEqual(result.returncode, THRESHOLD_CROSSED)
         self.assertEqual(summary["errors"]["rate"], 1)
+
+    def test_too_few_accounts_stops_before_any_login(self):
+        result, _, requests = run_flow("login.js", SEED_USERS="1", VUS="2")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(requests, [])
+
+    def test_login_aborts_load_when_account_preparation_fails(self):
+        result, _, requests = run_flow("login.js", "bad_setup")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("No se pudo preparar el login", result.stderr)
+        self.assertEqual(len(paths(requests, "POST", "/api/auth/login")), 1)
 
 
 class CreatePostTests(unittest.TestCase):
