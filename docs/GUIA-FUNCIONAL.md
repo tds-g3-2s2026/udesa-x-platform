@@ -67,7 +67,7 @@ que hace la app, corregila. Una historia pendiente la carga quien la cierra, en 
 | E3-H9. Invitar Usuarios Externos | Optativa | 2 | S11 | @varbelaiz | Pendiente |
 | E3-H10. Silenciar Usuario | Optativa | 5 | S10 | @tommycass | Cargada |
 | E4-H1. Recibir notificaciones de nuevo seguidor | Obligatoria | 2 | S10 | @jleonalderete | Cargada |
-| E4-H2. Notificación de interacción | Obligatoria | 2 | S11 | @jleonalderete | Pendiente |
+| E4-H2. Notificación de interacción | Obligatoria | 2 | S11 | @jleonalderete | Cargada |
 | E4-H3. Centro de Notificaciones In-App | Obligatoria | 3 | S10 | @FedeTrejo | Cargada |
 | E4-H4. Notificación de mención | Optativa | 5 | S12 | @jleonalderete | Pendiente |
 | E4-H5. Configurar Preferencias de Notificación | Optativa | 3 | S11 | @jleonalderete | Pendiente |
@@ -548,7 +548,7 @@ Permite dejar de ver a una cuenta sin dejar de seguirla.
 | CA.1 | Perfil de un usuario > Silenciar | La cuenta no se entera. El aviso de confirmación lo aclara. |
 | CA.2 | Inicio; perfil de un usuario | Sus posts salen del feed y siguen visibles en su perfil. |
 | CA.3 | Perfil > Configuración > Cuentas silenciadas | Lista las cuentas silenciadas y permite dejar de silenciarlas. |
-| CA.4 | Sin pantalla (backend) | Si te sigue una cuenta silenciada, no se genera el aviso. Los avisos de likes, respuestas y retweets todavía no existen (E4-H2). |
+| CA.4 | Sin pantalla (backend) | Si te sigue una cuenta silenciada, no se genera el aviso. Tampoco cuando le da me gusta, retweetea, responde o cita un post tuyo (E4-H2). |
 | CA.5 | Inicio | Sus retweets también salen del feed. |
 
 ## App: notificaciones
@@ -570,10 +570,13 @@ Avisa con un push cuando alguien te empieza a seguir. Solo en Android.
 
 Obligatoria · 2 puntos · S11 · Dueño: @jleonalderete
 
+Avisa con un push cuando alguien le da me gusta, retweetea, responde o cita uno de tus posts. Solo
+en Android.
+
 | Criterio | Pantalla | Qué ve el usuario |
 |---|---|---|
-| CA.1 |  |  |
-| CA.2 |  |  |
+| CA.1 | Notificación del celular; Notificaciones | El push dice "Nuevo me gusta", "Nuevo retweet", "Nueva respuesta" o "Nueva cita", con el texto "@usuario le dio me gusta a tu publicación", "retuiteó", "respondió" o "citó tu publicación". La fila de la pestaña Notificaciones dice lo mismo. No hay aviso por lo que hacés en tus propios posts. |
+| CA.2 | Notificación del celular > Post | Al tocarla, con la app cerrada o en segundo plano, se abre el post que recibió la interacción: en una respuesta, el post respondido; en una cita, la cita, que muestra el comentario con tu post adentro. Si el post ya no existe, la pantalla dice "Publicación no disponible". |
 
 ### E4-H3. Centro de Notificaciones In-App
 
