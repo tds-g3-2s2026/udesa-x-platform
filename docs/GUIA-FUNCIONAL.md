@@ -5,25 +5,16 @@ y qué pantalla cubre cada criterio de aceptación. Los criterios completos est�
 [`CONSIGNA.md`](./CONSIGNA.md). Cómo está construido cada servicio está en
 [`ARQUITECTURA.md`](./ARQUITECTURA.md).
 
-## Cómo cargar una historia
+## Cómo leer esta guía
 
-Las historias cerradas ya están cargadas, a partir del código de `main`. Si tu historia no dice lo
-que hace la app, corregila. Una historia pendiente la carga quien la cierra, en el mismo PR:
-
-1. Completá una fila por criterio, mirando la pantalla real y no lo que decía la issue.
-2. En "Pantalla", poné cómo se llega: `Perfil > Editar perfil`. Si el criterio no tiene pantalla,
-   poné `Sin pantalla (backend)` y contá qué nota el usuario.
-3. En "Qué ve el usuario", usá los textos que aparecen en la app y evitá los nombres de código.
-4. Si algo no cumple el criterio o se resolvió distinto, decilo en esa fila.
-5. Agregá arriba de la tabla una frase que diga qué permite la historia, y cambiá el estado en
-   la tabla de seguimiento.
+Cada historia tiene una fila por criterio de aceptación. "Pantalla" dice cómo se llega, por
+ejemplo `Perfil > Editar perfil`, o `Sin pantalla (backend)` cuando el criterio se cumple en la
+API. "Qué ve el usuario" usa los textos que aparecen en la app y en el backoffice.
 
 ## Seguimiento
 
-- **Cargada:** ya está en esta guía.
-- **Pendiente:** todavía no está cerrada, y la carga quien la cierre.
+- **Cargada:** la historia está entregada y descrita en esta guía.
 - **Fuera de alcance:** optativa que el plan dejó afuera (`PLANIFICACION.md`).
-- **Sin issue:** optativa del catálogo que todavía no tiene issue ni dueño.
 
 | Historia | Tipo | Puntos | Sprint | Dueño | Estado |
 |---|---|---:|---|---|---|
@@ -37,10 +28,10 @@ que hace la app, corregila. Una historia pendiente la carga quien la cierra, en 
 | E1-H8. Foto de Perfil | Optativa | 3 | S10 | @FedeTrejo | Cargada |
 | E1-H9. Social Login | Optativa | 5 | - | - | Fuera de alcance |
 | E1-H10. Tema de la Aplicación | Optativa | 1 | S4 | @FedeTrejo | Cargada |
-| E1-H11. Enviar Feedback o Reportar Error | Optativa | 3 | S11 | @FedeTrejo | Pendiente |
+| E1-H11. Enviar Feedback o Reportar Error | Optativa | 3 | S11 | @FedeTrejo | Cargada |
 | E1-H12. Aceptación de Términos y Política de Privacidad | Obligatoria | 1 | S2 | @FedeTrejo | Cargada |
 | E1-H13. Cambiar Contraseña | Optativa | 3 | S3 | @FedeTrejo | Cargada |
-| E1-H14. Onboarding Inicial | Optativa | 3 | S12 | @FedeTrejo | Pendiente |
+| E1-H14. Onboarding Inicial | Optativa | 3 | S12 | @FedeTrejo | Cargada |
 | E2-H1. Crear Post | Obligatoria | 3 | S6 | @FedeTrejo | Cargada |
 | E2-H2. Feed Principal | Obligatoria | 3 | S6 | @FedeTrejo | Cargada |
 | E2-H3. Eliminar Post | Obligatoria | 2 | S8 | @varbelaiz | Cargada |
@@ -48,12 +39,12 @@ que hace la app, corregila. Una historia pendiente la carga quien la cierra, en 
 | E2-H5. Retweet / Repost | Obligatoria | 2 | S8 | @varbelaiz | Cargada |
 | E2-H6. Like a un Post | Obligatoria | 2 | S8 | @FedeTrejo | Cargada |
 | E2-H7. Post con Imagen | Obligatoria | 5 | S9 | @FedeTrejo | Cargada |
-| E2-H8. Hashtags | Optativa | 3 | S11 | @varbelaiz | Pendiente |
-| E2-H9. Menciones a Usuarios | Optativa | 3 | S12 | @jleonalderete | Pendiente |
+| E2-H8. Hashtags | Optativa | 3 | S11 | @varbelaiz | Cargada |
+| E2-H9. Menciones a Usuarios | Optativa | 3 | S12 | @jleonalderete | Cargada |
 | E2-H10. Búsqueda de Posts y Usuarios | Obligatoria | 5 | S10 | @varbelaiz | Cargada |
-| E2-H11. Trending Topics | Optativa | 3 | S12 | @varbelaiz | Pendiente |
-| E2-H12. Guardar Posts | Optativa | 3 | S12 | @varbelaiz | Pendiente |
-| E2-H13. Citar Post | Optativa | 5 | - | - | Sin issue |
+| E2-H11. Trending Topics | Optativa | 3 | S12 | @varbelaiz | Cargada |
+| E2-H12. Guardar Posts | Optativa | 3 | S12 | @varbelaiz | Cargada |
+| E2-H13. Citar Post | Optativa | 5 | S13 | @tommycass | Cargada |
 | E2-H14. Visualización de Perfil de Usuario | Obligatoria | 3 | S9 | @tommycass | Cargada |
 | E2-H15. Post con Video | Optativa | 5 | - | - | Fuera de alcance |
 | E3-H1. Seguir a un Usuario | Obligatoria | 5 | S5 | @tommycass | Cargada |
@@ -62,27 +53,27 @@ que hace la app, corregila. Una historia pendiente la carga quien la cierra, en 
 | E3-H4. Bloquear Usuario | Obligatoria | 2 | S6 | @tommycass | Cargada |
 | E3-H5. Denunciar Usuario | Obligatoria | 2 | S6 | @jleonalderete | Cargada |
 | E3-H6. Mensajes Directos | Optativa | 8 | - | - | Fuera de alcance |
-| E3-H7. Usuarios en Línea | Optativa | 3 | - | - | Sin issue |
-| E3-H8. Listas Personalizadas | Optativa | 3 | S12 | @tommycass | Pendiente |
-| E3-H9. Invitar Usuarios Externos | Optativa | 2 | S11 | @varbelaiz | Pendiente |
+| E3-H7. Usuarios en Línea | Optativa | 3 | - | - | Fuera de alcance |
+| E3-H8. Listas Personalizadas | Optativa | 3 | S12 | @tommycass | Cargada |
+| E3-H9. Invitar Usuarios Externos | Optativa | 2 | S11 | @varbelaiz | Cargada |
 | E3-H10. Silenciar Usuario | Optativa | 5 | S10 | @tommycass | Cargada |
 | E4-H1. Recibir notificaciones de nuevo seguidor | Obligatoria | 2 | S10 | @jleonalderete | Cargada |
 | E4-H2. Notificación de interacción | Obligatoria | 2 | S11 | @jleonalderete | Cargada |
 | E4-H3. Centro de Notificaciones In-App | Obligatoria | 3 | S10 | @FedeTrejo | Cargada |
-| E4-H4. Notificación de mención | Optativa | 5 | S12 | @jleonalderete | Pendiente |
-| E4-H5. Configurar Preferencias de Notificación | Optativa | 3 | S11 | @jleonalderete | Pendiente |
+| E4-H4. Notificación de mención | Optativa | 5 | S12 | @jleonalderete | Cargada |
+| E4-H5. Configurar Preferencias de Notificación | Optativa | 3 | S11 | @jleonalderete | Cargada |
 | E5-H1. Creación de Administradores | Obligatoria | 5 | S4 | @jleonalderete | Cargada |
 | E5-H2. Inicio de Sesión como Administrador | Obligatoria | 2 | S3 | @jleonalderete | Cargada |
-| E5-H3. Visualización de Métricas | Optativa | 5 | S11 | @jleonalderete | Pendiente |
+| E5-H3. Visualización de Métricas | Optativa | 5 | S11 | @jleonalderete | Cargada |
 | E5-H4. Buscador y Detalles de Usuarios | Obligatoria | 3 | S9 | @tommycass | Cargada |
 | E5-H5. Bloqueo de Usuarios por Admin | Obligatoria | 2 | S9 | @tommycass | Cargada |
 | E5-H6. Logs de Auditoría | Obligatoria | 3 | S10 | @varbelaiz | Cargada |
 | E5-H7. Gestión de Denuncias | Obligatoria | 3 | S9 | @tommycass | Cargada |
-| E5-H8. Exportar Datos | Optativa | 2 | S11 | @tommycass | Pendiente |
-| E5-H9. Registro de Última Conexión | Optativa | 2 | S11 | @tommycass | Pendiente |
-| E5-H10. Borrado Forzado de Contenido | Optativa | 3 | S12 | @tommycass | Pendiente |
+| E5-H8. Exportar Datos | Optativa | 2 | S11 | @tommycass | Cargada |
+| E5-H9. Registro de Última Conexión | Optativa | 2 | S11 | @tommycass | Cargada |
+| E5-H10. Borrado Forzado de Contenido | Optativa | 3 | S12 | @tommycass | Cargada |
 | E5-H11. Estado de los Microservicios | Optativa | 5 | S7 | @varbelaiz | Cargada |
-| E5-H12. Gestión de Feedback/Reportes | Optativa | 3 | S12 | @FedeTrejo | Pendiente |
+| E5-H12. Gestión de Feedback/Reportes | Optativa | 3 | S12 | @FedeTrejo | Cargada |
 
 ## Mapa de pantallas
 
@@ -169,7 +160,7 @@ Permite borrar la cuenta para siempre, confirmando con la contraseña.
 
 Obligatoria · 3 puntos · S3 · Dueño: @FedeTrejo
 
-Permite recuperar el acceso sin saber la contraseña, con un código que llega por correo. La consigna habla de un link: en la app el correo trae un código que se pega en la pantalla.
+Permite recuperar el acceso sin saber la contraseña, con un código de un solo uso que llega por correo y se pega en la pantalla.
 
 | Criterio | Pantalla | Qué ve el usuario |
 |---|---|---|
@@ -206,7 +197,7 @@ Permite elegir quién ve el perfil y el idioma del feed.
 | Criterio | Pantalla | Qué ve el usuario |
 |---|---|---|
 | CA.1 | Perfil > Configuración | Sección "Visibilidad del perfil", con "Público" y "Protegido". |
-| CA.2 | Perfil > Configuración | Sección "Idioma del feed", con "Español", "Inglés" y "Todos". Por ahora solo se guarda: el feed todavía no filtra por idioma (`T-35`). |
+| CA.2 | Perfil > Configuración | Sección "Idioma del feed", con "Español", "Inglés" y "Todos". El feed muestra solo los posts en el idioma elegido (`T-35`). |
 | CA.3 | Sin pantalla (backend) | Un valor fuera de los permitidos o con mal formato se rechaza. |
 | CA.4 | Sin pantalla (backend) | Solo se aceptan los valores exactos de cada preferencia, también por API directa. |
 | CA.5 | Registro | Una cuenta nueva arranca como pública y con todos los idiomas, sin elegir nada. |
@@ -242,13 +233,15 @@ Permite alternar entre tema claro y oscuro.
 
 Optativa · 3 puntos · S11 · Dueño: @FedeTrejo
 
+Permite mandarle al equipo un comentario o un error desde la app.
+
 | Criterio | Pantalla | Qué ve el usuario |
 |---|---|---|
-| CA.1 |  |  |
-| CA.2 |  |  |
-| CA.3 |  |  |
-| CA.4 |  |  |
-| CA.5 |  |  |
+| CA.1 | Perfil > Configuración > Enviar comentarios | El campo "Tu comentario" acepta hasta 500 caracteres. |
+| CA.2 | Enviar comentarios | Al enviar aparece "¡Gracias!" y "Recibimos tu comentario.". El mensaje queda guardado y llega por correo a la casilla de soporte. |
+| CA.3 | Sin pantalla (backend) | La app suma sola el sistema operativo y la versión de la app, y la cuenta sale del token. |
+| CA.4 | Enviar comentarios | Se aceptan 2 mensajes por hora. El tercero responde "Ya enviaste 2 mensajes. Esperá 60 minutos". |
+| CA.5 | Enviar comentarios | "Enviar" queda deshabilitado con el campo vacío o con solo espacios, y la API rechaza lo mismo. |
 
 ### E1-H12. Aceptación de Términos y Política de Privacidad
 
@@ -279,11 +272,13 @@ Permite cambiar la contraseña con la sesión iniciada, sabiendo la actual.
 
 Optativa · 3 puntos · S12 · Dueño: @FedeTrejo
 
+Presenta la app la primera vez que se entra con una cuenta nueva.
+
 | Criterio | Pantalla | Qué ve el usuario |
 |---|---|---|
-| CA.1 |  |  |
-| CA.2 |  |  |
-| CA.3 |  |  |
+| CA.1 | Bienvenido a UdeSA-X | Un carrusel con "Publicá lo que pasa", "Seguí a quien te interesa" y "Enterate de todo", con "Siguiente" y "Empezar". |
+| CA.2 | ¿Qué te interesa? | Temas como Deportes, Tecnología, Política, Música, Ciencia, Economía, Cine y series y Videojuegos. "Continuar" se habilita con al menos 3. |
+| CA.3 | Cuentas para seguir | Sugiere las 10 cuentas más seguidas, cada una con su botón Seguir de un toque, y termina con "Ir al inicio". |
 
 ## App: publicaciones
 
@@ -311,7 +306,7 @@ Muestra lo que publican las cuentas que seguís, de lo más nuevo a lo más viej
 |---|---|---|
 | CA.1 | Inicio | Los posts van del más reciente al más antiguo. |
 | CA.2 | Inicio | Al llegar al final carga la página siguiente, de a 20. |
-| CA.3 | Inicio | Cada post muestra avatar, nombre, handle, contenido, tiempo relativo y contadores de likes, retweets y respuestas. |
+| CA.3 | Inicio | Cada post muestra avatar, handle, contenido, tiempo relativo y contadores de likes, retweets y respuestas. |
 | CA.4 | Inicio | Sin posts, muestra "Todavía no hay publicaciones" y una lista de "Cuentas para seguir". |
 | CA.5 | Sin pantalla (backend) | La API no devuelve posts de una cuenta protegida a quien no la sigue. |
 
@@ -384,23 +379,27 @@ Permite sumar imágenes a un post nuevo. Las respuestas no llevan imágenes.
 
 Optativa · 3 puntos · S11 · Dueño: @varbelaiz
 
+Agrupa los posts por tema con palabras que empiezan con `#`.
+
 | Criterio | Pantalla | Qué ve el usuario |
 |---|---|---|
-| CA.1 |  |  |
-| CA.2 |  |  |
-| CA.3 |  |  |
-| CA.4 |  |  |
-| CA.5 |  |  |
+| CA.1 | Sin pantalla (backend) | Al publicar, cada `#palabra` se guarda asociada al post. |
+| CA.2 | Inicio, detalle de post | Los hashtags se ven resaltados como un link. |
+| CA.3 | Inicio > un hashtag | Al tocarlo se abre Buscar con todos los posts que lo contienen. |
+| CA.4 | Nuevo post | Con más de 10 hashtags no se publica: la API lo rechaza con "El post no puede tener más de 10 hashtags". |
+| CA.5 | Buscar | `#UdeSA` y `#udesa` son el mismo hashtag. |
 
 ### E2-H9. Menciones a Usuarios
 
 Optativa · 3 puntos · S12 · Dueño: @jleonalderete
 
+Permite nombrar a otra cuenta en un post con `@handle`.
+
 | Criterio | Pantalla | Qué ve el usuario |
 |---|---|---|
-| CA.1 |  |  |
-| CA.2 |  |  |
-| CA.3 |  |  |
+| CA.1 | Inicio, detalle de post | Cada `@handle` de una cuenta que existe se ve como link y abre su perfil. |
+| CA.2 | Inicio, detalle de post | Un `@handle` que no existe queda como texto normal. |
+| CA.3 | Notificaciones; notificación del celular | La cuenta mencionada recibe el aviso en el centro de notificaciones, y el push si lo tiene activado. |
 
 ### E2-H10. Búsqueda de Posts y Usuarios
 
@@ -430,11 +429,26 @@ Optativa · 3 puntos · S12 · Dueño: @varbelaiz
 
 Optativa · 3 puntos · S12 · Dueño: @varbelaiz
 
+Permite guardar posts para releerlos más tarde.
+
 | Criterio | Pantalla | Qué ve el usuario |
 |---|---|---|
-| CA.1 |  |  |
-| CA.2 |  |  |
-| CA.3 |  |  |
+| CA.1 | Inicio, detalle de post | El ícono de marcador guarda el post con un toque ("Guardar post") y lo quita con otro ("Quitar de guardados"). |
+| CA.2 | Perfil > Configuración > Guardados | Solo vos ves tus guardados: nadie más puede pedirlos, tampoco por API. |
+| CA.3 | Perfil > Configuración > Guardados | Van del último guardado al primero, con scroll infinito. Sin guardados, dice "Todavía no guardaste nada". |
+
+### E2-H13. Citar Post
+
+Optativa · 5 puntos · S13 · Dueño: @tommycass
+
+Permite compartir un post agregándole un comentario propio.
+
+| Criterio | Pantalla | Qué ve el usuario |
+|---|---|---|
+| CA.1 | Inicio, detalle de post > Citar | La cita muestra el post original dentro de la tarjeta. Al tocarlo, se abre ese post. |
+| CA.2 | Citar post | El comentario tiene los mismos límites que un post: no vacío y hasta 280 caracteres. |
+| CA.3 | Inicio, detalle de post | El post citado muestra cuántas veces lo citaron, junto a los demás contadores. |
+| CA.4 | Inicio, detalle de post | Si se borra el post original, la cita sigue y en su lugar muestra `[Post original eliminado]`. |
 
 ### E2-H14. Visualización de Perfil de Usuario
 
@@ -485,7 +499,7 @@ Muestra quién te sigue y a quién seguís.
 
 | Criterio | Pantalla | Qué ve el usuario |
 |---|---|---|
-| CA.1 | Perfil > Seguidores / Siguiendo | Cada fila muestra nombre visible, handle y botón Seguir o Siguiendo. La foto de perfil falta: la fila usa un ícono genérico, aunque la API ya la devuelve. |
+| CA.1 | Perfil > Seguidores / Siguiendo | Cada fila muestra la foto de perfil, el handle y el botón Seguir o Siguiendo. Sin foto, va el avatar por defecto. |
 | CA.2 | Perfil > Seguidores / Siguiendo | Al llegar al final carga la página siguiente, de a 20. |
 | CA.3 | Perfil > Seguidores / Siguiendo | Sin cuentas, muestra "Todavía no te sigue nadie" o "Todavía no seguís a nadie", según la pestaña. |
 
@@ -493,7 +507,7 @@ Muestra quién te sigue y a quién seguís.
 
 Obligatoria · 2 puntos · S6 · Dueño: @tommycass
 
-Permite cortar todo contacto con una cuenta. Hoy se bloquea desde las listas de seguidores y seguidos, no desde el perfil.
+Permite cortar todo contacto con una cuenta. Se bloquea desde las listas de seguidores y seguidos.
 
 | Criterio | Pantalla | Qué ve el usuario |
 |---|---|---|
@@ -520,22 +534,26 @@ Permite denunciar una cuenta o un post, y lleva a revisión a las cuentas muy de
 
 Optativa · 3 puntos · S12 · Dueño: @tommycass
 
+Permite armar listas de cuentas y leer un feed solo con lo que publican.
+
 | Criterio | Pantalla | Qué ve el usuario |
 |---|---|---|
-| CA.1 |  |  |
-| CA.2 |  |  |
-| CA.3 |  |  |
-| CA.4 |  |  |
+| CA.1 | Perfil de un usuario > Agregar a una lista | La misma cuenta se puede sumar a varias listas, y desde ahí también se crea una lista nueva. |
+| CA.2 | Perfil > Configuración > Listas > una lista | Muestra solo los posts de las cuentas de esa lista, del más reciente al más antiguo. Sin posts, dice "Todavía no hay publicaciones". |
+| CA.3 | Sin pantalla (backend) | Si dejás de seguir o bloqueás a una cuenta, sale sola de todas tus listas. |
+| CA.4 | Perfil > Configuración > Listas > Borrar | Antes de borrar pregunta "¿Borrar la lista ...?" y aclara que las cuentas que tenía siguen apareciendo en el feed principal. |
 
 ### E3-H9. Invitar Usuarios Externos
 
 Optativa · 2 puntos · S11 · Dueño: @varbelaiz
 
+Permite invitar a alguien con un link que lo lleva directo al registro.
+
 | Criterio | Pantalla | Qué ve el usuario |
 |---|---|---|
-| CA.1 |  |  |
-| CA.2 |  |  |
-| CA.3 |  |  |
+| CA.1 | Perfil > Configuración > Invitar | Comparte "Sumate a UdeSA-X" con un link al registro que lleva tu cuenta como referido. |
+| CA.2 | Registro | Quien se registra con ese link empieza siguiendo a quien lo invitó. |
+| CA.3 | Perfil > Configuración > Invitar | Cada cuenta tiene un único link de invitación, siempre el mismo, así que nunca pasa del tope de 10 por día. |
 
 ### E3-H10. Silenciar Usuario
 
@@ -564,7 +582,7 @@ Avisa con un push cuando alguien te empieza a seguir. Solo en Android.
 | CA.1 | Notificación del celular | El push sale por Firebase Cloud Messaging. |
 | CA.2 | Notificación del celular > Perfil de un usuario | Al tocarla, la app abre el perfil de quien te siguió. |
 | CA.3 | Sin pantalla (backend) | La app manda el token del dispositivo al iniciar sesión, al abrirse con una sesión guardada y cuando Firebase lo cambia. |
-| CA.4 | Sin pantalla (backend) | Si Firebase dice que un token ya no existe, se marca como borrado y no se le manda más nada. Queda la fila con su fecha, no se elimina de la base. |
+| CA.4 | Sin pantalla (backend) | Si Firebase dice que un token ya no existe, se da de baja y no se le manda más nada. |
 
 ### E4-H2. Notificación de interacción
 
@@ -596,20 +614,24 @@ Junta las notificaciones de la cuenta en una pestaña.
 
 Optativa · 5 puntos · S12 · Dueño: @jleonalderete
 
+Avisa cuando otra cuenta te nombra en un post.
+
 | Criterio | Pantalla | Qué ve el usuario |
 |---|---|---|
-| CA.1 |  |  |
-| CA.2 |  |  |
-| CA.3 |  |  |
+| CA.1 | Notificación del celular | El aviso trae el comienzo del post, hasta 100 caracteres, cortado en una palabra entera. |
+| CA.2 | Sin pantalla (backend) | Si silenciaste o bloqueaste al autor, no llega ningún aviso. |
+| CA.3 | Notificaciones | Por las menciones del mismo autor en un mismo hilo llega un solo aviso. |
 
 ### E4-H5. Configurar Preferencias de Notificación
 
 Optativa · 3 puntos · S11 · Dueño: @jleonalderete
 
+Permite elegir qué avisos llegan al celular.
+
 | Criterio | Pantalla | Qué ve el usuario |
 |---|---|---|
-| CA.1 |  |  |
-| CA.2 |  |  |
+| CA.1 | Perfil > Configuración > Notificaciones | Un interruptor para Me gusta, Retweets, Respuestas, Citas, Menciones, Nuevos seguidores y Mensajes directos. |
+| CA.2 | Sin pantalla (backend) | Antes de cada push se lee la preferencia de ese tipo de aviso. Con el interruptor apagado no llega el push, y el aviso queda en el centro de notificaciones. |
 
 ## Backoffice: administración
 
@@ -642,10 +664,12 @@ Permite entrar al backoffice con email y contraseña.
 
 Optativa · 5 puntos · S11 · Dueño: @jleonalderete
 
+Muestra los números principales de la plataforma.
+
 | Criterio | Pantalla | Qué ve el usuario |
 |---|---|---|
-| CA.1 |  |  |
-| CA.2 |  |  |
+| CA.1 | Dashboard | "Active Users", "Posts Today", "Accounts Under Review" y "Microservices" se actualizan solos cada pocos segundos, y también con el botón "Actualizar". |
+| CA.2 | Dashboard | Un gráfico de barras con los "Registros de los últimos 7 días". |
 
 ### E5-H4. Buscador y Detalles de Usuarios
 
@@ -698,28 +722,34 @@ Permite revisar las denuncias y resolver cada caso.
 
 Optativa · 2 puntos · S11 · Dueño: @tommycass
 
+Permite descargar en CSV las cuentas que encuentra el buscador de usuarios.
+
 | Criterio | Pantalla | Qué ve el usuario |
 |---|---|---|
-| CA.1 |  |  |
-| CA.2 |  |  |
+| CA.1 | Usuarios > Exportar CSV | Descarga `cuentas.csv` con las columnas ID, Handle, Email, Estado y Fecha de registro, de todas las cuentas que encuentra la búsqueda. |
+| CA.2 | Usuarios | El botón aparece solo para el superadministrador. Si un moderador lo pide por API, recibe 403. |
 
 ### E5-H9. Registro de Última Conexión
 
 Optativa · 2 puntos · S11 · Dueño: @tommycass
 
+Muestra cuándo entró cada cuenta por última vez, para detectar cuentas inactivas.
+
 | Criterio | Pantalla | Qué ve el usuario |
 |---|---|---|
-| CA.1 |  |  |
-| CA.2 |  |  |
+| CA.1 | Sin pantalla (backend) | Cada inicio de sesión correcto guarda la fecha y hora, en la app y en el backoffice. |
+| CA.2 | Usuarios; detalle de usuario | La tabla tiene la columna "Última conexión", y el detalle la repite. Una cuenta que nunca entró dice "Nunca". |
 
 ### E5-H10. Borrado Forzado de Contenido
 
 Optativa · 3 puntos · S12 · Dueño: @tommycass
 
+Permite borrar el texto de un post o la biografía de una cuenta sin bloquearla.
+
 | Criterio | Pantalla | Qué ve el usuario |
 |---|---|---|
-| CA.1 |  |  |
-| CA.2 |  |  |
+| CA.1 | Usuarios > detalle; detalle de post | El detalle de una cuenta y el de un post tienen el botón "Limpiar Contenido", que pide confirmación y avisa que no se puede deshacer. |
+| CA.2 | Usuarios > detalle; detalle de post | El texto pasa a `[Contenido eliminado por moderación]` en el momento. En un post también se borran las imágenes, y siguen sus me gusta, retweets y respuestas. En una cuenta solo cambia la biografía. |
 
 ### E5-H11. Estado de los Microservicios
 
@@ -732,14 +762,16 @@ Muestra si los servicios están en línea. Lista los cinco: `users-api`, `posts-
 | CA.1 | Service Health | Consulta `/api/health/<servicio>` en el gateway, que le pide el `/healthcheck` a cada servicio, porque ese no es público. Se actualiza cada 30 segundos. |
 | CA.2 | Service Health | Una etiqueta verde dice "En línea" y una roja, "Caído". |
 | CA.3 | Service Health | Si tarda más de 5 segundos, corta el pedido y marca "Caído", sin trabar la pantalla. |
-| CA.4 | Correo | Grafana Cloud vigila esos mismos endpoints y avisa por correo a una lista fija (ADR-012). Se configura fuera del código, así que esta fila no se pudo comprobar acá. |
+| CA.4 | Correo | Grafana Cloud vigila esos mismos endpoints y avisa por correo a una lista fija (ADR-012). |
 
 ### E5-H12. Gestión de Feedback/Reportes
 
 Optativa · 3 puntos · S12 · Dueño: @FedeTrejo
 
+Junta los comentarios que mandan los usuarios desde la app.
+
 | Criterio | Pantalla | Qué ve el usuario |
 |---|---|---|
-| CA.1 |  |  |
-| CA.2 |  |  |
-| CA.3 |  |  |
+| CA.1 | Comentarios | Cada mensaje muestra el texto, la cuenta, el dispositivo y la fecha de envío. |
+| CA.2 | Comentarios | "Marcar leído" y "Resolver" lo pasan a las pestañas "Leídos" y "Resueltos", y sale de "Pendientes". |
+| CA.3 | Comentarios | El mensaje se conserva aunque la cuenta que lo mandó se elimine o se bloquee. |
