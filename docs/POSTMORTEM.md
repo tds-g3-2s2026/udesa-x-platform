@@ -162,23 +162,27 @@ funcionar al renovarlas y redesplegar.
 **Qué habría hecho falta.** Pedirle a la cátedra que aplique un ServiceAccount dedicado y limite
 el rol a esa identidad mediante la condición `sub`, como se hizo con el rol de Bedrock.
 
-## Login y feed por encima del objetivo bajo carga
+## Rendimiento del login y del feed bajo carga
 
 *Aporte de `tommycass`.*
 
 **Qué se quería hacer.** Cumplir los objetivos de p95 del plan, menos de 400 ms para el login con
 10 usuarios y menos de 500 ms para la primera página del feed con 20 usuarios.
 
-**Por qué quedó pendiente.** En la prueba del 24 de noviembre, con 1.000 cuentas de prueba, el
-p95 fue de 5,3 s para el login y de 2 s para el feed, sin errores en ninguno de los dos flujos.
-Argon2 verificaba las contraseñas de forma sincrónica, bloqueaba el bucle de eventos y el login
-se atendía de a uno con un tope de 500m de CPU por contenedor. En el feed, pasar de una a dos
-réplicas no mejoró el rendimiento. La hipótesis pendiente de verificar es que unir todos los
-posts y retweets antes de ordenar y seleccionar 21 filas encarece la consulta.
+**Qué pasó.** En la prueba del 24 de noviembre, con 1.000 cuentas de prueba, el p95 fue de 5,3 s
+para el login y de 2 s para el feed, sin errores en ninguno de los dos flujos. Argon2 verificaba
+las contraseñas de forma sincrónica, bloqueaba el bucle de eventos y el login se atendía de a uno
+con un tope de 500m de CPU por contenedor. En el feed, la consulta unía todos los posts y
+retweets de las cuentas seguidas antes de ordenar y quedarse con 21 filas, y pasar de una a dos
+réplicas no cambiaba el rendimiento.
 
-**Qué habría hecho falta.** Ejecutar Argon2 en un hilo con un límite de verificaciones simultáneas.
-Para el feed, medir el plan con `EXPLAIN ANALYZE` y evaluar si limitar cada rama antes de unirlas
-reduce el costo.
+**Cómo se resolvió.** Argon2 pasó a correr en un hilo aparte, con un límite de verificaciones
+simultáneas y con los parámetros mínimos que recomienda OWASP. Con 10 usuarios, el p95 del login
+bajó a 164 ms, dentro del objetivo. La consulta del feed ahora aplica los filtros y corta cada
+rama antes de unirlas, con dos índices cronológicos. Con 20 usuarios, el p95 bajó de 2 s a 1,2 s.
+
+**Qué habría hecho falta.** Para llevar el feed a 500 ms, medir dónde se va el tiempo que queda,
+empezando por el pool de conexiones de `posts-api`, que se agotó en la corrida con 200 usuarios.
 
 ## Bloqueo de cuentas por denuncias coordinadas
 
